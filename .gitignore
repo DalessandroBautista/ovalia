@@ -1,7 +1,10 @@
 node_modules/
+.pnpm-store/
 .next/
+.turbo/
 dist/
 coverage/
+*.tsbuildinfo
 .env
 .env.local
 *.log

@@ -1,0 +1,5 @@
+import { PortalHeader } from '../../src/features/portal/portal-pages';
+
+export default function AdminPage() {
+  return <div className="portal-shell"><PortalHeader /><main className="portal-main"><p className="eyebrow">CMS · ACCESO EDITOR</p><h1>Mesa de control</h1><p className="portal-intro">Partidos, datos aportados por clubes y borradores editoriales pendientes.</p><div className="admin-grid"><section><small>EN VIVO</small><strong>3</strong><span>partidos monitoreados</span></section><section><small>POR VERIFICAR</small><strong>7</strong><span>aportes de colaboradores</span></section><section><small>BORRADORES IA</small><strong>4</strong><span>notas requieren revisión humana</span></section></div><section className="review-queue"><h2>Cola editorial</h2><article><div><small>BORRADOR IA · RUGBY CHAMPIONSHIP</small><h3>Los Pumas lo dieron vuelta en el cierre</h3><p>Creado únicamente desde el acta verificada del partido.</p></div><button>Revisar borrador</button></article></section></main></div>;
+}

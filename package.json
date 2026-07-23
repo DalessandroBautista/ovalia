@@ -1,0 +1,31 @@
+{
+  "name": "ovalia",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "scripts": {
+    "predev": "docker compose up -d db",
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "lint": "turbo lint",
+    "verify": "pnpm typecheck && pnpm test && pnpm lint",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:migrate": "pnpm --filter @ovalia/database migrate",
+    "db:seed": "pnpm --filter @ovalia/database seed"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.2",
+    "turbo": "2.10.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "4.1.10"
+  }
+}

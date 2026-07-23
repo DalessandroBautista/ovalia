@@ -1,0 +1,27 @@
+{
+  "name": "@ovalia/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ovalia/database": "workspace:*",
+    "@ovalia/domain": "workspace:*",
+    "dotenv": "^17.2.3",
+    "openai": "^6.7.0",
+    "pino": "^10.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0",
+    "tsx": "^4.20.6"
+  }
+}

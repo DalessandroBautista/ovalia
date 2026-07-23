@@ -1,0 +1,31 @@
+{
+  "name": "@ovalia/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "@ovalia/database": "workspace:*",
+    "@ovalia/domain": "workspace:*",
+    "dotenv": "^17.2.3",
+    "fastify": "5.10.0",
+    "fastify-plugin": "^5.1.0",
+    "pino": "^10.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0",
+    "tsx": "^4.20.6"
+  }
+}

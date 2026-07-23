@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+storeDir: .pnpm-store
+autoInstallPeers: true
+strictPeerDependencies: false
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

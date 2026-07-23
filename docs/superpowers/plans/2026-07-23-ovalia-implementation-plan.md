@@ -330,4 +330,3 @@ Los componentes visuales pueden desarrollarse en paralelo después de estabiliza
 - Accesibilidad AA en flujos principales.
 - Inicio local documentado y reproducible.
 - Sin secretos ni dependencias pagas obligatorias.
-
