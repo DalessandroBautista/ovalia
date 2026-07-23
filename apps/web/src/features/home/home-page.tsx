@@ -1,9 +1,8 @@
-const liveMatches = [
-  { code: 'TRC', minute: "68'", home: 'ARG', away: 'RSA', homeScore: 27, awayScore: 24 },
-  { code: 'URBA', minute: "54'", home: 'SIC', away: 'CASI', homeScore: 18, awayScore: 13 },
-  { code: 'TOP 14', minute: 'HT', home: 'TLS', away: 'UBB', homeScore: 12, awayScore: 17 },
-  { code: 'URC', minute: "31'", home: 'LEI', away: 'MUN', homeScore: 10, awayScore: 7 },
-];
+'use client';
+
+import { DiamondIcon, HomeIcon, RugbyBallIcon, SearchIcon, TargetIcon, UserIcon, ClockIcon } from '../../components/icons';
+import { LiveRailView, type LiveFeedPayload, useLiveFeed } from '../../components/live-rail';
+import { TeamBadge } from '../../components/team-badge';
 
 const agenda = [
   {
@@ -25,31 +24,11 @@ const agenda = [
   },
 ];
 
-function BallMark() {
+export function BallMark() {
   return (
     <span className="ball-mark" aria-hidden="true">
-      <span />
+      <RugbyBallIcon />
     </span>
-  );
-}
-
-function LiveRail() {
-  return (
-    <section className="live-rail" aria-label="Partidos en vivo">
-      <div className="live-rail__inner">
-        <div className="live-rail__label"><i /> EN VIVO</div>
-        <div className="live-rail__track">
-          {liveMatches.map((match) => (
-            <article className="rail-match" key={`${match.home}-${match.away}`}>
-              <span className="rail-match__competition">{match.code}</span>
-              <b>{match.minute}</b>
-              <span>{match.home}</span><strong>{match.homeScore}</strong>
-              <span>{match.away}</span><strong>{match.awayScore}</strong>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -67,7 +46,7 @@ function Header() {
         <a href="/noticias">Noticias</a>
       </nav>
       <div className="header-actions">
-        <button className="icon-button" type="button" aria-label="Buscar">⌕</button>
+        <button className="icon-button" type="button" aria-label="Buscar"><SearchIcon /></button>
         <button className="language-button" type="button">ES <span>⌄</span></button>
         <a className="login-button" href="/ingresar">Ingresar</a>
       </div>
@@ -75,34 +54,49 @@ function Header() {
   );
 }
 
-function FeaturedMatch() {
+function FeaturedMatch({ feed }: { feed: LiveFeedPayload }) {
+  const match = feed.matches[0];
+  if (!match) {
+    const message = feed.status === 'loading'
+      ? 'Consultando partidos en vivo'
+      : feed.status === 'error'
+        ? 'Datos en vivo temporalmente no disponibles'
+        : 'No hay partidos en vivo ahora';
+    return (
+      <article className="featured-match featured-match--empty">
+        <div className="featured-match__topline"><span>VIVO OVALIA</span><span>FUENTE VERIFICADA</span></div>
+        <div className="live-empty-hero"><RugbyBallIcon /><p className="eyebrow">ESTADO DEL FEED</p><h2>{message}</h2><p>Cuando comience un partido cubierto, el marcador aparecerá acá automáticamente.</p></div>
+        <a className="match-link" href="/partidos">Ver agenda completa <span>↗</span></a>
+      </article>
+    );
+  }
   return (
     <article className="featured-match">
       <div className="featured-match__topline">
-        <span><i /> EN VIVO · 68&apos;</span>
-        <span>RUGBY CHAMPIONSHIP</span>
+        <span><i /> EN VIVO · {match.minute ? `${match.minute}'` : match.phase}</span>
+        <span>{match.competition}</span>
       </div>
       <div className="featured-match__score">
         <div className="featured-team">
-          <span className="crest crest--arg">ARG</span>
-          <div><small>LOS PUMAS</small><h2>Argentina</h2></div>
+          <TeamBadge {...match.home} size="large" />
+          <div><small>{match.home.shortCode}</small><h2>{match.home.name}</h2></div>
         </div>
-        <div className="scoreboard"><b>27</b><span>—</span><b>24</b></div>
+        <div className="scoreboard"><b>{match.homeScore}</b><span>—</span><b>{match.awayScore}</b></div>
         <div className="featured-team featured-team--away">
-          <div><small>SPRINGBOKS</small><h2>Sudáfrica</h2></div>
-          <span className="crest crest--rsa">RSA</span>
+          <div><small>{match.away.shortCode}</small><h2>{match.away.name}</h2></div>
+          <TeamBadge {...match.away} size="large" />
         </div>
       </div>
       <div className="featured-match__events">
-        <span>TRY · M. Carreras 62&apos;</span>
-        <span>Territorio ARG 57%</span>
+        <span>{match.phase}</span>
+        <span>Fuente: {feed.source === 'highlightly' ? 'Highlightly' : 'Ovalia verificado'}</span>
       </div>
-      <a className="match-link" href="/partidos/argentina-sudafrica">Seguir minuto a minuto <span>↗</span></a>
+      <a className="match-link" href={`/partidos/${match.id}`}>Seguir minuto a minuto <span>↗</span></a>
     </article>
   );
 }
 
-function Hero() {
+function Hero({ feed }: { feed: LiveFeedPayload }) {
   return (
     <section className="hero" id="inicio">
       <div className="hero__copy">
@@ -112,10 +106,10 @@ function Hero() {
         <div className="hero__stats" aria-label="Cobertura de Ovalia">
           <div><strong>26</strong><span>torneos</span></div>
           <div><strong>184</strong><span>clubes</span></div>
-          <div><strong>6</strong><span>en vivo</span></div>
+          <div><strong>{feed.matches.length}</strong><span>en vivo</span></div>
         </div>
       </div>
-      <FeaturedMatch />
+      <FeaturedMatch feed={feed} />
     </section>
   );
 }
@@ -140,9 +134,9 @@ function DatePicker() {
 function MatchRow({ match }: { match: (typeof agenda)[number]['matches'][number] }) {
   return (
     <a className="match-row" href="/partidos/detalle">
-      <div className="match-row__team"><span className="mini-crest">{match.homeCode}</span><b>{match.home}</b></div>
+      <div className="match-row__team"><TeamBadge name={match.home} shortCode={match.homeCode} /><b>{match.home}</b></div>
       <time>{match.time}</time>
-      <div className="match-row__team match-row__team--away"><b>{match.away}</b><span className="mini-crest">{match.awayCode}</span></div>
+      <div className="match-row__team match-row__team--away"><b>{match.away}</b><TeamBadge name={match.away} shortCode={match.awayCode} /></div>
       <span className="row-arrow">›</span>
     </a>
   );
@@ -197,23 +191,24 @@ function Sidebar() {
 function BottomNav() {
   return (
     <nav className="bottom-nav" aria-label="Navegación móvil">
-      <a className="is-active" href="#inicio"><span>⌂</span>Inicio</a>
-      <a href="/partidos"><span>◷</span>Partidos</a>
-      <a href="/prodes"><span>◎</span>Prode</a>
-      <a href="/juegos"><span>◇</span>Juegos</a>
-      <a href="/ingresar"><span>○</span>Perfil</a>
+      <a className="is-active" href="/"><HomeIcon />Inicio</a>
+      <a href="/partidos"><ClockIcon />Partidos</a>
+      <a href="/prodes"><TargetIcon />Prode</a>
+      <a href="/juegos"><DiamondIcon />Juegos</a>
+      <a href="/ingresar"><UserIcon />Perfil</a>
     </nav>
   );
 }
 
 export function HomePage() {
+  const liveFeed = useLiveFeed();
   return (
     <>
-      <LiveRail />
+      <LiveRailView feed={liveFeed} />
       <div className="page-shell">
         <Header />
         <main>
-          <Hero />
+          <Hero feed={liveFeed} />
           <div className="content-grid">
             <Agenda />
             <Sidebar />

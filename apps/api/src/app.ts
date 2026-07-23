@@ -1,8 +1,16 @@
 import Fastify, { type FastifyServerOptions } from 'fastify';
+import cors from '@fastify/cors';
 import { matches, urbaStandings } from './demo-data';
+import { createConfiguredLiveProvider, createLiveFeedService, type LiveProvider } from './live/live-feed';
 
-export function buildApp(options: FastifyServerOptions = {}) {
+export function buildApp(options: FastifyServerOptions = {}, dependencies: { liveProvider?: LiveProvider } = {}) {
   const app = Fastify(options);
+  const liveFeed = createLiveFeedService(dependencies.liveProvider ?? createConfiguredLiveProvider());
+
+  void app.register(cors, {
+    origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((origin) => origin.trim()),
+    credentials: true,
+  });
 
   app.get('/health', async () => ({
     service: 'ovalia-api',
@@ -11,6 +19,10 @@ export function buildApp(options: FastifyServerOptions = {}) {
 
   app.get('/v1/matches', async (request) => {
     const query = request.query as { status?: string; competition?: string };
+    if (query.status === 'live') {
+      const feed = await liveFeed.getLiveMatches();
+      return { generatedAt: feed.generatedAt, matches: feed.matches };
+    }
     const filtered = matches.filter((match) => {
       if (query.status && match.status !== query.status) return false;
       if (query.competition && match.competition !== query.competition) return false;
@@ -18,6 +30,8 @@ export function buildApp(options: FastifyServerOptions = {}) {
     });
     return { generatedAt: new Date().toISOString(), matches: filtered };
   });
+
+  app.get('/v1/live', async () => liveFeed.getLiveMatches());
 
   app.get('/v1/matches/:id', async (request, reply) => {
     const { id } = request.params as { id: string };

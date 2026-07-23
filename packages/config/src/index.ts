@@ -5,6 +5,8 @@ const serverEnvironmentSchema = z.object({
   API_HOST: z.string().default('0.0.0.0'),
   API_PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().default('postgres://ovalia:ovalia@localhost:54329/ovalia'),
+  HIGHLIGHTLY_API_KEY: z.string().optional(),
+  HIGHLIGHTLY_API_BASE_URL: z.string().url().default('https://rugby.highlightly.net'),
   OPENAI_API_KEY: z.string().optional()
 });
 

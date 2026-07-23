@@ -1,3 +1,9 @@
+'use client';
+
+import { ArrowLeftIcon, ArrowRightIcon, RugbyBallIcon } from '../../components/icons';
+import { useLiveFeed } from '../../components/live-rail';
+import { TeamBadge } from '../../components/team-badge';
+
 const tournamentGroups = [
   { title: 'Argentina · Buenos Aires', items: ['URBA Top 14', 'Primera A', 'Primera B', 'Primera C', 'Segunda', 'Tercera', 'Desarrollo', 'Femenino Top 9'] },
   { title: 'Argentina · Federal', items: ['Torneo del Interior A', 'Torneo del Interior B', 'Nacional de Clubes', 'Super Rugby Américas', 'Seven de la República'] },
@@ -6,21 +12,20 @@ const tournamentGroups = [
 ];
 
 const matchCards = [
-  { competition: 'Rugby Championship', status: "EN VIVO · 64'", home: 'Argentina', away: 'Sudáfrica', score: '24 — 21' },
-  { competition: 'URBA Top 14 · Fecha 12', status: 'SÁB · 15:30', home: 'SIC', away: 'Hindú', score: '—' },
-  { competition: 'URBA Top 14 · Fecha 12', status: 'SÁB · 15:30', home: 'CASI', away: 'Newman', score: '—' },
-  { competition: 'Rugby Championship', status: 'SÁB · 04:05', home: 'Nueva Zelanda', away: 'Australia', score: '—' }
+  { competition: 'URBA Top 14 · Fecha 12', status: 'SÁB · 15:30', home: 'SIC', away: 'Hindú', homeCode: 'SIC', awayCode: 'HIN' },
+  { competition: 'URBA Top 14 · Fecha 12', status: 'SÁB · 15:30', home: 'CASI', away: 'Newman', homeCode: 'CAS', awayCode: 'NEW' },
+  { competition: 'Rugby Championship', status: 'SÁB · 04:05', home: 'Nueva Zelanda', away: 'Australia', homeCode: 'NZL', awayCode: 'AUS' }
 ];
 
 export function PortalHeader() {
   return (
-    <header className="portal-header">
-      <a className="portal-brand" href="/">◒ <span>OVALIA</span></a>
+    <><header className="portal-header">
+      <a className="portal-brand" href="/" aria-label="Ovalia, inicio"><RugbyBallIcon /> <span>OVALIA</span></a>
       <nav aria-label="Navegación principal">
         <a href="/partidos">Partidos</a><a href="/torneos">Torneos</a><a href="/prodes">Prodes</a><a href="/juegos">Juegos</a><a href="/noticias">Noticias</a>
       </nav>
       <a className="portal-login" href="/ingresar">Ingresar</a>
-    </header>
+    </header><a className="back-home" href="/"><ArrowLeftIcon />Volver al inicio</a></>
   );
 }
 
@@ -29,10 +34,15 @@ function Frame({ eyebrow, title, intro, children }: { eyebrow: string; title: st
 }
 
 export function MatchesPage() {
+  const feed = useLiveFeed();
   return (
     <Frame eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="La agenda completa del rugby argentino e internacional, con actualización en vivo.">
-      <div className="portal-toolbar"><button>←</button><strong>HOY · JUEVES 23 JUL</strong><button>→</button></div>
-      <div className="portal-list">{matchCards.map((match) => <a className="portal-match" href={`/partidos/${match.home === 'Argentina' ? 'argentina-sudafrica' : 'detalle'}`} key={match.home}><small>{match.competition}</small><span className={match.status.startsWith('EN VIVO') ? 'live-text' : ''}>{match.status}</span><div><b>{match.home}</b><strong>{match.score}</strong><b>{match.away}</b></div></a>)}</div>
+      <div className="portal-toolbar"><button aria-label="Día anterior"><ArrowLeftIcon /></button><strong>HOY · JUEVES 23 JUL</strong><button aria-label="Día siguiente"><ArrowRightIcon /></button></div>
+      <div className="portal-list">
+        {feed.matches.map((match) => <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition}</small><span className="live-text">EN VIVO · {match.minute ? `${match.minute}'` : match.phase}</span><div><b><TeamBadge {...match.home} />{match.home.name}</b><strong>{match.homeScore} — {match.awayScore}</strong><b>{match.away.name}<TeamBadge {...match.away} /></b></div></a>)}
+        {feed.status === 'loading' ? <p className="portal-live-status">Consultando partidos en vivo…</p> : null}
+        {matchCards.map((match) => <a className="portal-match" href="/partidos/detalle" key={match.home}><small>{match.competition}</small><span>{match.status}</span><div><b><TeamBadge name={match.home} shortCode={match.homeCode} />{match.home}</b><strong>—</strong><b>{match.away}<TeamBadge name={match.away} shortCode={match.awayCode} /></b></div></a>)}
+      </div>
     </Frame>
   );
 }
@@ -58,6 +68,9 @@ export function TournamentPage() {
   return <Frame eyebrow="ARGENTINA · BUENOS AIRES" title="URBA Top 14" intro="Temporada 2026 · resultados, calendario, posiciones, estadísticas y prode."><nav className="tab-bar"><a href="#resultados">Resultados</a><a className="active" href="#posiciones">Posiciones</a><a href="#calendario">Calendario</a><a href="/prodes">Prode</a></nav><section className="table-card"><h2>Tabla de posiciones</h2><div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>{rows.map((row) => <div className="standing-row" key={row[1]}>{row.map((cell) => <span key={cell}>{cell}</span>)}</div>)}</section></Frame>;
 }
 
-export function MatchDetailPage() {
-  return <Frame eyebrow="RUGBY CHAMPIONSHIP · FECHA 3" title="Argentina 24 — 21 Sudáfrica" intro="En vivo · segundo tiempo · 64 minutos"><section className="match-detail"><div className="possession"><span>ARG 57%</span><i><b /></i><span>RSA 43%</span></div><h2>Minuto a minuto</h2>{[[62,'TRY','M. Carreras','Argentina'],[55,'PENAL','H. Pollard','Sudáfrica'],[47,'CAMBIO','L. González por M. Kremer','Argentina'],[40,'SEGUNDO TIEMPO','','']].map(([minute,type,player,team]) => <article className="timeline-event" key={`${minute}-${type}`}><time>{minute}&apos;</time><strong>{type}</strong><span>{player}</span><small>{team}</small></article>)}</section></Frame>;
+export function MatchDetailPage({ matchId = 'detalle' }: { matchId?: string }) {
+  const feed = useLiveFeed();
+  const match = feed.matches.find((item) => item.id === matchId);
+  if (!match) return <Frame eyebrow="CENTRO DE PARTIDO" title="Información del partido" intro={feed.status === 'loading' ? 'Consultando la cobertura verificada…' : 'Este partido no tiene cobertura en vivo verificada en este momento.'}><section className="match-detail match-detail--empty"><RugbyBallIcon /><h2>Sin datos en vivo</h2><p>Podés volver a la agenda para consultar horarios y próximos encuentros.</p><a className="primary-action inline-action" href="/partidos">Ver todos los partidos</a></section></Frame>;
+  return <Frame eyebrow={match.competition.toUpperCase()} title={`${match.home.name} ${match.homeScore} — ${match.awayScore} ${match.away.name}`} intro={`En vivo · ${match.phase}${match.minute ? ` · ${match.minute} minutos` : ''}`}><section className="match-detail"><div className="live-detail-teams"><TeamBadge {...match.home} size="large" /><strong>{match.homeScore} — {match.awayScore}</strong><TeamBadge {...match.away} size="large" /></div><h2>Actualización en vivo</h2><p>Fuente: {feed.source === 'highlightly' ? 'Highlightly' : 'Ovalia verificado'} · Los eventos detallados aparecerán cuando estén disponibles.</p></section></Frame>;
 }

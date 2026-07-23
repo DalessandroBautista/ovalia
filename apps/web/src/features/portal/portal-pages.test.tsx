@@ -5,7 +5,9 @@ import { MatchesPage, PredictionPage, TournamentsPage } from './portal-pages';
 
 describe('public portal pages', () => {
   it('renders the match center', () => {
-    expect(renderToStaticMarkup(createElement(MatchesPage))).toContain('Centro de partidos');
+    const html = renderToStaticMarkup(createElement(MatchesPage));
+    expect(html).toContain('Centro de partidos');
+    expect(html).toContain('Volver al inicio');
   });
 
   it('renders the complete tournament catalog', () => {

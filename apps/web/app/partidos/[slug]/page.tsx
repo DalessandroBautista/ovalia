@@ -1,2 +1,6 @@
 import { MatchDetailPage } from '../../../src/features/portal/portal-pages';
-export default MatchDetailPage;
+
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  return <MatchDetailPage matchId={slug} />;
+}

@@ -32,10 +32,23 @@ La web usará `http://localhost:3000`, la API `http://localhost:4000` y PostgreS
 - Acceso, perfiles y mesa CMS preparados para conectar autenticación.
 - API Fastify y esquema PostgreSQL con equipos, torneos, temporadas, eventos, tablas, usuarios, pronósticos y artículos.
 - Worker editorial OpenAI que produce únicamente borradores estructurados sujetos a revisión humana.
+- Gateway de resultados en vivo sin datos inventados, preparado para Highlightly.
+- Escudos remotos del proveedor con fallback SVG para clubes sin imagen.
 
 Los datos visibles iniciales son demostrativos. La arquitectura deja aislado el proveedor deportivo para conectar una fuente licenciada sin reescribir la experiencia.
 
 Para habilitar el agente editorial, agregá `OPENAI_API_KEY` en `.env`. Sin esa variable el worker arranca normalmente, pero no llama al proveedor externo.
+
+## Resultados en vivo
+
+Ovalia nunca muestra un partido ficticio como si estuviera en vivo. Sin proveedor configurado, la portada informa que no hay un feed disponible.
+
+1. Creá una cuenta gratuita en [Highlightly Rugby API](https://highlightly.net/rugby-api/).
+2. Copiá `.env.example` como `.env`.
+3. Configurá `HIGHLIGHTLY_API_KEY`.
+4. Reiniciá `pnpm dev`.
+
+El plan gratuito permite probar la integración. El frontend consulta únicamente la API de Ovalia; la clave externa nunca se expone al navegador. Los partidos se refrescan cada 30 segundos mientras la pestaña está visible.
 
 ## Verificación
 
