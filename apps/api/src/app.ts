@@ -1,11 +1,14 @@
 import Fastify, { type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import { matches, urbaStandings } from './demo-data';
-import { createConfiguredLiveProvider, createLiveFeedService, type LiveProvider } from './live/live-feed';
+import { createConfiguredLiveProvider, createLiveFeedService, readLiveFeedCacheTtl, type LiveProvider } from './live/live-feed';
 
 export function buildApp(options: FastifyServerOptions = {}, dependencies: { liveProvider?: LiveProvider } = {}) {
   const app = Fastify(options);
-  const liveFeed = createLiveFeedService(dependencies.liveProvider ?? createConfiguredLiveProvider());
+  const liveFeed = createLiveFeedService(
+    dependencies.liveProvider ?? createConfiguredLiveProvider(),
+    { cacheTtlMs: readLiveFeedCacheTtl() },
+  );
 
   void app.register(cors, {
     origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((origin) => origin.trim()),

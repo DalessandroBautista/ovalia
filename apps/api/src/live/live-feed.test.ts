@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { createLiveFeedService, HighlightlyProvider } from './live-feed';
+import { createLiveFeedService, HighlightlyProvider, readLiveFeedCacheTtl } from './live-feed';
 
 describe('live feed service', () => {
+  it('uses the free-plan-safe cache by default and accepts a positive override', () => {
+    expect(readLiveFeedCacheTtl({})).toBe(900_000);
+    expect(readLiveFeedCacheTtl({ LIVE_FEED_CACHE_TTL_MS: '60000' })).toBe(60_000);
+    expect(readLiveFeedCacheTtl({ LIVE_FEED_CACHE_TTL_MS: 'invalid' })).toBe(900_000);
+    expect(readLiveFeedCacheTtl({ LIVE_FEED_CACHE_TTL_MS: '-1' })).toBe(900_000);
+  });
+
   it('returns unavailable without inventing matches when no provider is configured', async () => {
     const service = createLiveFeedService();
 
@@ -96,5 +103,103 @@ describe('live feed service', () => {
     });
 
     await expect(provider.getLiveMatches()).resolves.toMatchObject({ status: 'error', matches: [] });
+  });
+
+  it('shares one provider request across clients while the free-plan cache is fresh', async () => {
+    let calls = 0;
+    let now = 0;
+    const provider = {
+      async getLiveMatches() {
+        calls += 1;
+        return {
+          status: 'empty' as const,
+          source: 'highlightly' as const,
+          freshness: 'fresh' as const,
+          generatedAt: `request-${calls}`,
+          matches: [],
+        };
+      },
+    };
+    const service = createLiveFeedService(provider, { cacheTtlMs: 900_000, now: () => now });
+
+    const first = await service.getLiveMatches();
+    const second = await service.getLiveMatches();
+    now = 900_001;
+    const refreshed = await service.getLiveMatches();
+
+    expect(calls).toBe(2);
+    expect(second).toBe(first);
+    expect(refreshed.generatedAt).toBe('request-2');
+  });
+
+  it('deduplicates concurrent refreshes so many clients still spend one request', async () => {
+    let calls = 0;
+    let release: ((feed: Awaited<ReturnType<HighlightlyProvider['getLiveMatches']>>) => void) | undefined;
+    const provider = {
+      getLiveMatches() {
+        calls += 1;
+        return new Promise<Awaited<ReturnType<HighlightlyProvider['getLiveMatches']>>>((resolve) => {
+          release = resolve;
+        });
+      },
+    };
+    const service = createLiveFeedService(provider, { cacheTtlMs: 900_000, now: () => 0 });
+
+    const first = service.getLiveMatches();
+    const second = service.getLiveMatches();
+    release?.({
+      status: 'empty',
+      source: 'highlightly',
+      freshness: 'fresh',
+      generatedAt: 'shared',
+      matches: [],
+    });
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.objectContaining({ generatedAt: 'shared' }),
+      expect.objectContaining({ generatedAt: 'shared' }),
+    ]);
+    expect(calls).toBe(1);
+  });
+
+  it('serves the last verified result as stale when Highlightly later reaches its quota', async () => {
+    let now = 0;
+    let calls = 0;
+    const verifiedFeed = {
+      status: 'live' as const,
+      source: 'highlightly' as const,
+      freshness: 'fresh' as const,
+      generatedAt: 'verified-at',
+      matches: [{
+        id: 'match-1',
+        competition: 'URBA Top 14',
+        startsAt: '2026-07-25T18:30:00.000Z',
+        phase: 'Second half',
+        home: { name: 'SIC', shortCode: 'SIC' },
+        away: { name: 'Hindú', shortCode: 'HIN' },
+        homeScore: 17,
+        awayScore: 14,
+      }],
+    };
+    const provider = {
+      async getLiveMatches() {
+        calls += 1;
+        return calls === 1
+          ? verifiedFeed
+          : { status: 'error' as const, source: 'highlightly' as const, freshness: 'unknown' as const, generatedAt: 'quota-error', matches: [] };
+      },
+    };
+    const service = createLiveFeedService(provider, { cacheTtlMs: 900_000, now: () => now });
+
+    await service.getLiveMatches();
+    now = 900_001;
+    const fallback = await service.getLiveMatches();
+
+    expect(fallback).toMatchObject({
+      status: 'live',
+      freshness: 'stale',
+      generatedAt: 'verified-at',
+      matches: [{ id: 'match-1', homeScore: 17, awayScore: 14 }],
+    });
   });
 });

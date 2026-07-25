@@ -48,7 +48,7 @@ Ovalia nunca muestra un partido ficticio como si estuviera en vivo. Sin proveedo
 3. Configurá `HIGHLIGHTLY_API_KEY`.
 4. Reiniciá `pnpm dev`.
 
-El plan gratuito permite probar la integración. El frontend consulta únicamente la API de Ovalia; la clave externa nunca se expone al navegador. Los partidos se refrescan cada 30 segundos mientras la pestaña está visible.
+El plan gratuito permite probar la integración. El frontend consulta únicamente la API de Ovalia; la clave externa nunca se expone al navegador. Los navegadores consultan Ovalia cada 30 segundos, mientras que el backend comparte una única respuesta de Highlightly durante 15 minutos (`LIVE_FEED_CACHE_TTL_MS=900000`). Así el máximo teórico queda en 96 solicitudes externas por día. Si una actualización falla, se conserva el último resultado verificado con estado `stale`.
 
 ## Escudos de equipos
 
