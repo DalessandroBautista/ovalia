@@ -8,6 +8,13 @@
       "when": 1784839586515,
       "tag": "0000_stale_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784947116400,
+      "tag": "0001_breezy_argent",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,12 @@ export const teams = pgTable('teams', {
   countryCode: text('country_code').notNull(),
   union: text('union'),
   badgeUrl: text('badge_url'),
+  badgeSourceUrl: text('badge_source_url'),
+  badgeFormat: text('badge_format'),
+  badgeStatus: text('badge_status').notNull().default('pending'),
+  badgeVerifiedAt: timestamp('badge_verified_at', { withTimezone: true }),
+  aliases: jsonb('aliases').$type<string[]>().notNull().default([]),
+  externalIds: jsonb('external_ids').$type<Record<string, string | number>>().notNull().default({}),
   active: boolean('active').notNull().default(true)
 }, (table) => [uniqueIndex('teams_slug_unique').on(table.slug)]);
 

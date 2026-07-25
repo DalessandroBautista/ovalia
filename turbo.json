@@ -1,5 +1,20 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "NODE_ENV",
+    "WEB_PORT",
+    "API_PORT",
+    "API_HOST",
+    "NEXT_PUBLIC_API_URL",
+    "HIGHLIGHTLY_API_KEY",
+    "HIGHLIGHTLY_API_BASE_URL",
+    "DATABASE_URL",
+    "SESSION_SECRET",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET"
+  ],
   "tasks": {
     "dev": {
       "cache": false,

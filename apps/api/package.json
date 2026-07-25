@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "badges:sync": "tsx src/team-badges/sync-cli.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",

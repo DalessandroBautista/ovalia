@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "teams": [
+    {
+      "slug": "sic",
+      "name": "San Isidro Club",
+      "aliases": [
+        "SIC"
+      ],
+      "badgePath": "/teams/sic.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/San%20Isidro%20Club%20logo.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "hindu",
+      "name": "Hindú Club",
+      "aliases": [
+        "Hindú",
+        "Hindu",
+        "Hindu Club"
+      ],
+      "badgePath": "/teams/hindu.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hindu%20club%20logo.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "casi",
+      "name": "Club Atlético de San Isidro",
+      "aliases": [
+        "CASI"
+      ],
+      "badgePath": "/teams/casi.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Escudo%20de%20Club%20Atl%C3%A9tico%20San%20Isidro.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "newman",
+      "name": "Club Newman",
+      "aliases": [
+        "Newman"
+      ],
+      "badgePath": "/teams/newman.png",
+      "sourceUrl": "https://clubnewman.com.ar/wp-content/uploads/2026/03/escudo-NWM.png",
+      "status": "verified"
+    },
+    {
+      "slug": "alumni",
+      "name": "Asociación Alumni",
+      "aliases": [
+        "Alumni",
+        "Alumni Rugby"
+      ],
+      "badgePath": "/teams/alumni.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alumni%20rugby%20logo.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "cuba",
+      "name": "Club Universitario de Buenos Aires",
+      "aliases": [
+        "CUBA"
+      ],
+      "badgePath": "/teams/cuba.svg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/4/47/Universitario_BA_logo.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "argentina",
+      "name": "Argentina",
+      "aliases": [
+        "Los Pumas",
+        "Argentina XV"
+      ],
+      "badgePath": "/teams/argentina.png",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/en/7/74/Los_pumas_argentina_logo23.png",
+      "status": "verified"
+    },
+    {
+      "slug": "sudafrica",
+      "name": "Sudáfrica",
+      "aliases": [
+        "South Africa",
+        "Springboks",
+        "Sudafrica"
+      ],
+      "badgePath": "/teams/sudafrica.svg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/en/8/83/South_Africa_national_rugby_union_team.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "nueva-zelanda",
+      "name": "Nueva Zelanda",
+      "aliases": [
+        "New Zealand",
+        "All Blacks"
+      ],
+      "badgePath": "/teams/nueva-zelanda.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Allblacks-logo.svg",
+      "status": "verified"
+    },
+    {
+      "slug": "australia",
+      "name": "Australia",
+      "aliases": [
+        "Wallabies"
+      ],
+      "badgePath": "/teams/australia.svg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/en/0/02/WallabiesRugbyUnionLogo.svg",
+      "status": "verified"
+    }
+  ]
+}

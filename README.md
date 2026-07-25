@@ -33,7 +33,7 @@ La web usará `http://localhost:3000`, la API `http://localhost:4000` y PostgreS
 - API Fastify y esquema PostgreSQL con equipos, torneos, temporadas, eventos, tablas, usuarios, pronósticos y artículos.
 - Worker editorial OpenAI que produce únicamente borradores estructurados sujetos a revisión humana.
 - Gateway de resultados en vivo sin datos inventados, preparado para Highlightly.
-- Escudos remotos del proveedor con fallback SVG para clubes sin imagen.
+- Escudos oficiales almacenados localmente, con resolución por alias y fallback SVG para equipos todavía no catalogados.
 
 Los datos visibles iniciales son demostrativos. La arquitectura deja aislado el proveedor deportivo para conectar una fuente licenciada sin reescribir la experiencia.
 
@@ -49,6 +49,18 @@ Ovalia nunca muestra un partido ficticio como si estuviera en vivo. Sin proveedo
 4. Reiniciá `pnpm dev`.
 
 El plan gratuito permite probar la integración. El frontend consulta únicamente la API de Ovalia; la clave externa nunca se expone al navegador. Los partidos se refrescan cada 30 segundos mientras la pestaña está visible.
+
+## Escudos de equipos
+
+Los escudos verificados viven en `apps/web/public/teams/`. La interfaz prioriza siempre el archivo local, tanto para datos estáticos como para partidos recibidos desde Highlightly. Si un equipo aún no está en el registro, conserva la imagen remota del proveedor; si tampoco existe, muestra el monograma de respaldo.
+
+Para volver a sincronizar las fuentes registradas:
+
+```bash
+pnpm badges:sync
+```
+
+El proceso valida tipo y tamaño, escribe de forma atómica y no reemplaza archivos existentes salvo que se use `pnpm badges:sync -- --force`. La procedencia de cada activo queda registrada en `apps/web/public/teams/manifest.json` y en las columnas de auditoría de la tabla `teams`.
 
 ## Verificación
 

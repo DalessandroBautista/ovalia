@@ -17,19 +17,37 @@ describe('live rugby UI', () => {
     expect(html).not.toContain('Argentina 27');
   });
 
-  it('renders a remote team badge when one is provided', () => {
+  it('prioritizes the verified local badge over a remote provider badge', () => {
     const html = renderToStaticMarkup(
       createElement(TeamBadge, { name: 'Argentina', shortCode: 'ARG', badgeUrl: 'https://img.example/arg.png' }),
     );
 
-    expect(html).toContain('<img');
+    expect(html).toContain('src="/teams/argentina.png"');
+    expect(html).not.toContain('https://img.example/arg.png');
     expect(html).toContain('Escudo de Argentina');
   });
 
-  it('renders an svg shield fallback instead of a broken image', () => {
+  it('resolves a verified local club badge from its alias', () => {
     const html = renderToStaticMarkup(createElement(TeamBadge, { name: 'SIC', shortCode: 'SIC' }));
 
+    expect(html).toContain('src="/teams/sic.svg"');
+    expect(html).not.toContain('<svg');
+  });
+
+  it('renders the shield fallback for an unknown team without an image', () => {
+    const html = renderToStaticMarkup(createElement(TeamBadge, { name: 'Unknown RFC', shortCode: 'UNK' }));
+
     expect(html).toContain('<svg');
-    expect(html).toContain('SIC');
+    expect(html).toContain('UNK');
+  });
+
+  it('keeps a remote badge for an unknown team', () => {
+    const html = renderToStaticMarkup(createElement(TeamBadge, {
+      name: 'Unknown RFC',
+      shortCode: 'UNK',
+      badgeUrl: 'https://img.example/unknown.png',
+    }));
+
+    expect(html).toContain('src="https://img.example/unknown.png"');
   });
 });

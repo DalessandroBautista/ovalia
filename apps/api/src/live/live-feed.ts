@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { resolveTeamBadge } from '@ovalia/domain';
 
 export interface LiveTeam {
   name: string;
   shortCode: string;
+  providerId?: number;
   badgeUrl?: string;
 }
 
@@ -35,13 +37,12 @@ const highlightlyResponseSchema = z.object({
     z.object({
       id: z.union([z.number(), z.string()]),
       date: z.string(),
-      homeTeam: z.object({ name: z.string(), logo: z.string().url().nullish() }),
-      awayTeam: z.object({ name: z.string(), logo: z.string().url().nullish() }),
+      homeTeam: z.object({ id: z.number().optional(), name: z.string(), logo: z.string().url().nullish() }),
+      awayTeam: z.object({ id: z.number().optional(), name: z.string(), logo: z.string().url().nullish() }),
       league: z.object({ name: z.string() }),
       state: z.object({
         description: z.string(),
-        clock: z.number().nullish(),
-        score: z.object({ current: z.string() }),
+        score: z.string(),
       }),
     }),
   ),
@@ -65,39 +66,55 @@ export class HighlightlyProvider implements LiveProvider {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly fetcher: typeof globalThis.fetch;
+  private readonly now: () => Date;
 
-  constructor(options: { apiKey: string; baseUrl?: string; fetch?: typeof globalThis.fetch }) {
+  constructor(options: { apiKey: string; baseUrl?: string; fetch?: typeof globalThis.fetch; now?: () => Date }) {
     this.apiKey = options.apiKey;
     this.baseUrl = options.baseUrl ?? 'https://rugby.highlightly.net';
     this.fetcher = options.fetch ?? globalThis.fetch;
+    this.now = options.now ?? (() => new Date());
   }
 
   async getLiveMatches(): Promise<LiveFeed> {
-    const generatedAt = new Date().toISOString();
+    const currentDate = this.now();
+    const generatedAt = currentDate.toISOString();
+    const date = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(currentDate);
+    const query = new URLSearchParams({
+      date,
+      timezone: 'America/Argentina/Buenos_Aires',
+      limit: '100',
+    });
     try {
-      const response = await this.fetcher(`${this.baseUrl}/matches?status=live`, {
+      const response = await this.fetcher(`${this.baseUrl}/matches?${query}`, {
         headers: { 'x-rapidapi-key': this.apiKey },
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) throw new Error(`Highlightly returned ${response.status}`);
       const payload = highlightlyResponseSchema.parse(await response.json());
-      const matches = payload.data.map((match): LiveMatch => {
-        const [homeScore, awayScore] = parseScore(match.state.score.current);
+      const liveStates = new Set(['First half', 'Second half', 'Extra time', 'Break time', 'Half time', 'Penalties']);
+      const matches = payload.data.filter((match) => liveStates.has(match.state.description)).map((match): LiveMatch => {
+        const [homeScore, awayScore] = parseScore(match.state.score);
         return {
           id: `highlightly-${match.id}`,
           competition: match.league.name,
           startsAt: match.date,
           phase: match.state.description,
-          ...(match.state.clock == null ? {} : { minute: match.state.clock }),
           home: {
             name: match.homeTeam.name,
             shortCode: shortCode(match.homeTeam.name),
-            ...(match.homeTeam.logo ? { badgeUrl: match.homeTeam.logo } : {}),
+            ...(match.homeTeam.id != null ? { providerId: match.homeTeam.id } : {}),
+            ...resolveBadge(match.homeTeam),
           },
           away: {
             name: match.awayTeam.name,
             shortCode: shortCode(match.awayTeam.name),
-            ...(match.awayTeam.logo ? { badgeUrl: match.awayTeam.logo } : {}),
+            ...(match.awayTeam.id != null ? { providerId: match.awayTeam.id } : {}),
+            ...resolveBadge(match.awayTeam),
           },
           homeScore,
           awayScore,
@@ -114,6 +131,15 @@ export class HighlightlyProvider implements LiveProvider {
       return { status: 'error', source: 'highlightly', freshness: 'unknown', generatedAt, matches: [] };
     }
   }
+}
+
+function resolveBadge(team: { id?: number; name: string; logo?: string | null }): { badgeUrl?: string } {
+  const badgeUrl = resolveTeamBadge({
+    name: team.name,
+    providerId: team.id,
+    remoteUrl: team.logo ?? undefined,
+  });
+  return badgeUrl ? { badgeUrl } : {};
 }
 
 export function createLiveFeedService(provider?: LiveProvider) {

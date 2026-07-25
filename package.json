@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.17.0",
   "scripts": {
     "predev": "docker compose up -d db",
-    "dev": "turbo dev",
+    "dev": "node scripts/dev.mjs",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
@@ -16,7 +16,8 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f db",
     "db:migrate": "pnpm --filter @ovalia/database migrate",
-    "db:seed": "pnpm --filter @ovalia/database seed"
+    "db:seed": "pnpm --filter @ovalia/database seed",
+    "badges:sync": "pnpm --filter @ovalia/api badges:sync"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

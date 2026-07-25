@@ -9,8 +9,8 @@ export interface LiveFeedMatch {
   startsAt: string;
   phase: string;
   minute?: number;
-  home: { name: string; shortCode: string; badgeUrl?: string };
-  away: { name: string; shortCode: string; badgeUrl?: string };
+  home: { name: string; shortCode: string; providerId?: number; badgeUrl?: string };
+  away: { name: string; shortCode: string; providerId?: number; badgeUrl?: string };
   homeScore: number;
   awayScore: number;
 }
