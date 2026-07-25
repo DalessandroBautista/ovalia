@@ -15,6 +15,20 @@
       "when": 1784947116400,
       "tag": "0001_breezy_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784953515985,
+      "tag": "0002_strange_the_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784953758371,
+      "tag": "0003_gifted_red_wolf",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ADD CONSTRAINT "matches_teams_distinct" CHECK ("matches"."home_team_id" <> "matches"."away_team_id");
