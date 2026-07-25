@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { Database } from '../client';
 import {
   externalEntities,
@@ -47,6 +47,14 @@ export async function upsertSource(
     })
     .returning();
   return row!;
+}
+
+export function findSourceBySlug(db: Database, slug: string) {
+  return db.query.externalSources.findFirst({ where: eq(externalSources.slug, slug) });
+}
+
+export function listRecentRuns(db: Database, limit = 20) {
+  return db.query.ingestionRuns.findMany({ orderBy: desc(ingestionRuns.startedAt), limit });
 }
 
 export async function startRun(db: Database, provider: string) {
@@ -120,6 +128,15 @@ export async function recordArtifact(
     .returning({ id: ingestionArtifacts.id });
   const created = rows[0];
   return { created: created != null, id: created?.id ?? null };
+}
+
+export function listExternalLinks(db: Database, sourceId: string, entityType: string) {
+  return db
+    .select()
+    .from(externalEntities)
+    .where(
+      and(eq(externalEntities.sourceId, sourceId), eq(externalEntities.entityType, entityType)),
+    );
 }
 
 export async function resolveExternalEntity(

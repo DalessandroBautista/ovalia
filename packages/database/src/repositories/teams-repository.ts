@@ -26,6 +26,10 @@ export function listActiveTeams(db: Database) {
   return db.query.teams.findMany({ where: eq(teams.active, true) });
 }
 
+export function listTeams(db: Database) {
+  return db.query.teams.findMany();
+}
+
 export function findTeamByExternalId(db: Database, provider: string, externalId: string) {
   return db.query.teams.findFirst({
     where: sql`${teams.externalIds} ->> ${provider} = ${externalId}`,

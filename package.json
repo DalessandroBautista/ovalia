@@ -13,6 +13,8 @@
     "lint": "turbo lint",
     "verify": "pnpm typecheck && pnpm test && pnpm lint",
     "audit:hardcodes": "node scripts/audit-production-hardcodes.mjs",
+    "ingest": "pnpm --filter @ovalia/worker ingest",
+    "ingest:status": "pnpm --filter @ovalia/worker ingest:status",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f db",

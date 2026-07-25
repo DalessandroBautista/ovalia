@@ -7,3 +7,4 @@ export * from './articles-repository';
 export * from './predictions-repository';
 export * from './users-repository';
 export * from './audit-repository';
+export * from './jobs-repository';
