@@ -12,6 +12,7 @@
     "test:watch": "turbo test:watch",
     "lint": "turbo lint",
     "verify": "pnpm typecheck && pnpm test && pnpm lint",
+    "audit:hardcodes": "node scripts/audit-production-hardcodes.mjs",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f db",

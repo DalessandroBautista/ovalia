@@ -1,0 +1,21 @@
+{
+  "_comment": "Allowlist de hardcodes productivos conocidos. Debe REDUCIRSE hito a hito hasta quedar vacía en el Hito 17. Ver docs/data-sources/hardcoded-data-inventory.md. Cada entrada es un path repo-relativo permitido para esa regla.",
+  "demo-data-import": [
+    "apps/api/src/app.ts"
+  ],
+  "forbidden-identifier": [
+    "apps/api/src/app.ts",
+    "apps/api/src/demo-data.ts",
+    "apps/web/src/features/portal/portal-pages.tsx"
+  ],
+  "href-hash": [
+    "apps/web/src/features/portal/portal-pages.tsx",
+    "apps/web/app/noticias/page.tsx",
+    "apps/web/app/ingresar/page.tsx"
+  ],
+  "countdown-literal": [
+    "apps/web/src/features/home/home-page.tsx"
+  ],
+  "provider-url": [],
+  "secret-literal": []
+}
