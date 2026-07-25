@@ -8,6 +8,9 @@ describe('public portal pages', () => {
     const html = renderToStaticMarkup(createElement(MatchesPage));
     expect(html).toContain('Centro de partidos');
     expect(html).toContain('Volver al inicio');
+    expect(html).toContain('Día anterior');
+    expect(html).toContain('Día siguiente');
+    expect(html).toContain('Cargando la agenda');
   });
 
   it('renders the complete tournament catalog', () => {

@@ -9,8 +9,8 @@ describe('Ovalia home page', () => {
     const html = renderToStaticMarkup(createElement(HomePage));
 
     expect(html).toContain('OVALIA');
-    expect(html).toContain('Rugby Championship');
-    expect(html).toContain('URBA Top 14');
+    expect(html).toContain('Cargando la agenda');
+    expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('Consultando partidos en vivo');
     expect(html).not.toContain('EN VIVO · 68');
     expect(html).toContain('Prode');

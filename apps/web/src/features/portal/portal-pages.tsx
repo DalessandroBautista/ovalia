@@ -1,20 +1,26 @@
 'use client';
 
+import { findTeamBadge } from '@ovalia/domain';
+import { useState } from 'react';
+
 import { ArrowLeftIcon, ArrowRightIcon, RugbyBallIcon } from '../../components/icons';
 import { useLiveFeed } from '../../components/live-rail';
 import { TeamBadge } from '../../components/team-badge';
+import {
+  argentinaDateKey,
+  filterMatchesByDate,
+  formatAgendaDateLabel,
+  formatMatchTime,
+  matchScore,
+  shiftDateKey,
+} from '../matches/agenda-data';
+import { useAgendaMatches } from '../matches/use-agenda';
 
 const tournamentGroups = [
   { title: 'Argentina · Buenos Aires', items: ['URBA Top 14', 'Primera A', 'Primera B', 'Primera C', 'Segunda', 'Tercera', 'Desarrollo', 'Femenino Top 9'] },
   { title: 'Argentina · Federal', items: ['Torneo del Interior A', 'Torneo del Interior B', 'Nacional de Clubes', 'Super Rugby Américas', 'Seven de la República'] },
   { title: 'Selecciones', items: ['Rugby Championship', 'Six Nations', 'Mundial', 'Mundial Femenino', 'World Rugby U20', 'SVNS'] },
   { title: 'Clubes internacionales', items: ['Top 14', 'Premiership', 'United Rugby Championship', 'Champions Cup', 'Challenge Cup'] }
-];
-
-const matchCards = [
-  { competition: 'URBA Top 14 · Fecha 12', status: 'SÁB · 15:30', home: 'SIC', away: 'Hindú', homeCode: 'SIC', awayCode: 'HIN' },
-  { competition: 'URBA Top 14 · Fecha 12', status: 'SÁB · 15:30', home: 'CASI', away: 'Newman', homeCode: 'CAS', awayCode: 'NEW' },
-  { competition: 'Rugby Championship', status: 'SÁB · 04:05', home: 'Nueva Zelanda', away: 'Australia', homeCode: 'NZL', awayCode: 'AUS' }
 ];
 
 export function PortalHeader() {
@@ -35,13 +41,30 @@ function Frame({ eyebrow, title, intro, children }: { eyebrow: string; title: st
 
 export function MatchesPage() {
   const feed = useLiveFeed();
+  const agenda = useAgendaMatches();
+  const [selectedDate, setSelectedDate] = useState(() => argentinaDateKey());
+  const liveMatches = feed.matches.filter((match) => argentinaDateKey(match.startsAt) === selectedDate);
+  const liveIds = new Set(liveMatches.map((match) => match.id));
+  const scheduledMatches = filterMatchesByDate(agenda.matches, selectedDate).filter((match) => !liveIds.has(match.id));
   return (
     <Frame eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="La agenda completa del rugby argentino e internacional, con actualización en vivo.">
-      <div className="portal-toolbar"><button aria-label="Día anterior"><ArrowLeftIcon /></button><strong>HOY · JUEVES 23 JUL</strong><button aria-label="Día siguiente"><ArrowRightIcon /></button></div>
+      <div className="portal-toolbar">
+        <button type="button" aria-label="Día anterior" onClick={() => setSelectedDate((date) => shiftDateKey(date, -1))}><ArrowLeftIcon /></button>
+        <strong aria-live="polite">{formatAgendaDateLabel(selectedDate)}</strong>
+        <button type="button" aria-label="Día siguiente" onClick={() => setSelectedDate((date) => shiftDateKey(date, 1))}><ArrowRightIcon /></button>
+      </div>
       <div className="portal-list">
-        {feed.matches.map((match) => <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition}</small><span className="live-text">EN VIVO · {match.minute ? `${match.minute}'` : match.phase}</span><div><b><TeamBadge {...match.home} />{match.home.name}</b><strong>{match.homeScore} — {match.awayScore}</strong><b>{match.away.name}<TeamBadge {...match.away} /></b></div></a>)}
+        {liveMatches.map((match) => <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition}</small><span className="live-text">EN VIVO · {match.minute ? `${match.minute}'` : match.phase}</span><div><b><TeamBadge {...match.home} />{match.home.name}</b><strong>{match.homeScore} — {match.awayScore}</strong><b>{match.away.name}<TeamBadge {...match.away} /></b></div></a>)}
         {feed.status === 'loading' ? <p className="portal-live-status">Consultando partidos en vivo…</p> : null}
-        {matchCards.map((match) => <a className="portal-match" href="/partidos/detalle" key={match.home}><small>{match.competition}</small><span>{match.status}</span><div><b><TeamBadge name={match.home} shortCode={match.homeCode} />{match.home}</b><strong>—</strong><b>{match.away}<TeamBadge name={match.away} shortCode={match.awayCode} /></b></div></a>)}
+        {agenda.status === 'loading' ? <p className="portal-live-status">Cargando la agenda…</p> : null}
+        {agenda.status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los partidos de esta fecha.</p> : null}
+        {agenda.status === 'ready' && liveMatches.length === 0 && scheduledMatches.length === 0 ? <p className="portal-live-status">No hay partidos programados para esta fecha.</p> : null}
+        {scheduledMatches.map((match) => {
+          const homeCode = findTeamBadge({ name: match.homeTeam })?.shortCode ?? match.homeTeam.slice(0, 3).toUpperCase();
+          const awayCode = findTeamBadge({ name: match.awayTeam })?.shortCode ?? match.awayTeam.slice(0, 3).toUpperCase();
+          const status = match.status === 'final' ? 'FINAL' : formatMatchTime(match.startsAt);
+          return <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition} · {match.round}</small><span>{status}</span><div><b><TeamBadge name={match.homeTeam} shortCode={homeCode} />{match.homeTeam}</b><strong>{matchScore(match)}</strong><b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} /></b></div></a>;
+        })}
       </div>
     </Frame>
   );

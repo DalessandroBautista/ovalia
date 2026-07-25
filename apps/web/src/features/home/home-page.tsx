@@ -1,28 +1,22 @@
 'use client';
 
+import { findTeamBadge } from '@ovalia/domain';
+import { useState } from 'react';
+
 import { DiamondIcon, HomeIcon, RugbyBallIcon, SearchIcon, TargetIcon, UserIcon, ClockIcon } from '../../components/icons';
 import { LiveRailView, type LiveFeedPayload, useLiveFeed } from '../../components/live-rail';
 import { TeamBadge } from '../../components/team-badge';
-
-const agenda = [
-  {
-    tournament: 'URBA Top 14',
-    meta: 'Buenos Aires · Fecha 17',
-    matches: [
-      { home: 'Newman', away: 'Alumni', time: '15:30', homeCode: 'NEW', awayCode: 'ALU' },
-      { home: 'Hindú', away: 'SIC', time: '15:30', homeCode: 'HIN', awayCode: 'SIC' },
-      { home: 'CASI', away: 'CUBA', time: '16:10', homeCode: 'CAS', awayCode: 'CUB' },
-    ],
-  },
-  {
-    tournament: 'Rugby Championship',
-    meta: 'Internacional · Fecha 4',
-    matches: [
-      { home: 'Nueva Zelanda', away: 'Australia', time: '04:05', homeCode: 'NZL', awayCode: 'AUS' },
-      { home: 'Argentina', away: 'Sudáfrica', time: '18:00', homeCode: 'ARG', awayCode: 'RSA' },
-    ],
-  },
-];
+import {
+  argentinaDateKey,
+  buildCalendarDays,
+  filterMatchesByDate,
+  formatMatchTime,
+  groupMatchesByCompetition,
+  matchScore,
+  shiftDateKey,
+  type AgendaMatch,
+} from '../matches/agenda-data';
+import { useAgendaMatches } from '../matches/use-agenda';
 
 export function BallMark() {
   return (
@@ -114,49 +108,66 @@ function Hero({ feed }: { feed: LiveFeedPayload }) {
   );
 }
 
-function DatePicker() {
-  const days = [
-    ['MIÉ', '22'], ['JUE', '23'], ['VIE', '24'], ['SÁB', '25'], ['DOM', '26'], ['LUN', '27'], ['MAR', '28'],
-  ];
+function DatePicker({ selectedDate, onSelect }: { selectedDate: string; onSelect: (date: string) => void }) {
+  const days = buildCalendarDays(selectedDate);
   return (
     <div className="date-picker" aria-label="Seleccionar fecha">
-      <button type="button" aria-label="Fecha anterior">←</button>
-      {days.map(([day, date]) => (
-        <button className={date === '23' ? 'is-selected' : ''} type="button" key={date}>
-          <span>{day}</span><b>{date}</b>{date === '23' && <small>HOY</small>}
+      <button type="button" aria-label="Fecha anterior" onClick={() => onSelect(shiftDateKey(selectedDate, -1))}>←</button>
+      {days.map((day) => (
+        <button
+          aria-label={`Ver partidos del ${day.key}`}
+          aria-pressed={day.isSelected}
+          className={day.isSelected ? 'is-selected' : ''}
+          type="button"
+          key={day.key}
+          onClick={() => onSelect(day.key)}
+        >
+          <span>{day.weekday}</span><b>{day.dayNumber}</b>{day.isToday ? <small>HOY</small> : null}
         </button>
       ))}
-      <button type="button" aria-label="Fecha siguiente">→</button>
+      <button type="button" aria-label="Fecha siguiente" onClick={() => onSelect(shiftDateKey(selectedDate, 1))}>→</button>
     </div>
   );
 }
 
-function MatchRow({ match }: { match: (typeof agenda)[number]['matches'][number] }) {
+function teamCode(team: string): string {
+  return findTeamBadge({ name: team })?.shortCode ?? team.slice(0, 3).toUpperCase();
+}
+
+function MatchRow({ match }: { match: AgendaMatch }) {
+  const isScored = match.status === 'final' || match.status === 'live';
   return (
-    <a className="match-row" href="/partidos/detalle">
-      <div className="match-row__team"><TeamBadge name={match.home} shortCode={match.homeCode} /><b>{match.home}</b></div>
-      <time>{match.time}</time>
-      <div className="match-row__team match-row__team--away"><b>{match.away}</b><TeamBadge name={match.away} shortCode={match.awayCode} /></div>
+    <a className="match-row" href={`/partidos/${match.id}`}>
+      <div className="match-row__team"><TeamBadge name={match.homeTeam} shortCode={teamCode(match.homeTeam)} /><b>{match.homeTeam}</b></div>
+      <time dateTime={match.startsAt}>{isScored ? matchScore(match) : formatMatchTime(match.startsAt)}</time>
+      <div className="match-row__team match-row__team--away"><b>{match.awayTeam}</b><TeamBadge name={match.awayTeam} shortCode={teamCode(match.awayTeam)} /></div>
       <span className="row-arrow">›</span>
     </a>
   );
 }
 
 function Agenda() {
+  const [selectedDate, setSelectedDate] = useState(() => argentinaDateKey());
+  const agenda = useAgendaMatches();
+  const groups = groupMatchesByCompetition(filterMatchesByDate(agenda.matches, selectedDate));
+  const today = argentinaDateKey();
   return (
     <section className="agenda" id="partidos">
       <div className="section-heading">
-        <div><p className="eyebrow">AGENDA</p><h2>Partidos de hoy</h2></div>
+        <div><p className="eyebrow">AGENDA</p><h2>{selectedDate === today ? 'Partidos de hoy' : 'Partidos del día'}</h2></div>
         <a href="/partidos">Ver calendario completo <span>↗</span></a>
       </div>
-      <DatePicker />
-      {agenda.map((group) => (
-        <article className="competition" key={group.tournament}>
+      <DatePicker selectedDate={selectedDate} onSelect={setSelectedDate} />
+      {agenda.status === 'loading' ? <p className="agenda-status">Cargando la agenda…</p> : null}
+      {agenda.status === 'error' ? <p className="agenda-status agenda-status--error">No pudimos cargar la agenda. Intentá nuevamente en unos minutos.</p> : null}
+      {agenda.status === 'ready' && groups.length === 0 ? <p className="agenda-status">No hay partidos programados para esta fecha.</p> : null}
+      {groups.map((group) => (
+        <article className="competition" key={`${group.competition}-${group.round}`}>
           <header>
-            <div className="competition__identity"><span className="competition__mark">XV</span><div><h3>{group.tournament}</h3><p>{group.meta}</p></div></div>
+            <div className="competition__identity"><span className="competition__mark">XV</span><div><h3>{group.competition}</h3><p>{group.round}</p></div></div>
             <a href="/torneos">Ver torneo <span>↗</span></a>
           </header>
-          <div>{group.matches.map((match) => <MatchRow match={match} key={`${match.home}-${match.away}`} />)}</div>
+          <div>{group.matches.map((match) => <MatchRow match={match} key={match.id} />)}</div>
         </article>
       ))}
     </section>

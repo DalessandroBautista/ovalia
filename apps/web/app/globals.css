@@ -112,6 +112,8 @@ body::before {
 .mini-crest { width: 30px; height: 34px; font-size: 7px; }
 .match-row time { color: var(--lime); font-family: var(--display); font-size: 14px; text-align: center; }
 .row-arrow { color: #6f8175; font-size: 20px; }
+.agenda-status { min-height: 88px; display: grid; place-items: center; margin: 0 0 18px; padding: 20px; color: var(--mist); background: rgba(24,39,30,.72); border: 1px solid var(--line); font-size: 11px; text-align: center; }
+.agenda-status--error, .portal-live-status--error { color: #ffaaa4; }
 
 .sidebar { padding-top: 58px; }
 .prode-card { position: relative; padding: 26px; overflow: hidden; color: #101811; background: var(--lime); }
