@@ -9,7 +9,7 @@ import {
   makeTeam,
   truncateAll,
 } from '@ovalia/database/test-support';
-import { buildApp } from './app';
+import { buildApp } from './create-app';
 
 const available = await isDatabaseAvailable();
 

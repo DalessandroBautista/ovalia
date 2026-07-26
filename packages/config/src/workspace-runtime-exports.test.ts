@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -14,6 +14,22 @@ function readPackage(relativePath: string) {
 }
 
 describe('workspace packages used by the deployed API', () => {
+  it('exposes a single Fastify entrypoint to Vercel', () => {
+    const recognizedEntrypoints = [
+      'app.ts',
+      'index.ts',
+      'server.ts',
+      'src/app.ts',
+      'src/index.ts',
+      'src/server.ts',
+    ];
+    const detected = recognizedEntrypoints.filter((path) =>
+      existsSync(resolve(repositoryRoot, 'apps/api', path)),
+    );
+
+    expect(detected).toEqual(['src/server.ts']);
+  });
+
   it.each(['packages/domain', 'packages/database'])(
     '%s exposes compiled JavaScript to Node at runtime',
     (packagePath) => {
