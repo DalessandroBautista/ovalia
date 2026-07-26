@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { Database } from '../client';
 import { competitions, seasons } from '../schema';
 
@@ -57,6 +57,20 @@ export async function upsertCompetition(db: Database, input: CompetitionInput) {
 export function findSeason(db: Database, competitionId: string, year: number) {
   return db.query.seasons.findFirst({
     where: and(eq(seasons.competitionId, competitionId), eq(seasons.year, year)),
+  });
+}
+
+export function getLatestSeason(db: Database, competitionId: string) {
+  return db.query.seasons.findFirst({
+    where: eq(seasons.competitionId, competitionId),
+    orderBy: desc(seasons.year),
+  });
+}
+
+export function listSeasons(db: Database, competitionId: string) {
+  return db.query.seasons.findMany({
+    where: eq(seasons.competitionId, competitionId),
+    orderBy: desc(seasons.year),
   });
 }
 

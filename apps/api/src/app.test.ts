@@ -1,74 +1,157 @@
-import { afterEach, describe, expect, it } from 'vitest';
-
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import type { DatabaseHandle } from '@ovalia/database';
+import { replaceStandings, upsertMatchByNaturalKey } from '@ovalia/database';
+import {
+  getTestDatabase,
+  isDatabaseAvailable,
+  makeCompetition,
+  makeSeason,
+  makeTeam,
+  truncateAll,
+} from '@ovalia/database/test-support';
 import { buildApp } from './app';
 
-describe('API health', () => {
+const available = await isDatabaseAvailable();
+
+describe.skipIf(!available)('API real', () => {
+  let handle: DatabaseHandle;
   const apps: Array<ReturnType<typeof buildApp>> = [];
 
-  afterEach(async () => {
+  beforeEach(async () => {
+    handle = await getTestDatabase();
+    await truncateAll(handle);
+  });
+
+  afterAll(async () => {
     await Promise.all(apps.map((app) => app.close()));
-    apps.length = 0;
+    if (available) await handle.pool.end().catch(() => undefined);
   });
 
-  it('reports the service name and readiness', async () => {
-    const app = buildApp({ logger: false });
+  function makeAppFor() {
+    const app = buildApp({ logger: false }, { db: handle.db });
     apps.push(app);
+    return app;
+  }
 
-    const response = await app.inject({ method: 'GET', url: '/health' });
+  async function seedCompetition() {
+    const { db } = handle;
+    const competition = await makeCompetition(db, { slug: 'urba-top-14', name: 'URBA Top 14' });
+    const season = await makeSeason(db, competition.id, { year: 2026 });
+    const sic = await makeTeam(db, { slug: 'sic', name: 'SIC' });
+    const hindu = await makeTeam(db, { slug: 'hindu', name: 'Hindú' });
+    await upsertMatchByNaturalKey(db, {
+      seasonId: season.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-08-01T18:00:00Z'),
+      homeTeamId: sic.id,
+      awayTeamId: hindu.id,
+      status: 'final',
+      homeScore: 24,
+      awayScore: 21,
+      source: 'urba',
+    });
+    await replaceStandings(
+      db,
+      season.id,
+      [
+        { teamId: sic.id, played: 1, won: 1, drawn: 0, lost: 0, pointsFor: 24, pointsAgainst: 21, bonus: 0, points: 4 },
+        { teamId: hindu.id, played: 1, won: 0, drawn: 0, lost: 1, pointsFor: 21, pointsAgainst: 24, bonus: 1, points: 1 },
+      ],
+      'urba',
+    );
+    return { competition, season };
+  }
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ service: 'ovalia-api', status: 'ready' });
+  it('/health y /ready responden', async () => {
+    const app = makeAppFor();
+    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+    const ready = await app.inject({ method: 'GET', url: '/ready' });
+    expect(ready.statusCode).toBe(200);
+    expect(ready.json()).toEqual({ status: 'ready' });
   });
 
-  it('serves the public rugby agenda', async () => {
-    const app = buildApp({ logger: false });
-    apps.push(app);
-
-    const response = await app.inject({ method: 'GET', url: '/v1/matches' });
-    const payload = response.json();
-
-    expect(response.statusCode).toBe(200);
-    expect(payload.matches).toHaveLength(4);
-    expect(payload.matches[0]).toMatchObject({ competition: 'URBA Top 14', homeTeam: 'SIC' });
-    expect(payload.matches.filter((match: { status: string }) => match.status === 'live')).toEqual([]);
+  it('sirve partidos reales desde PostgreSQL con rango', async () => {
+    await seedCompetition();
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/matches?from=2026-07-01T00:00:00Z&to=2026-09-01T00:00:00Z',
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0]).toMatchObject({
+      competition: { slug: 'urba-top-14' },
+      home: { slug: 'sic' },
+      status: 'final',
+      homeScore: 24,
+    });
+    expect(body.matches[0].freshness).toBe('fresh');
   });
 
-  it('returns a tournament table', async () => {
-    const app = buildApp({ logger: false });
-    apps.push(app);
-
-    const response = await app.inject({ method: 'GET', url: '/v1/competitions/urba-top-14/standings' });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json().rows[0]).toMatchObject({ position: 1, team: 'SIC' });
+  it('valida query inválida con 400', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/matches?from=no-fecha' });
+    expect(res.statusCode).toBe(400);
   });
 
-  it('exposes live feed provenance and never falls back to demo matches', async () => {
-    const app = buildApp({ logger: false });
-    apps.push(app);
-
-    const response = await app.inject({ method: 'GET', url: '/v1/live' });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ status: 'unavailable', source: 'none', matches: [] });
+  it('devuelve el detalle real de un partido por id', async () => {
+    await seedCompetition();
+    const app = makeAppFor();
+    const list = await app.inject({ method: 'GET', url: '/v1/matches' });
+    const id = list.json().matches[0].id;
+    const detail = await app.inject({ method: 'GET', url: `/v1/matches/${id}` });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().match.away.name).toBe('Hindú');
   });
 
-  it('does not expose a hardcoded match through the live matches filter', async () => {
-    const app = buildApp({ logger: false });
-    apps.push(app);
-
-    const response = await app.inject({ method: 'GET', url: '/v1/matches?status=live' });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json().matches).toEqual([]);
+  it('404 para un partido inexistente', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/matches/00000000-0000-0000-0000-000000000000',
+    });
+    expect(res.statusCode).toBe(404);
   });
 
-  it('allows the local web app to request the live feed', async () => {
-    const app = buildApp({ logger: false });
-    apps.push(app);
+  it('sirve el catálogo y la tabla de posiciones desde DB', async () => {
+    await seedCompetition();
+    const app = makeAppFor();
+    const catalog = await app.inject({ method: 'GET', url: '/v1/competitions' });
+    expect(catalog.json().competitions.some((c: { slug: string }) => c.slug === 'urba-top-14')).toBe(true);
 
-    const response = await app.inject({ method: 'OPTIONS', url: '/v1/live', headers: { origin: 'http://localhost:3000', 'access-control-request-method': 'GET' } });
+    const standings = await app.inject({
+      method: 'GET',
+      url: '/v1/competitions/urba-top-14/standings',
+    });
+    expect(standings.statusCode).toBe(200);
+    const body = standings.json();
+    expect(body.season).toBe(2026);
+    expect(body.rows[0]).toMatchObject({ position: 1, team: { slug: 'sic' }, points: 4 });
+    expect(body.source).toBe('urba');
+  });
 
-    expect(response.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+  it('404 para competencia inexistente', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/competitions/no-existe/standings' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('el filtro status=live nunca devuelve partidos demo', async () => {
+    await seedCompetition();
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/matches?status=live' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().matches).toEqual([]);
+  });
+
+  it('permite CORS al web local', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/v1/live',
+      headers: { origin: 'http://localhost:3000', 'access-control-request-method': 'GET' },
+    });
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
   });
 });

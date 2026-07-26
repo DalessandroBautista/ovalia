@@ -108,6 +108,37 @@ export async function findMatchById(db: Database, id: string) {
   return row ?? null;
 }
 
+export type CompetitionMatchesParams = {
+  competitionSlug: string;
+  seasonYear?: number;
+  round?: string;
+  limit?: number;
+  cursor?: { startsAt: Date; id: string };
+};
+
+export async function findMatchesByCompetition(db: Database, params: CompetitionMatchesParams) {
+  const limit = Math.min(params.limit ?? 100, 200);
+  const filters = [eq(competitions.slug, params.competitionSlug)];
+  if (params.seasonYear) filters.push(eq(seasons.year, params.seasonYear));
+  if (params.round) filters.push(eq(matches.round, params.round));
+  if (params.cursor) {
+    filters.push(
+      sql`(${matches.startsAt}, ${matches.id}) > (${params.cursor.startsAt.toISOString()}, ${params.cursor.id})`,
+    );
+  }
+  const rows = await baseSelect(db)
+    .where(and(...filters))
+    .orderBy(asc(matches.startsAt), asc(matches.id))
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page.at(-1);
+  return {
+    matches: page,
+    nextCursor: hasMore && last ? { startsAt: last.startsAt, id: last.id } : null,
+  };
+}
+
 /** Identidad natural: temporada + ronda + local + visitante. */
 function naturalMatch(db: Database, input: MatchInput) {
   return db.query.matches.findFirst({
