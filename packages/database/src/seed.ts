@@ -1,10 +1,10 @@
 import { extname } from 'node:path';
 import { TEAM_BADGES } from '@ovalia/domain';
-import { createDatabase } from './client';
-import { upsertSource } from './repositories/ingestion-repository';
-import { upsertSeason } from './repositories/competitions-repository';
-import { createUser } from './repositories/users-repository';
-import { competitions, teams, users } from './schema';
+import { createDatabase } from './client.js';
+import { upsertSource } from './repositories/ingestion-repository.js';
+import { upsertSeason } from './repositories/competitions-repository.js';
+import { createUser } from './repositories/users-repository.js';
+import { competitions, teams, users } from './schema.js';
 import { eq } from 'drizzle-orm';
 
 // Seed honesto (Hito 1.4): solo configuración de fuentes, catálogo verificado y

@@ -1,12 +1,12 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type { Database } from '../client';
+import type { Database } from '../client.js';
 import {
   externalEntities,
   externalSources,
   ingestionArtifacts,
   ingestionConflicts,
   ingestionRuns,
-} from '../schema';
+} from '../schema.js';
 
 export async function upsertSource(
   db: Database,

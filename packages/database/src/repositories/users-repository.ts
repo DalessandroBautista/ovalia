@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import type { Database } from '../client';
-import { users } from '../schema';
+import type { Database } from '../client.js';
+import { users } from '../schema.js';
 
 export type UserRole = 'fan' | 'contributor' | 'editor' | 'admin';
 

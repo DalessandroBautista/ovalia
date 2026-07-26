@@ -1,6 +1,6 @@
 import { and, eq, lte, sql } from 'drizzle-orm';
-import type { Database } from '../client';
-import { jobs } from '../schema';
+import type { Database } from '../client.js';
+import { jobs } from '../schema.js';
 
 export type JobRow = typeof jobs.$inferSelect;
 

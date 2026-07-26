@@ -1,6 +1,6 @@
 import { desc } from 'drizzle-orm';
-import type { Database } from '../client';
-import { auditLog } from '../schema';
+import type { Database } from '../client.js';
+import { auditLog } from '../schema.js';
 
 export type AuditEntry = {
   actorId?: string | null;

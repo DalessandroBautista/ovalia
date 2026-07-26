@@ -1,6 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type { Database } from '../client';
-import { competitions, seasons } from '../schema';
+import type { Database } from '../client.js';
+import { competitions, seasons } from '../schema.js';
 
 export type CompetitionInput = {
   slug: string;

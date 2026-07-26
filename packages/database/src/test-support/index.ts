@@ -1,2 +1,2 @@
-export * from './test-database';
-export * from './factories';
+export * from './test-database.js';
+export * from './factories.js';

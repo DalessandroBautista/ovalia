@@ -1,6 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm';
-import type { Database } from '../client';
-import { standings, standingsSnapshots, teams } from '../schema';
+import type { Database } from '../client.js';
+import { standings, standingsSnapshots, teams } from '../schema.js';
 
 export type StandingRow = {
   teamId: string;

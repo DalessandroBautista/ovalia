@@ -1,11 +1,11 @@
 import { and, asc, desc, eq, gt, sql } from 'drizzle-orm';
-import type { Database } from '../client';
+import type { Database } from '../client.js';
 import {
   contestMatches,
   contestRankings,
   predictionContests,
   predictions,
-} from '../schema';
+} from '../schema.js';
 
 export class ContestClosedError extends Error {
   constructor() {

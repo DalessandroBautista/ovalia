@@ -1,9 +1,9 @@
-import type { ExternalArticleReference } from './external-article-reference';
-import type { ExternalCompetition } from './external-competition';
-import type { ExternalMatch } from './external-match';
-import type { ExternalStandings } from './external-standing';
-import type { ExternalTeam } from './external-team';
-import type { Capability, SourceDescriptor } from './source';
+import type { ExternalArticleReference } from './external-article-reference.js';
+import type { ExternalCompetition } from './external-competition.js';
+import type { ExternalMatch } from './external-match.js';
+import type { ExternalStandings } from './external-standing.js';
+import type { ExternalTeam } from './external-team.js';
+import type { Capability, SourceDescriptor } from './source.js';
 
 export interface FetchContext {
   /** Ventana temporal opcional para fixtures/resultados. */

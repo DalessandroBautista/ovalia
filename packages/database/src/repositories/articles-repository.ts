@@ -1,6 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type { Database } from '../client';
-import { articles } from '../schema';
+import type { Database } from '../client.js';
+import { articles } from '../schema.js';
 
 export type ArticleStatus = 'draft' | 'review' | 'published' | 'archived';
 

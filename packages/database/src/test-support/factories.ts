@@ -1,4 +1,4 @@
-import type { Database } from '../client';
+import type { Database } from '../client.js';
 import {
   competitions,
   externalSources,
@@ -7,7 +7,7 @@ import {
   seasons,
   teams,
   users,
-} from '../schema';
+} from '../schema.js';
 
 let counter = 0;
 function uniqueSuffix(): string {

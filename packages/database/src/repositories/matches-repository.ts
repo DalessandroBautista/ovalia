@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { Database } from '../client';
-import { competitions, matches, seasons, teams } from '../schema';
+import type { Database } from '../client.js';
+import { competitions, matches, seasons, teams } from '../schema.js';
 
 export type MatchStatus =
   | 'scheduled'

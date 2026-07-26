@@ -21,7 +21,7 @@ import {
   createLiveFeedService,
   readLiveFeedCacheTtl,
   type LiveProvider,
-} from './live/live-feed';
+} from './live/live-feed.js';
 import {
   competitionMatchesQuerySchema,
   decodeCursor,
@@ -29,7 +29,7 @@ import {
   freshness,
   matchesQuerySchema,
   standingsQuerySchema,
-} from './schemas';
+} from './schemas.js';
 
 export interface AppDependencies {
   db: Database;

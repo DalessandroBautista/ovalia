@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { Database } from '../client';
-import { teams } from '../schema';
+import type { Database } from '../client.js';
+import { teams } from '../schema.js';
 
 export type TeamInput = {
   slug: string;
