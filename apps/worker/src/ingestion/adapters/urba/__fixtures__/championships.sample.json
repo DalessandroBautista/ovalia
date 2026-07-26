@@ -1,0 +1,92 @@
+{
+  "championships": [
+    {
+      "id": 2025176,
+      "name": "TOP 14 - Superior",
+      "season_id": 2026,
+      "alias": "TOP 14 - Superior",
+      "logo_image": "championship-20260310152741-gctjsr.png",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025177,
+      "name": "PRIMERA A - Superior",
+      "season_id": 2026,
+      "alias": "PRIMERA A - Superior",
+      "logo_image": "primera-a-superior-20260310134842-hwqume.png",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025178,
+      "name": "PRIMERA B - Superior",
+      "season_id": 2026,
+      "alias": "PRIMERA B - Superior",
+      "logo_image": "primera-b-superior-20260310134904-kflodd.png",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025179,
+      "name": "PRIMERA C - Superior",
+      "season_id": 2026,
+      "alias": "PRIMERA C - Superior",
+      "logo_image": "primera-c-superior-20260310134922-b5arte.png",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025180,
+      "name": "SEGUNDA - Superior",
+      "season_id": 2026,
+      "alias": "SEGUNDA - Superior",
+      "logo_image": "",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025181,
+      "name": "TERCERA - Superior",
+      "season_id": 2026,
+      "alias": "TERCERA - Superior",
+      "logo_image": "",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025182,
+      "name": "DESARROLLO - Superior",
+      "season_id": 2026,
+      "alias": "DESARROLLO - Superior",
+      "logo_image": "desarrollo-superior-20260310130815-dzsdb3.jpeg",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    },
+    {
+      "id": 2025208,
+      "name": "FEMENINO - TOP 9",
+      "season_id": 2026,
+      "alias": "FEMENINO - TOP 9",
+      "logo_image": "",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      }
+    }
+  ]
+}

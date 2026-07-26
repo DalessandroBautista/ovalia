@@ -21,6 +21,7 @@ import type {
   Capability,
   ExternalMatch,
   ExternalStandings,
+  FetchContext,
   SportsDataAdapter,
 } from '@ovalia/domain';
 import { normalizeName, parseOffsetDateTime, resolveEntity } from './normalization';
@@ -32,6 +33,7 @@ export interface RunIngestionOptions {
   adapter: SportsDataAdapter;
   capability: Capability;
   parserVersion: string;
+  context?: FetchContext;
   dryRun?: boolean;
   now?: () => Date;
 }
@@ -92,7 +94,7 @@ export async function runIngestion(options: RunIngestionOptions): Promise<RunIng
   const { db, adapter, capability, sourceId, parserVersion } = options;
   const run = await startRun(db, adapter.descriptor.slug);
   try {
-    const payload = await fetchCapability(adapter, capability);
+    const payload = await fetchCapability(adapter, capability, options.context ?? {});
     const checksum = checksumOf(payload);
 
     if (await hasArtifact(db, sourceId, checksum)) {
@@ -156,20 +158,21 @@ type CatalogPayload = Awaited<ReturnType<NonNullable<SportsDataAdapter['fetchCat
 async function fetchCapability(
   adapter: SportsDataAdapter,
   capability: Capability,
+  ctx: FetchContext,
 ): Promise<unknown> {
   switch (capability) {
     case 'catalog':
       if (!adapter.fetchCatalog) throw new Error('adapter lacks catalog');
-      return adapter.fetchCatalog({});
+      return adapter.fetchCatalog(ctx);
     case 'fixtures':
       if (!adapter.fetchFixtures) throw new Error('adapter lacks fixtures');
-      return adapter.fetchFixtures({});
+      return adapter.fetchFixtures(ctx);
     case 'results':
       if (!adapter.fetchResults) throw new Error('adapter lacks results');
-      return adapter.fetchResults({});
+      return adapter.fetchResults(ctx);
     case 'standings':
       if (!adapter.fetchStandings) throw new Error('adapter lacks standings');
-      return adapter.fetchStandings({});
+      return adapter.fetchStandings(ctx);
     default:
       throw new Error(`unsupported capability: ${capability}`);
   }

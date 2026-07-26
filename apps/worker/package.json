@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "ingest": "tsx src/cli/ingest.ts",
     "ingest:status": "tsx src/cli/ingest-status.ts",
+    "ingest:csv": "tsx src/cli/ingest-csv.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",

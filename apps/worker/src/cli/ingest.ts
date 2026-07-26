@@ -4,10 +4,12 @@ import type { Capability } from '@ovalia/domain';
 import { getAdapter, registeredSources } from '../ingestion/adapter-registry';
 import '../ingestion/register-adapters';
 import { runIngestion } from '../ingestion/run-ingestion';
+import { importUrba } from '../ingestion/adapters/urba';
 
 interface Args {
   source?: string;
   capability?: Capability;
+  competition?: string;
   all?: boolean;
   dryRun?: boolean;
 }
@@ -18,6 +20,7 @@ function parseArgs(argv: string[]): Args {
     const arg = argv[i];
     if (arg === '--source') args.source = argv[++i];
     else if (arg === '--capability') args.capability = argv[++i] as Capability;
+    else if (arg === '--competition') args.competition = argv[++i];
     else if (arg === '--all') args.all = true;
     else if (arg === '--dry-run') args.dryRun = true;
   }
@@ -48,6 +51,24 @@ async function main() {
       );
       process.exit(2);
     }
+    // URBA con --all: catálogo + fixtures/posiciones por competencia prioritaria.
+    if (args.source === 'urba' && args.all) {
+      const report = await importUrba({
+        db,
+        sourceId: source.id,
+        dryRun: args.dryRun,
+        competitionExternalIds: args.competition ? [args.competition] : undefined,
+      });
+      console.log(`[urba/catalog] ${report.catalog.status} persisted=${report.catalog.persisted}`);
+      for (const comp of report.perCompetition) {
+        console.log(
+          `[urba/${comp.name}] fixtures=${comp.fixtures.status}(${comp.fixtures.persisted}/${comp.fixtures.conflicts}) ` +
+            `standings=${comp.standings.status}(${comp.standings.persisted}/${comp.standings.conflicts})`,
+        );
+      }
+      return;
+    }
+
     const capabilities: Capability[] = args.all
       ? adapter.descriptor.capabilities.filter((c) => c !== 'live')
       : args.capability
@@ -57,6 +78,7 @@ async function main() {
       console.error('Especificá --capability <cap> o --all.');
       process.exit(1);
     }
+    const context = args.competition ? { competitionExternalId: args.competition } : {};
     for (const capability of capabilities) {
       const result = await runIngestion({
         db,
@@ -64,6 +86,7 @@ async function main() {
         adapter,
         capability,
         parserVersion: process.env.PARSER_VERSION ?? 'dev',
+        context,
         dryRun: args.dryRun,
       });
       console.log(

@@ -1,0 +1,109 @@
+{
+  "positions": [
+    {
+      "position": 1,
+      "played": 16,
+      "won": 15,
+      "tied": 0,
+      "lost": 1,
+      "points_favor": 539,
+      "points_against": 350,
+      "bonus_offensive": 6,
+      "bonus_defensive": 0,
+      "points_total": 66,
+      "team": {
+        "id": 202516486,
+        "name": "Newman",
+        "club": {
+          "id": 9,
+          "name": "Newman",
+          "image_uri": "img/clubs/newman.png"
+        }
+      }
+    },
+    {
+      "position": 2,
+      "played": 16,
+      "won": 12,
+      "tied": 0,
+      "lost": 4,
+      "points_favor": 563,
+      "points_against": 388,
+      "bonus_offensive": 5,
+      "bonus_defensive": 3,
+      "points_total": 56,
+      "team": {
+        "id": 202516491,
+        "name": "CASI",
+        "club": {
+          "id": 3,
+          "name": "CASI",
+          "image_uri": "img/clubs/casi.png"
+        }
+      }
+    },
+    {
+      "position": 3,
+      "played": 16,
+      "won": 11,
+      "tied": 0,
+      "lost": 5,
+      "points_favor": 539,
+      "points_against": 390,
+      "bonus_offensive": 6,
+      "bonus_defensive": 3,
+      "points_total": 53,
+      "team": {
+        "id": 202516483,
+        "name": "Hindu",
+        "club": {
+          "id": 6,
+          "name": "Hindú",
+          "image_uri": "img/clubs/hindu.png"
+        }
+      }
+    },
+    {
+      "position": 4,
+      "played": 16,
+      "won": 10,
+      "tied": 0,
+      "lost": 6,
+      "points_favor": 563,
+      "points_against": 387,
+      "bonus_offensive": 6,
+      "bonus_defensive": 5,
+      "points_total": 51,
+      "team": {
+        "id": 202516485,
+        "name": "Alumni",
+        "club": {
+          "id": 12,
+          "name": "Alumni",
+          "image_uri": "img/clubs/alumni.png"
+        }
+      }
+    },
+    {
+      "position": 5,
+      "played": 16,
+      "won": 11,
+      "tied": 0,
+      "lost": 5,
+      "points_favor": 577,
+      "points_against": 406,
+      "bonus_offensive": 4,
+      "bonus_defensive": 3,
+      "points_total": 51,
+      "team": {
+        "id": 202516487,
+        "name": "SIC",
+        "club": {
+          "id": 1,
+          "name": "SIC",
+          "image_uri": "img/clubs/sic.png"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,239 @@
+{
+  "championship": [
+    {
+      "id": 2025176,
+      "name": "TOP 14 - Superior",
+      "alias": "TOP 14 - Superior",
+      "season": {
+        "id": 2026,
+        "name": "2026"
+      },
+      "rounds": [
+        {
+          "id": 202517028,
+          "name": "Fecha 1",
+          "playdate": "2026-03-14T00:00:00",
+          "matches": [
+            {
+              "id": 2023134558,
+              "local_team_id": 202516495,
+              "visit_team_id": 202516494,
+              "playdate": "2026-03-14T00:00:00",
+              "round_id": 202517028,
+              "fulfilled": true,
+              "suspended": false,
+              "local_team_score": 27,
+              "visit_team_score": 25,
+              "local_team_offensive_bonus": 0,
+              "visit_team_offensive_bonus": 0,
+              "local_team_defensive_bonus": 0,
+              "visit_team_defensive_bonus": 1,
+              "local_team": {
+                "id": 202516495,
+                "name": "Los Matreros",
+                "club_id": 23,
+                "club": {
+                  "id": 23,
+                  "name": "Los Matreros",
+                  "image_uri": "img/clubs/losmatreros.png"
+                }
+              },
+              "visit_team": {
+                "id": 202516494,
+                "name": "Regatas Bella Vista",
+                "club_id": 4,
+                "club": {
+                  "id": 4,
+                  "name": "Regatas Bella Vista",
+                  "image_uri": "img/clubs/regatasbellavista.png"
+                }
+              }
+            },
+            {
+              "id": 2023134559,
+              "local_team_id": 202516482,
+              "visit_team_id": 202516493,
+              "playdate": "2026-03-14T00:00:00",
+              "round_id": 202517028,
+              "fulfilled": true,
+              "suspended": false,
+              "local_team_score": 29,
+              "visit_team_score": 36,
+              "local_team_offensive_bonus": 0,
+              "visit_team_offensive_bonus": 0,
+              "local_team_defensive_bonus": 1,
+              "visit_team_defensive_bonus": 0,
+              "local_team": {
+                "id": 202516482,
+                "name": "La Plata",
+                "club_id": 13,
+                "club": {
+                  "id": 13,
+                  "name": "La Plata",
+                  "image_uri": "img/clubs/laplata.png"
+                }
+              },
+              "visit_team": {
+                "id": 202516493,
+                "name": "Atletico del Rosario",
+                "club_id": 10,
+                "club": {
+                  "id": 10,
+                  "name": "Atlético del Rosario",
+                  "image_uri": "img/clubs/rosario.png"
+                }
+              }
+            },
+            {
+              "id": 999001,
+              "local_team_id": 202516495,
+              "visit_team_id": 202516494,
+              "playdate": "2026-09-01T15:30:00",
+              "round_id": 202517028,
+              "fulfilled": false,
+              "suspended": false,
+              "local_team_score": 0,
+              "visit_team_score": 0,
+              "local_team_offensive_bonus": 0,
+              "visit_team_offensive_bonus": 0,
+              "local_team_defensive_bonus": 0,
+              "visit_team_defensive_bonus": 1,
+              "local_team": {
+                "id": 202516495,
+                "name": "Los Matreros",
+                "club_id": 23,
+                "club": {
+                  "id": 23,
+                  "name": "Los Matreros",
+                  "image_uri": "img/clubs/losmatreros.png"
+                }
+              },
+              "visit_team": {
+                "id": 202516494,
+                "name": "Regatas Bella Vista",
+                "club_id": 4,
+                "club": {
+                  "id": 4,
+                  "name": "Regatas Bella Vista",
+                  "image_uri": "img/clubs/regatasbellavista.png"
+                }
+              }
+            },
+            {
+              "id": 999002,
+              "local_team_id": 202516495,
+              "visit_team_id": 202516494,
+              "playdate": "2026-03-14T00:00:00",
+              "round_id": 202517028,
+              "fulfilled": false,
+              "suspended": true,
+              "local_team_score": 0,
+              "visit_team_score": 0,
+              "local_team_offensive_bonus": 0,
+              "visit_team_offensive_bonus": 0,
+              "local_team_defensive_bonus": 0,
+              "visit_team_defensive_bonus": 1,
+              "local_team": {
+                "id": 202516495,
+                "name": "Los Matreros",
+                "club_id": 23,
+                "club": {
+                  "id": 23,
+                  "name": "Los Matreros",
+                  "image_uri": "img/clubs/losmatreros.png"
+                }
+              },
+              "visit_team": {
+                "id": 202516494,
+                "name": "Regatas Bella Vista",
+                "club_id": 4,
+                "club": {
+                  "id": 4,
+                  "name": "Regatas Bella Vista",
+                  "image_uri": "img/clubs/regatasbellavista.png"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 202517029,
+          "name": "Fecha 2",
+          "playdate": "2026-03-21T00:00:00",
+          "matches": [
+            {
+              "id": 2023134565,
+              "local_team_id": 202516487,
+              "visit_team_id": 202516495,
+              "playdate": "2026-03-21T00:00:00",
+              "round_id": 202517029,
+              "fulfilled": true,
+              "suspended": false,
+              "local_team_score": 25,
+              "visit_team_score": 20,
+              "local_team_offensive_bonus": 0,
+              "visit_team_offensive_bonus": 0,
+              "local_team_defensive_bonus": 0,
+              "visit_team_defensive_bonus": 1,
+              "local_team": {
+                "id": 202516487,
+                "name": "SIC",
+                "club_id": 1,
+                "club": {
+                  "id": 1,
+                  "name": "SIC",
+                  "image_uri": "img/clubs/sic.png"
+                }
+              },
+              "visit_team": {
+                "id": 202516495,
+                "name": "Los Matreros",
+                "club_id": 23,
+                "club": {
+                  "id": 23,
+                  "name": "Los Matreros",
+                  "image_uri": "img/clubs/losmatreros.png"
+                }
+              }
+            },
+            {
+              "id": 2023134566,
+              "local_team_id": 202516488,
+              "visit_team_id": 202516486,
+              "playdate": "2026-03-21T00:00:00",
+              "round_id": 202517029,
+              "fulfilled": true,
+              "suspended": false,
+              "local_team_score": 25,
+              "visit_team_score": 33,
+              "local_team_offensive_bonus": 0,
+              "visit_team_offensive_bonus": 0,
+              "local_team_defensive_bonus": 0,
+              "visit_team_defensive_bonus": 0,
+              "local_team": {
+                "id": 202516488,
+                "name": "Belgrano Athletic",
+                "club_id": 7,
+                "club": {
+                  "id": 7,
+                  "name": "Belgrano Athletic",
+                  "image_uri": "img/clubs/belgrano.png"
+                }
+              },
+              "visit_team": {
+                "id": 202516486,
+                "name": "Newman",
+                "club_id": 9,
+                "club": {
+                  "id": 9,
+                  "name": "Newman",
+                  "image_uri": "img/clubs/newman.png"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
