@@ -20,8 +20,8 @@ de detalle; este documento define **qué se publica y en qué orden**, y el **es
 
 ## Estado global (al 2026-07-26)
 
-`pnpm verify` verde con **131 tests**; `build` verde; audit de hardcodes limpio.
-Hitos del plan maestro completados: **0, 1, 2, 3, 6, 7**.
+`pnpm verify` verde con **132 tests**; `build` verde; audit de hardcodes limpio.
+Hitos del plan maestro completados: **0, 1, 2, 3, 6, 7, 8**.
 
 ---
 
@@ -39,10 +39,10 @@ resultados y tabla reales, con fuente y frescura, sin controles ficticios.
 | 5 | API sin `demo-data` | 6 | ✅ hecho (`demo-data.ts` eliminado) |
 | 6 | Inicio conectado a datos reales | 7/9 | 🟨 parcial (agenda real; agregados pendientes) |
 | 7 | Agenda por rango + fecha en URL | 7 | ✅ hecho |
-| 8 | Página de torneo (tabla, fixtures, resultados) | 8 | ⬜ pendiente |
+| 8 | Página de torneo (tabla, fixtures, resultados) | 8 | ✅ hecho (catálogo + torneo real, slugs lindos) |
 | 9 | Detalle de partido desde DB (+overlay live) | 7 | ✅ hecho |
-| 10 | Frescura y fuente visibles en UI | 7/8 | 🟨 parcial (agenda y detalle; torneo pendiente) |
-| 11 | Sin controles ficticios (`href="#"`, botones muertos) | 14 | ⬜ pendiente (parcial) |
+| 10 | Frescura y fuente visibles en UI | 7/8 | ✅ hecho (agenda, detalle y torneo) |
+| 11 | Sin controles ficticios (`href="#"`, botones muertos) | 14 | 🟨 parcial (torneos ok; quedan noticias/ingresar) |
 | 12 | Admin mínimo: importar y corregir conflictos | 13 (subset) | ⬜ pendiente |
 | 13 | Analytics de navegación + canal de feedback | nuevo | ⬜ pendiente |
 | 14 | SEO básico por partido/torneo | nuevo | ⬜ pendiente |
@@ -56,7 +56,7 @@ un canal de feedback; corre localmente con un comando.
 ### Secuencia inmediata (lo que sigue ahora)
 
 1. ✅ **Hito 7** — cliente API tipado en web + agenda por rango/URL + detalle real.
-2. **Hito 8 (Top 14)** — página de torneo con tabla/fixtures reales y slug real.
+2. ✅ **Hito 8** — catálogo + página de torneo real con slugs canónicos.
 3. **Hito 9 (parcial)** — agregados reales de inicio (sin countdown/nota falsos).
 4. **Admin mínimo de conflictos** (subset de Hito 13): ver raw vs normalizado,
    asociar equipo, cerrar conflicto (los 40 de Tercera/Femenino).
