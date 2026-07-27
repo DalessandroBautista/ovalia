@@ -1,5 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
-import Fastify, { type FastifyError, type FastifyServerOptions } from 'fastify';
+import Fastify, {
+  type FastifyError,
+  type FastifyInstance,
+  type FastifyServerOptions,
+} from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
@@ -74,13 +78,8 @@ function serializeMatch(row: NonNullable<MatchRow>) {
   };
 }
 
-export function buildApp(
-  options: FastifyServerOptions = {},
-  dependencies: AppDependencies,
-  fastifyFactory: typeof Fastify = Fastify,
-) {
+export function configureApp(app: FastifyInstance, dependencies: AppDependencies) {
   const { db } = dependencies;
-  const app = fastifyFactory({ genReqId: () => crypto.randomUUID(), ...options });
 
   const liveFeed = createLiveFeedService(
     dependencies.liveProvider ?? createConfiguredLiveProvider(),
@@ -390,4 +389,12 @@ export function buildApp(
   });
 
   return app;
+}
+
+export function buildApp(
+  options: FastifyServerOptions = {},
+  dependencies: AppDependencies,
+) {
+  const app = Fastify({ genReqId: () => crypto.randomUUID(), ...options });
+  return configureApp(app, dependencies);
 }
