@@ -57,6 +57,10 @@ export function listRecentRuns(db: Database, limit = 20) {
   return db.query.ingestionRuns.findMany({ orderBy: desc(ingestionRuns.startedAt), limit });
 }
 
+export function countFailedRuns(db: Database): Promise<number> {
+  return db.$count(ingestionRuns, eq(ingestionRuns.status, 'failed'));
+}
+
 export async function startRun(db: Database, provider: string) {
   const [row] = await db
     .insert(ingestionRuns)
@@ -186,6 +190,36 @@ export async function linkExternalEntity(
     })
     .returning();
   return row!;
+}
+
+export function listOpenConflicts(db: Database, limit = 100) {
+  return db.query.ingestionConflicts.findMany({
+    where: eq(ingestionConflicts.status, 'open'),
+    orderBy: desc(ingestionConflicts.createdAt),
+    limit,
+  });
+}
+
+export function countOpenConflicts(db: Database): Promise<number> {
+  return db.$count(ingestionConflicts, eq(ingestionConflicts.status, 'open'));
+}
+
+export async function resolveConflict(
+  db: Database,
+  id: string,
+  input: { status: 'resolved' | 'dismissed'; resolution?: unknown; resolvedBy?: string | null },
+) {
+  const [row] = await db
+    .update(ingestionConflicts)
+    .set({
+      status: input.status,
+      resolution: input.resolution ?? null,
+      resolvedBy: input.resolvedBy ?? null,
+      resolvedAt: new Date(),
+    })
+    .where(eq(ingestionConflicts.id, id))
+    .returning();
+  return row ?? null;
 }
 
 export async function createConflict(

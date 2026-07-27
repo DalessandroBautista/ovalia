@@ -1,8 +1,12 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import { articles } from '../schema.js';
 
 export type ArticleStatus = 'draft' | 'review' | 'published' | 'archived';
+
+export function countPendingDrafts(db: Database): Promise<number> {
+  return db.$count(articles, inArray(articles.status, ['draft', 'review']));
+}
 
 export function listPublishedArticles(db: Database, opts: { locale?: string; limit?: number } = {}) {
   const locale = opts.locale ?? 'es';

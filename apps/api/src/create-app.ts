@@ -5,9 +5,15 @@ import rateLimit from '@fastify/rate-limit';
 import {
   countActiveTeams,
   countCoveredCompetitions,
+  countFailedRuns,
+  countOpenConflicts,
+  countPendingDrafts,
   featuredPublishedArticle,
   findPublishedArticleBySlug,
+  listOpenConflicts,
   listPublishedArticles,
+  recordAudit,
+  resolveConflict,
   findCompetitionBySlug,
   findMatchById,
   findMatchesByCompetition,
@@ -285,6 +291,62 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
         ? { slug: article.slug, title: article.title, summary: article.summary, publishedAt: article.publishedAt?.toISOString() ?? null }
         : null,
     };
+  });
+
+  // --- Admin (deny por defecto; protegido por token mínimo hasta auth real en Hito 10) ---
+  function requireAdmin(request: { headers: Record<string, unknown> }, reply: {
+    code: (n: number) => { send: (b: unknown) => unknown };
+  }): boolean {
+    const token = process.env.ADMIN_TOKEN;
+    if (!token) {
+      reply.code(503).send({ error: 'admin_disabled', reason: 'ADMIN_TOKEN no configurado' });
+      return false;
+    }
+    if (request.headers['x-admin-token'] !== token) {
+      reply.code(401).send({ error: 'unauthorized' });
+      return false;
+    }
+    return true;
+  }
+
+  app.get('/admin/summary', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    const [openConflicts, failedRuns, pendingDrafts] = await Promise.all([
+      countOpenConflicts(db),
+      countFailedRuns(db),
+      countPendingDrafts(db),
+    ]);
+    return { openConflicts, failedRuns, pendingDrafts };
+  });
+
+  app.get('/admin/conflicts', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    const conflicts = await listOpenConflicts(db, 100);
+    return {
+      conflicts: conflicts.map((c) => ({
+        id: c.id,
+        entityType: c.entityType,
+        reason: c.reason,
+        candidates: c.candidates,
+        createdAt: c.createdAt.toISOString(),
+      })),
+    };
+  });
+
+  app.post('/admin/conflicts/:id/resolve', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    const { id } = request.params as { id: string };
+    const body = request.body as { status?: 'resolved' | 'dismissed'; resolution?: unknown };
+    const status = body?.status === 'resolved' ? 'resolved' : 'dismissed';
+    const row = await resolveConflict(db, id, { status, resolution: body?.resolution });
+    if (!row) return reply.code(404).send({ error: 'conflict_not_found' });
+    await recordAudit(db, {
+      action: 'admin.conflict.resolve',
+      targetType: 'ingestion_conflict',
+      targetId: id,
+      metadata: { status },
+    });
+    return { id, status };
   });
 
   return app;

@@ -29,6 +29,9 @@ export interface ApiFetchOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   cache?: RequestCache;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: unknown;
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
@@ -44,7 +47,13 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     const response = await fetch(`${baseUrl()}${path}`, {
       signal: controller.signal,
       cache: options.cache ?? 'no-store',
-      headers: { accept: 'application/json' },
+      method: options.method ?? 'GET',
+      headers: {
+        accept: 'application/json',
+        ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...options.headers,
+      },
+      ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
     });
     if (!response.ok) {
       throw new ApiError(`API ${response.status} en ${path}`, response.status);
@@ -104,6 +113,38 @@ export function fetchArticles(options?: ApiFetchOptions) {
 
 export function fetchArticle(slug: string, options?: ApiFetchOptions) {
   return apiFetch<ApiArticleDetail>(`/v1/articles/${encodeURIComponent(slug)}`, options);
+}
+
+// --- Admin (token mínimo) ---
+export interface AdminSummary {
+  openConflicts: number;
+  failedRuns: number;
+  pendingDrafts: number;
+}
+export interface AdminConflict {
+  id: string;
+  entityType: string;
+  reason: string | null;
+  candidates: unknown;
+  createdAt: string;
+}
+
+export function fetchAdminSummary(token: string) {
+  return apiFetch<AdminSummary>('/admin/summary', { headers: { 'x-admin-token': token } });
+}
+
+export function fetchAdminConflicts(token: string) {
+  return apiFetch<{ conflicts: AdminConflict[] }>('/admin/conflicts', {
+    headers: { 'x-admin-token': token },
+  });
+}
+
+export function resolveAdminConflict(token: string, id: string, status: 'resolved' | 'dismissed') {
+  return apiFetch<{ id: string; status: string }>(`/admin/conflicts/${encodeURIComponent(id)}/resolve`, {
+    method: 'POST',
+    headers: { 'x-admin-token': token },
+    body: { status },
+  });
 }
 
 export function fetchCompetition(slug: string, options?: ApiFetchOptions) {

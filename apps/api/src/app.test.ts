@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseHandle } from '@ovalia/database';
 import {
+  createConflict,
   createDraft,
   replaceStandings,
   setArticleStatus,
@@ -180,6 +181,42 @@ describe.skipIf(!available)('API real', () => {
     expect(detail.json().article.body).toBe('cuerpo');
     const missing = await app.inject({ method: 'GET', url: '/v1/articles/borrador' });
     expect(missing.statusCode).toBe(404);
+  });
+
+  it('admin deniega por defecto y resuelve conflictos con token', async () => {
+    const { db } = handle;
+    const conflict = await createConflict(db, {
+      entityType: 'match',
+      candidates: [{ home: 'x', away: 'y' }],
+      reason: 'equipo sin resolver',
+    });
+
+    // Sin ADMIN_TOKEN configurado → 503 (deny por defecto).
+    delete process.env.ADMIN_TOKEN;
+    const app1 = makeAppFor();
+    expect((await app1.inject({ method: 'GET', url: '/admin/summary' })).statusCode).toBe(503);
+
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app2 = makeAppFor();
+    expect((await app2.inject({ method: 'GET', url: '/admin/summary' })).statusCode).toBe(401);
+    const ok = await app2.inject({
+      method: 'GET',
+      url: '/admin/summary',
+      headers: { 'x-admin-token': 'secreto' },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().openConflicts).toBe(1);
+
+    const resolved = await app2.inject({
+      method: 'POST',
+      url: `/admin/conflicts/${conflict.id}/resolve`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { status: 'dismissed' },
+    });
+    expect(resolved.statusCode).toBe(200);
+    const after = await db.query.ingestionConflicts.findMany();
+    expect(after[0]!.status).toBe('dismissed');
+    delete process.env.ADMIN_TOKEN;
   });
 
   it('permite CORS al web local', async () => {
