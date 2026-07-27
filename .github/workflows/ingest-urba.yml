@@ -39,6 +39,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ovalia/domain build
+      - run: pnpm --filter @ovalia/database build
       - name: Require the production database URL
         run: test -n "$DATABASE_URL"
       - name: Refresh results
