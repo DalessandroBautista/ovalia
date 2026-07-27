@@ -25,4 +25,7 @@ const stop = async (signal: string) => {
 process.once('SIGINT', () => void stop('SIGINT'));
 process.once('SIGTERM', () => void stop('SIGTERM'));
 
-await app.listen({ host: environment.host, port: environment.port });
+void app.listen({ host: environment.host, port: environment.port }).catch((error: unknown) => {
+  app.log.error({ err: error }, 'failed to start api');
+  process.exit(1);
+});

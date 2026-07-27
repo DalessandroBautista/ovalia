@@ -10,5 +10,6 @@ describe('entrypoint de Vercel', () => {
 
     expect(source).toMatch(/import\s+Fastify(?:\s*,|\s+from)\s*['"]fastify['"]/);
     expect(source).toMatch(/const\s+app\s*=\s*Fastify\s*\(/);
+    expect(source).not.toMatch(/await\s+app\.listen\s*\(/);
   });
 });
