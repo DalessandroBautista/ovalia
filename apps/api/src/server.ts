@@ -1,9 +1,12 @@
-import 'dotenv/config';
-
 import { createDatabase } from '@ovalia/database';
+import { config as loadDotenv } from 'dotenv';
 import Fastify from 'fastify';
 import { configureApp } from './create-app.js';
 import { readApiEnvironment } from './environment.js';
+
+if (process.env.NODE_ENV !== 'production') {
+  loadDotenv();
+}
 
 const environment = readApiEnvironment();
 
