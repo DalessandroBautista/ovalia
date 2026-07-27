@@ -148,7 +148,7 @@ function MatchRow({ match }: { match: AgendaMatch }) {
 
 function Agenda() {
   const [selectedDate, setSelectedDate] = useState(() => argentinaDateKey());
-  const agenda = useAgendaMatches();
+  const agenda = useAgendaMatches(selectedDate);
   const groups = groupMatchesByCompetition(filterMatchesByDate(agenda.matches, selectedDate));
   const today = argentinaDateKey();
   return (

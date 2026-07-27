@@ -1,15 +1,47 @@
+import type { ApiMatch, Freshness } from '../../lib/api/types';
+
 export const ARGENTINA_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+const ARGENTINA_OFFSET = '-03:00';
 
 export interface AgendaMatch {
   id: string;
   competition: string;
+  competitionSlug?: string;
   round: string;
   startsAt: string;
-  status: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled';
+  status: 'scheduled' | 'live' | 'halftime' | 'final' | 'postponed' | 'cancelled';
   homeTeam: string;
   awayTeam: string;
   homeScore: number | null;
   awayScore: number | null;
+  source?: string | null;
+  freshness?: Freshness;
+}
+
+/** Rango UTC (con offset AR) que cubre un día calendario argentino. */
+export function argentinaDayRange(dateKey: string): { from: string; to: string } {
+  return {
+    from: `${dateKey}T00:00:00${ARGENTINA_OFFSET}`,
+    to: `${dateKey}T23:59:59${ARGENTINA_OFFSET}`,
+  };
+}
+
+/** Mapea el DTO de la API al modelo plano de agenda. */
+export function mapApiMatch(api: ApiMatch): AgendaMatch {
+  return {
+    id: api.id,
+    competition: api.competition.name,
+    competitionSlug: api.competition.slug,
+    round: api.round,
+    startsAt: api.startsAt,
+    status: api.status,
+    homeTeam: api.home.name,
+    awayTeam: api.away.name,
+    homeScore: api.homeScore,
+    awayScore: api.awayScore,
+    source: api.source,
+    freshness: api.freshness,
+  };
 }
 
 export interface AgendaGroup {

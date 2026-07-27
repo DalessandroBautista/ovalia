@@ -109,7 +109,12 @@ export async function runIngestion(options: RunIngestionOptions): Promise<RunIng
       if (capability === 'catalog') {
         ({ persisted } = await persistCatalog(db, sourceId, payload as CatalogPayload));
       } else if (capability === 'fixtures' || capability === 'results') {
-        ({ persisted, conflicts } = await persistMatches(db, sourceId, payload as ExternalMatch[]));
+        ({ persisted, conflicts } = await persistMatches(
+          db,
+          sourceId,
+          payload as ExternalMatch[],
+          adapter.descriptor.slug,
+        ));
       } else if (capability === 'standings') {
         ({ persisted, conflicts } = await persistStandings(
           db,
@@ -233,7 +238,12 @@ async function persistCatalog(db: Database, sourceId: string, payload: CatalogPa
   return { persisted };
 }
 
-async function persistMatches(db: Database, sourceId: string, matches: ExternalMatch[]) {
+async function persistMatches(
+  db: Database,
+  sourceId: string,
+  matches: ExternalMatch[],
+  sourceSlug: string,
+) {
   const lookups = await buildTeamLookups(db, sourceId);
   let persisted = 0;
   let conflicts = 0;
@@ -263,7 +273,7 @@ async function persistMatches(db: Database, sourceId: string, matches: ExternalM
       awayScore: match.awayScore ?? null,
       homeTries: match.homeTries ?? 0,
       awayTries: match.awayTries ?? 0,
-      source: sourceId,
+      source: sourceSlug,
     });
     persisted += 1;
   }

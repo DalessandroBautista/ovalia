@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   argentinaDateKey,
+  argentinaDayRange,
   buildCalendarDays,
   filterMatchesByDate,
   formatAgendaDateLabel,
   groupMatchesByCompetition,
+  mapApiMatch,
   shiftDateKey,
   type AgendaMatch,
 } from './agenda-data';
+import type { ApiMatch } from '../../lib/api/types';
 
 const matches: AgendaMatch[] = [
   {
@@ -92,5 +95,42 @@ describe('shared agenda fixtures', () => {
       ['Rugby Championship', 1],
       ['URBA Top 14', 1],
     ]);
+  });
+});
+
+describe('API mapping', () => {
+  it('argentinaDayRange cubre el día argentino con offset -03:00', () => {
+    expect(argentinaDayRange('2026-08-01')).toEqual({
+      from: '2026-08-01T00:00:00-03:00',
+      to: '2026-08-01T23:59:59-03:00',
+    });
+  });
+
+  it('mapApiMatch aplana el DTO y conserva fuente/frescura', () => {
+    const api: ApiMatch = {
+      id: 'm1',
+      competition: { slug: 'top-14-superior', name: 'TOP 14 - Superior' },
+      season: 2026,
+      round: 'Fecha 1',
+      startsAt: '2026-08-01T18:00:00.000Z',
+      venue: 'SIC',
+      status: 'final',
+      home: { slug: 'sic', name: 'SIC', shortName: 'SIC', badgeUrl: null },
+      away: { slug: 'hindu', name: 'Hindú', shortName: 'HIN', badgeUrl: null },
+      homeScore: 24,
+      awayScore: 21,
+      source: 'urba',
+      freshness: 'fresh',
+    };
+    expect(mapApiMatch(api)).toMatchObject({
+      id: 'm1',
+      competition: 'TOP 14 - Superior',
+      competitionSlug: 'top-14-superior',
+      homeTeam: 'SIC',
+      awayTeam: 'Hindú',
+      homeScore: 24,
+      source: 'urba',
+      freshness: 'fresh',
+    });
   });
 });

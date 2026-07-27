@@ -1,0 +1,83 @@
+export type ApiMatchStatus =
+  | 'scheduled'
+  | 'live'
+  | 'halftime'
+  | 'final'
+  | 'postponed'
+  | 'cancelled';
+
+export type Freshness = 'fresh' | 'stale' | 'unknown';
+
+export interface ApiTeamRef {
+  slug: string;
+  name: string;
+  shortName: string;
+  badgeUrl: string | null;
+}
+
+export interface ApiMatch {
+  id: string;
+  competition: { slug: string; name: string };
+  season: number;
+  round: string;
+  startsAt: string;
+  venue: string | null;
+  status: ApiMatchStatus;
+  home: ApiTeamRef;
+  away: ApiTeamRef;
+  homeScore: number | null;
+  awayScore: number | null;
+  source: string | null;
+  freshness: Freshness;
+}
+
+export interface ApiMatchListResponse {
+  generatedAt: string;
+  matches: ApiMatch[];
+  nextCursor: string | null;
+}
+
+export interface ApiStandingRow {
+  position: number;
+  team: { slug: string; name: string };
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  bonus: number;
+  points: number;
+}
+
+export interface ApiStandingsResponse {
+  competition: { slug: string; name: string };
+  season: number;
+  rows: ApiStandingRow[];
+  source: string | null;
+  freshness: Freshness;
+}
+
+export interface ApiCompetition {
+  slug: string;
+  name: string;
+  category: string;
+  gender: string;
+  countryCode: string | null;
+  coverage: string;
+}
+
+export interface ApiCompetitionsResponse {
+  competitions: ApiCompetition[];
+}
+
+export interface ApiCompetitionDetail {
+  competition: {
+    slug: string;
+    name: string;
+    category: string;
+    gender: string;
+    coverage: string;
+    seasons: Array<{ year: number; name: string }>;
+  };
+}

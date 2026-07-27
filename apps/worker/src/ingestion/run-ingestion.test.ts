@@ -90,6 +90,7 @@ describe.skipIf(!available)('runIngestion', () => {
     const matches = await db.query.matches.findMany();
     expect(matches).toHaveLength(1);
     expect(matches[0]!.startsAt.toISOString()).toBe('2026-08-01T18:00:00.000Z');
+    expect(matches[0]!.source).toBe('fake');
   });
 
   it('es idempotente por checksum (segunda corrida se saltea)', async () => {
