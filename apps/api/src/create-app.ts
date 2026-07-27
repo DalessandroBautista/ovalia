@@ -3,12 +3,16 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import {
+  countActiveTeams,
+  countCoveredCompetitions,
+  featuredPublishedArticle,
   findCompetitionBySlug,
   findMatchById,
   findMatchesByCompetition,
   findMatchesInRange,
   findSeason,
   findTeamBySlug,
+  getActiveContest,
   getLatestSeason,
   getStandingsForSeason,
   listCompetitions,
@@ -228,14 +232,28 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
     };
   });
 
-  // --- Portada (agregado mínimo; ampliado en Hito 9) ---
+  // --- Portada: agregados reales ---
   app.get('/v1/home', async () => {
-    const competitions = await listCompetitions(db);
-    const feed = await liveFeed.getLiveMatches();
+    const [coveredCompetitions, activeTeams, feed, contest, article] = await Promise.all([
+      countCoveredCompetitions(db),
+      countActiveTeams(db),
+      liveFeed.getLiveMatches(),
+      getActiveContest(db),
+      featuredPublishedArticle(db),
+    ]);
     return {
       generatedAt: new Date().toISOString(),
-      competitionsCount: competitions.length,
-      liveCount: feed.matches.length,
+      stats: {
+        competitions: coveredCompetitions,
+        clubs: activeTeams,
+        live: feed.matches.length,
+      },
+      contest: contest
+        ? { slug: contest.slug, name: contest.name, round: contest.round, closesAt: contest.closesAt?.toISOString() ?? null }
+        : null,
+      featuredArticle: article
+        ? { slug: article.slug, title: article.title, summary: article.summary, publishedAt: article.publishedAt?.toISOString() ?? null }
+        : null,
     };
   });
 

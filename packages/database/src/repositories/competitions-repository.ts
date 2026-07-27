@@ -18,6 +18,10 @@ export function listCompetitions(db: Database) {
   return db.query.competitions.findMany();
 }
 
+export function countCoveredCompetitions(db: Database): Promise<number> {
+  return db.$count(competitions, eq(competitions.coverage, 'auto'));
+}
+
 export function findCompetitionBySlug(db: Database, slug: string) {
   return db.query.competitions.findFirst({ where: eq(competitions.slug, slug) });
 }

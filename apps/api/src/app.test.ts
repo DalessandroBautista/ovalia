@@ -145,6 +145,22 @@ describe.skipIf(!available)('API real', () => {
     expect(res.json().matches).toEqual([]);
   });
 
+  it('/v1/home devuelve agregados reales', async () => {
+    const { db } = handle;
+    await makeCompetition(db, { slug: 'urba-top-14', coverage: 'auto' });
+    await makeCompetition(db, { slug: 'manual-x', coverage: 'manual' });
+    await makeTeam(db, { slug: 't1' });
+    await makeTeam(db, { slug: 't2' });
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/home' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.stats.competitions).toBe(1); // solo la de cobertura auto
+    expect(body.stats.clubs).toBe(2);
+    expect(body.contest).toBeNull();
+    expect(body.featuredArticle).toBeNull();
+  });
+
   it('permite CORS al web local', async () => {
     const app = makeAppFor();
     const res = await app.inject({

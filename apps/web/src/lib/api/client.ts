@@ -1,6 +1,7 @@
 import type {
   ApiCompetitionDetail,
   ApiCompetitionsResponse,
+  ApiHomeResponse,
   ApiMatch,
   ApiMatchListResponse,
   ApiStandingsResponse,
@@ -89,6 +90,10 @@ export function fetchMatchById(id: string, options?: ApiFetchOptions) {
 
 export function fetchCompetitions(options?: ApiFetchOptions) {
   return apiFetch<ApiCompetitionsResponse>('/v1/competitions', options);
+}
+
+export function fetchHome(options?: ApiFetchOptions) {
+  return apiFetch<ApiHomeResponse>('/v1/home', options);
 }
 
 export function fetchCompetition(slug: string, options?: ApiFetchOptions) {

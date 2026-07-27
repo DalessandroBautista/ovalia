@@ -6,9 +6,7 @@
     "apps/web/app/noticias/page.tsx",
     "apps/web/app/ingresar/page.tsx"
   ],
-  "countdown-literal": [
-    "apps/web/src/features/home/home-page.tsx"
-  ],
+  "countdown-literal": [],
   "provider-url": [],
   "secret-literal": []
 }

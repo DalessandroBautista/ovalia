@@ -17,6 +17,8 @@ import {
   type AgendaMatch,
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
+import { useCountdown, useHome } from './use-home';
+import type { ApiHomeResponse } from '../../lib/api/types';
 
 export function BallMark() {
   return (
@@ -90,7 +92,7 @@ function FeaturedMatch({ feed }: { feed: LiveFeedPayload }) {
   );
 }
 
-function Hero({ feed }: { feed: LiveFeedPayload }) {
+function Hero({ feed, home }: { feed: LiveFeedPayload; home: ApiHomeResponse | null }) {
   return (
     <section className="hero" id="inicio">
       <div className="hero__copy">
@@ -98,9 +100,9 @@ function Hero({ feed }: { feed: LiveFeedPayload }) {
         <h1>Donde el rugby pasa, <em>Ovalia lo cuenta.</em></h1>
         <p className="hero__intro">Resultados, historias y comunidad. Desde tu club hasta el escenario mundial.</p>
         <div className="hero__stats" aria-label="Cobertura de Ovalia">
-          <div><strong>26</strong><span>torneos</span></div>
-          <div><strong>184</strong><span>clubes</span></div>
-          <div><strong>{feed.matches.length}</strong><span>en vivo</span></div>
+          <div><strong>{home?.stats.competitions ?? '—'}</strong><span>torneos</span></div>
+          <div><strong>{home?.stats.clubs ?? '—'}</strong><span>clubes</span></div>
+          <div><strong>{home?.stats.live ?? feed.matches.length}</strong><span>en vivo</span></div>
         </div>
       </div>
       <FeaturedMatch feed={feed} />
@@ -174,27 +176,60 @@ function Agenda() {
   );
 }
 
-function Sidebar() {
-  return (
-    <aside className="sidebar">
+function ProdeCard({ home }: { home: ApiHomeResponse | null }) {
+  const contest = home?.contest ?? null;
+  const countdown = useCountdown(contest?.closesAt);
+  if (!contest) {
+    return (
       <section className="prode-card" id="prodes">
-        <div className="prode-card__art"><span>?</span><span>5</span><span>3</span></div>
-        <p className="eyebrow">PRODE · FECHA 17</p>
-        <h2>Tu lectura del partido también juega.</h2>
-        <p>Pronosticá la fecha del URBA Top 14 y medite con toda la comunidad.</p>
-        <div className="prode-card__meta"><span>Cierra en</span><b>01:42:18</b></div>
-        <a href="/prodes">Hacer mis pronósticos <span>→</span></a>
+        <p className="eyebrow">PRODE</p>
+        <h2>Pronto vas a poder jugar la fecha.</h2>
+        <p>Todavía no hay un concurso abierto. Cuando se abra, aparece acá.</p>
       </section>
+    );
+  }
+  return (
+    <section className="prode-card" id="prodes">
+      <p className="eyebrow">PRODE{contest.round ? ` · ${contest.round}` : ''}</p>
+      <h2>Tu lectura del partido también juega.</h2>
+      <p>{contest.name}</p>
+      {countdown ? <div className="prode-card__meta"><span>Cierra en</span><b>{countdown}</b></div> : null}
+      <a href="/prodes">Hacer mis pronósticos <span>→</span></a>
+    </section>
+  );
+}
+
+function NewsCard({ home }: { home: ApiHomeResponse | null }) {
+  const article = home?.featuredArticle ?? null;
+  if (!article) {
+    return (
       <section className="news-card" id="noticias">
-        <div className="news-card__label">ANÁLISIS</div>
-        <div className="news-card__field" aria-hidden="true"><i /><i /><i /></div>
         <div className="news-card__body">
-          <p className="eyebrow">LA PIZARRA</p>
-          <h3>El maul argentino encontró una nueva marcha</h3>
-          <p>Las claves del ajuste que cambió el partido en Mendoza.</p>
-          <span>Por Equipo Ovalia · 6 min</span>
+          <p className="eyebrow">NOTICIAS</p>
+          <h3>Sin notas publicadas todavía</h3>
+          <p>El equipo editorial está preparando las primeras historias.</p>
         </div>
       </section>
+    );
+  }
+  return (
+    <section className="news-card" id="noticias">
+      <div className="news-card__label">ANÁLISIS</div>
+      <div className="news-card__body">
+        <p className="eyebrow">LA PIZARRA</p>
+        <h3>{article.title}</h3>
+        <p>{article.summary}</p>
+        <a href={`/noticias/${article.slug}`}>Leer nota →</a>
+      </div>
+    </section>
+  );
+}
+
+function Sidebar({ home }: { home: ApiHomeResponse | null }) {
+  return (
+    <aside className="sidebar">
+      <ProdeCard home={home} />
+      <NewsCard home={home} />
     </aside>
   );
 }
@@ -213,19 +248,20 @@ function BottomNav() {
 
 export function HomePage() {
   const liveFeed = useLiveFeed();
+  const home = useHome();
   return (
     <>
       <LiveRailView feed={liveFeed} />
       <div className="page-shell">
         <Header />
         <main>
-          <Hero feed={liveFeed} />
+          <Hero feed={liveFeed} home={home.data} />
           <div className="content-grid">
             <Agenda />
-            <Sidebar />
+            <Sidebar home={home.data} />
           </div>
         </main>
-        <footer className="site-footer"><span><BallMark /> OVALIA</span><p>El rugby entero, en un solo pulso.</p><small>© 2026 Ovalia</small></footer>
+        <footer className="site-footer"><span><BallMark /> OVALIA</span><p>El rugby entero, en un solo pulso.</p><small>© {new Date().getFullYear()} Ovalia</small></footer>
       </div>
       <BottomNav />
     </>

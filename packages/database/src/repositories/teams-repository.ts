@@ -30,6 +30,10 @@ export function listTeams(db: Database) {
   return db.query.teams.findMany();
 }
 
+export function countActiveTeams(db: Database): Promise<number> {
+  return db.$count(teams, eq(teams.active, true));
+}
+
 export function findTeamByExternalId(db: Database, provider: string, externalId: string) {
   return db.query.teams.findFirst({
     where: sql`${teams.externalIds} ->> ${provider} = ${externalId}`,
