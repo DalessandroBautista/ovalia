@@ -17,6 +17,7 @@ import {
 import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
 import { useCompetitions, useTournament } from '../tournaments/use-tournaments';
+import { track } from '../../lib/analytics';
 
 export function PortalHeader() {
   return (
@@ -55,6 +56,7 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
     const url = new URL(window.location.href);
     url.searchParams.set('fecha', selectedDate);
     window.history.replaceState(null, '', url.toString());
+    track('view_date', { date: selectedDate });
   }, [selectedDate]);
 
   const liveMatches = feed.matches.filter((match) => argentinaDateKey(match.startsAt) === selectedDate);
@@ -130,6 +132,10 @@ export function TournamentPage({ slug }: { slug: string }) {
   const [season, setSeason] = useState<number | undefined>(undefined);
   const [tab, setTab] = useState<TournamentTab>('posiciones');
   const { status, competition, standings, matches } = useTournament(slug, season);
+
+  useEffect(() => {
+    track('view_tournament', { slug });
+  }, [slug]);
 
   if (status === 'loading' && !competition) {
     return <Frame eyebrow="TORNEO" title="Cargando…" intro="Consultando los datos verificados del torneo."><p className="portal-live-status">Cargando…</p></Frame>;

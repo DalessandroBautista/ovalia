@@ -390,3 +390,24 @@ export const jobs = pgTable('jobs', {
   index('jobs_status_run_idx').on(table.status, table.runAt),
   uniqueIndex('jobs_dedupe_unique').on(table.dedupeKey)
 ]);
+
+// --- Analytics y feedback (privacidad primero: sin PII) ---
+
+export const analyticsEvents = pgTable('analytics_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  path: text('path'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  index('analytics_events_name_idx').on(table.name),
+  index('analytics_events_created_idx').on(table.createdAt)
+]);
+
+export const feedback = pgTable('feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  message: text('message').notNull(),
+  path: text('path'),
+  contact: text('contact'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});

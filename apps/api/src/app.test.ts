@@ -183,6 +183,27 @@ describe.skipIf(!available)('API real', () => {
     expect(missing.statusCode).toBe(404);
   });
 
+  it('registra eventos de analytics y feedback sin PII obligatoria', async () => {
+    const { db } = handle;
+    const app = makeAppFor();
+    const ev = await app.inject({
+      method: 'POST',
+      url: '/v1/events',
+      payload: { name: 'view_date', metadata: { date: '2026-03-14' } },
+    });
+    expect(ev.statusCode).toBe(202);
+    const bad = await app.inject({ method: 'POST', url: '/v1/events', payload: {} });
+    expect(bad.statusCode).toBe(400);
+    const fb = await app.inject({
+      method: 'POST',
+      url: '/v1/feedback',
+      payload: { message: 'Buenísima la agenda' },
+    });
+    expect(fb.statusCode).toBe(201);
+    expect(await db.query.analyticsEvents.findMany()).toHaveLength(1);
+    expect(await db.query.feedback.findMany()).toHaveLength(1);
+  });
+
   it('admin deniega por defecto y resuelve conflictos con token', async () => {
     const { db } = handle;
     const conflict = await createConflict(db, {

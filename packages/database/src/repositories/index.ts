@@ -8,3 +8,4 @@ export * from './predictions-repository.js';
 export * from './users-repository.js';
 export * from './audit-repository.js';
 export * from './jobs-repository.js';
+export * from './analytics-repository.js';

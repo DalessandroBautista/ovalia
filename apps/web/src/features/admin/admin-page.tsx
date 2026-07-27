@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   fetchAdminConflicts,
@@ -11,19 +11,13 @@ import {
 } from '../../lib/api/client';
 import { PortalHeader } from '../portal/portal-pages';
 
-const TOKEN_KEY = 'ovalia_admin_token';
-
 export function AdminPage() {
+  // El token se mantiene solo en memoria: no se persiste (evita exfiltración por XSS).
   const [token, setToken] = useState('');
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [conflicts, setConflicts] = useState<AdminConflict[]>([]);
-
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null;
-    if (stored) setToken(stored);
-  }, []);
 
   const load = useCallback(async (t: string) => {
     setError(null);
@@ -32,7 +26,6 @@ export function AdminPage() {
       setSummary(s);
       setConflicts(c.conflicts);
       setAuthed(true);
-      window.localStorage.setItem(TOKEN_KEY, t);
     } catch {
       setAuthed(false);
       setError('Token inválido o admin deshabilitado.');

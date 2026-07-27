@@ -63,6 +63,8 @@ export function getTestDatabase(): Promise<ReturnType<typeof createDatabase>> {
 }
 
 const TABLES = [
+  'analytics_events',
+  'feedback',
   'audit_log',
   'contest_rankings',
   'prediction_group_members',

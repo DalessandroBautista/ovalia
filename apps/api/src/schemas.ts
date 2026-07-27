@@ -24,6 +24,19 @@ export const standingsQuerySchema = z.object({
   season: z.coerce.number().int().optional(),
 });
 
+/** Evento de analytics anónimo (sin PII). */
+export const analyticsEventSchema = z.object({
+  name: z.string().min(1).max(64),
+  path: z.string().max(256).optional(),
+  metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
+export const feedbackSchema = z.object({
+  message: z.string().min(1).max(2000),
+  path: z.string().max(256).optional(),
+  contact: z.string().max(200).optional(),
+});
+
 export const competitionMatchesQuerySchema = z.object({
   season: z.coerce.number().int().optional(),
   round: z.string().min(1).optional(),

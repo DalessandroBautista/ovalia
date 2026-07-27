@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyError, type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -13,6 +14,8 @@ import {
   listOpenConflicts,
   listPublishedArticles,
   recordAudit,
+  recordEvent,
+  recordFeedback,
   resolveConflict,
   findCompetitionBySlug,
   findMatchById,
@@ -35,9 +38,11 @@ import {
   type LiveProvider,
 } from './live/live-feed.js';
 import {
+  analyticsEventSchema,
   competitionMatchesQuerySchema,
   decodeCursor,
   encodeCursor,
+  feedbackSchema,
   freshness,
   matchesQuerySchema,
   standingsQuerySchema,
@@ -293,7 +298,34 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
     };
   });
 
+  // --- Analytics y feedback (anónimo, sin PII obligatoria) ---
+  app.post('/v1/events', async (request, reply) => {
+    const parsed = analyticsEventSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_event' });
+    await recordEvent(db, parsed.data);
+    return reply.code(202).send({ ok: true });
+  });
+
+  app.post('/v1/feedback', async (request, reply) => {
+    const parsed = feedbackSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_feedback' });
+    await recordFeedback(db, parsed.data);
+    return reply.code(201).send({ ok: true });
+  });
+
   // --- Admin (deny por defecto; protegido por token mínimo hasta auth real en Hito 10) ---
+  function tokensMatch(provided: unknown, expected: string): boolean {
+    if (typeof provided !== 'string') return false;
+    const a = Buffer.from(provided);
+    const b = Buffer.from(expected);
+    // Comparación en tiempo constante: iguala longitudes antes de comparar.
+    if (a.length !== b.length) {
+      timingSafeEqual(b, b);
+      return false;
+    }
+    return timingSafeEqual(a, b);
+  }
+
   function requireAdmin(request: { headers: Record<string, unknown> }, reply: {
     code: (n: number) => { send: (b: unknown) => unknown };
   }): boolean {
@@ -302,7 +334,7 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
       reply.code(503).send({ error: 'admin_disabled', reason: 'ADMIN_TOKEN no configurado' });
       return false;
     }
-    if (request.headers['x-admin-token'] !== token) {
+    if (!tokensMatch(request.headers['x-admin-token'], token)) {
       reply.code(401).send({ error: 'unauthorized' });
       return false;
     }
@@ -344,7 +376,9 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
       action: 'admin.conflict.resolve',
       targetType: 'ingestion_conflict',
       targetId: id,
-      metadata: { status },
+      // Sin identidad de usuario todavía (token-only); se atribuye el método.
+      // El actor real se registra cuando exista auth/RBAC (Hito 10).
+      metadata: { status, via: 'admin-token' },
     });
     return { id, status };
   });

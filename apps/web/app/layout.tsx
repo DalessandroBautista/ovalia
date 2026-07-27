@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import './globals.css';
+import { Analytics } from '../src/components/analytics';
+import { FeedbackWidget } from '../src/components/feedback-widget';
 
 export const metadata: Metadata = {
   title: 'Ovalia — Todo el rugby en un solo lugar',
@@ -15,5 +17,13 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  return <html lang="es"><body>{children}</body></html>;
+  return (
+    <html lang="es">
+      <body>
+        {children}
+        <Analytics />
+        <FeedbackWidget />
+      </body>
+    </html>
+  );
 }
