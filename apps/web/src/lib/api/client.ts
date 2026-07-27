@@ -1,4 +1,6 @@
 import type {
+  ApiArticleDetail,
+  ApiArticlesResponse,
   ApiCompetitionDetail,
   ApiCompetitionsResponse,
   ApiHomeResponse,
@@ -94,6 +96,14 @@ export function fetchCompetitions(options?: ApiFetchOptions) {
 
 export function fetchHome(options?: ApiFetchOptions) {
   return apiFetch<ApiHomeResponse>('/v1/home', options);
+}
+
+export function fetchArticles(options?: ApiFetchOptions) {
+  return apiFetch<ApiArticlesResponse>('/v1/articles', options);
+}
+
+export function fetchArticle(slug: string, options?: ApiFetchOptions) {
+  return apiFetch<ApiArticleDetail>(`/v1/articles/${encodeURIComponent(slug)}`, options);
 }
 
 export function fetchCompetition(slug: string, options?: ApiFetchOptions) {

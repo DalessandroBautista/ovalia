@@ -71,6 +71,21 @@ export interface ApiCompetitionsResponse {
   competitions: ApiCompetition[];
 }
 
+export interface ApiArticleSummary {
+  slug: string;
+  title: string;
+  summary: string;
+  publishedAt: string | null;
+}
+
+export interface ApiArticlesResponse {
+  articles: ApiArticleSummary[];
+}
+
+export interface ApiArticleDetail {
+  article: ApiArticleSummary & { body: string };
+}
+
 export interface ApiHomeResponse {
   generatedAt: string;
   stats: { competitions: number; clubs: number; live: number };

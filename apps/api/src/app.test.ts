@@ -1,6 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseHandle } from '@ovalia/database';
-import { replaceStandings, upsertMatchByNaturalKey } from '@ovalia/database';
+import {
+  createDraft,
+  replaceStandings,
+  setArticleStatus,
+  upsertMatchByNaturalKey,
+} from '@ovalia/database';
 import {
   getTestDatabase,
   isDatabaseAvailable,
@@ -159,6 +164,22 @@ describe.skipIf(!available)('API real', () => {
     expect(body.stats.clubs).toBe(2);
     expect(body.contest).toBeNull();
     expect(body.featuredArticle).toBeNull();
+  });
+
+  it('/v1/articles solo expone publicados', async () => {
+    const { db } = handle;
+    await createDraft(db, { slug: 'borrador', title: 'Borrador', summary: 's', body: 'b' });
+    const pub = await createDraft(db, { slug: 'publicada', title: 'Publicada', summary: 's', body: 'cuerpo' });
+    await setArticleStatus(db, pub.id, 'published');
+    const app = makeAppFor();
+    const list = await app.inject({ method: 'GET', url: '/v1/articles' });
+    expect(list.json().articles).toHaveLength(1);
+    expect(list.json().articles[0].slug).toBe('publicada');
+    const detail = await app.inject({ method: 'GET', url: '/v1/articles/publicada' });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().article.body).toBe('cuerpo');
+    const missing = await app.inject({ method: 'GET', url: '/v1/articles/borrador' });
+    expect(missing.statusCode).toBe(404);
   });
 
   it('permite CORS al web local', async () => {

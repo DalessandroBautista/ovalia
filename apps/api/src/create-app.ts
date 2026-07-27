@@ -6,6 +6,8 @@ import {
   countActiveTeams,
   countCoveredCompetitions,
   featuredPublishedArticle,
+  findPublishedArticleBySlug,
+  listPublishedArticles,
   findCompetitionBySlug,
   findMatchById,
   findMatchesByCompetition,
@@ -228,6 +230,34 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
         countryCode: team.countryCode,
         union: team.union,
         badgeUrl: team.badgeUrl,
+      },
+    };
+  });
+
+  // --- Noticias (solo publicadas) ---
+  app.get('/v1/articles', async () => {
+    const articles = await listPublishedArticles(db, { limit: 30 });
+    return {
+      articles: articles.map((a) => ({
+        slug: a.slug,
+        title: a.title,
+        summary: a.summary,
+        publishedAt: a.publishedAt?.toISOString() ?? null,
+      })),
+    };
+  });
+
+  app.get('/v1/articles/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const article = await findPublishedArticleBySlug(db, slug);
+    if (!article) return reply.code(404).send({ error: 'article_not_found' });
+    return {
+      article: {
+        slug: article.slug,
+        title: article.title,
+        summary: article.summary,
+        body: article.body,
+        publishedAt: article.publishedAt?.toISOString() ?? null,
       },
     };
   });
