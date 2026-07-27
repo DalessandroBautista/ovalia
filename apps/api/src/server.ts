@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import { createDatabase } from '@ovalia/database';
+import Fastify from 'fastify';
 import { buildApp } from './create-app.js';
 import { readApiEnvironment } from './environment.js';
 
@@ -11,7 +12,7 @@ const { db, pool } = createDatabase(environment.databaseUrl, {
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
 });
-const app = buildApp({ logger: true }, { db });
+const app = buildApp({ logger: true }, { db }, Fastify);
 
 const stop = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');

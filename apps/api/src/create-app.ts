@@ -74,9 +74,13 @@ function serializeMatch(row: NonNullable<MatchRow>) {
   };
 }
 
-export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDependencies) {
+export function buildApp(
+  options: FastifyServerOptions = {},
+  dependencies: AppDependencies,
+  fastifyFactory: typeof Fastify = Fastify,
+) {
   const { db } = dependencies;
-  const app = Fastify({ genReqId: () => crypto.randomUUID(), ...options });
+  const app = fastifyFactory({ genReqId: () => crypto.randomUUID(), ...options });
 
   const liveFeed = createLiveFeedService(
     dependencies.liveProvider ?? createConfiguredLiveProvider(),
