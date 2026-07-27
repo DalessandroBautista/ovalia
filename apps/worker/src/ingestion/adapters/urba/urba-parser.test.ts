@@ -31,6 +31,12 @@ describe('URBA parser (contract)', () => {
     expect(competitions[0]!.externalId).toBe('2025176');
   });
 
+  it('emite el slug canónico provisto por el adaptador', () => {
+    const slugMap = new Map([['2025176', 'urba-top-14']]);
+    const competitions = parseCompetitions(loadFixture('championships.sample.json'), [2025176], slugMap);
+    expect(competitions[0]!.slug).toBe('urba-top-14');
+  });
+
   it('parsea clubes como equipos con escudo y external ID de club', () => {
     const teams = parseClubsAsTeams({
       clubs: [{ id: 1, name: 'SIC', image_uri: 'img/clubs/sic.png' }],

@@ -96,19 +96,27 @@ function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown, label: string): T {
   return result.data;
 }
 
-export function parseCompetitions(raw: unknown, priorityIds?: number[]): ExternalCompetition[] {
+export function parseCompetitions(
+  raw: unknown,
+  priorityIds?: number[],
+  slugByExternalId?: ReadonlyMap<string, string>,
+): ExternalCompetition[] {
   const data = parseOrThrow(rawChampionshipsSchema, raw, 'championships');
   return data.championships
     .filter((c) => !priorityIds || priorityIds.includes(c.id))
-    .map((c) => ({
-      externalId: String(c.id),
-      name: c.name,
-      category: 'clubs',
-      gender: genderFromName(c.name),
-      countryCode: 'AR',
-      format: 'xv' as const,
-      season: { externalId: String(c.season.id), name: c.season.name, year: c.season.id },
-    }));
+    .map((c) => {
+      const slug = slugByExternalId?.get(String(c.id));
+      return {
+        externalId: String(c.id),
+        name: c.name,
+        ...(slug ? { slug } : {}),
+        category: 'clubs',
+        gender: genderFromName(c.name),
+        countryCode: 'AR',
+        format: 'xv' as const,
+        season: { externalId: String(c.season.id), name: c.season.name, year: c.season.id },
+      };
+    });
 }
 
 export function parseClubsAsTeams(raw: unknown): ExternalTeam[] {

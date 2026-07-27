@@ -13,11 +13,12 @@ describe('public portal pages', () => {
     expect(html).toContain('Cargando la agenda');
   });
 
-  it('renders the complete tournament catalog', () => {
+  it('renders the tournament catalog shell and loads from the API', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
-    expect(html).toContain('URBA Top 14');
-    expect(html).toContain('Torneo del Interior');
-    expect(html).toContain('Six Nations');
+    expect(html).toContain('Todos los torneos');
+    // Sin datos precargados en SSR, muestra el estado de carga real (no un array hardcodeado).
+    expect(html).toContain('Cargando torneos');
+    expect(html).not.toContain('Six Nations');
   });
 
   it('renders the prediction experience', () => {

@@ -16,13 +16,7 @@ import {
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
-
-const tournamentGroups = [
-  { title: 'Argentina · Buenos Aires', items: ['URBA Top 14', 'Primera A', 'Primera B', 'Primera C', 'Segunda', 'Tercera', 'Desarrollo', 'Femenino Top 9'] },
-  { title: 'Argentina · Federal', items: ['Torneo del Interior A', 'Torneo del Interior B', 'Nacional de Clubes', 'Super Rugby Américas', 'Seven de la República'] },
-  { title: 'Selecciones', items: ['Rugby Championship', 'Six Nations', 'Mundial', 'Mundial Femenino', 'World Rugby U20', 'SVNS'] },
-  { title: 'Clubes internacionales', items: ['Top 14', 'Premiership', 'United Rugby Championship', 'Champions Cup', 'Challenge Cup'] }
-];
+import { useCompetitions, useTournament } from '../tournaments/use-tournaments';
 
 export function PortalHeader() {
   return (
@@ -92,9 +86,32 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
 }
 
 export function TournamentsPage() {
+  const { status, competitions } = useCompetitions();
+  const covered = competitions.filter((c) => c.coverage === 'auto');
+  const upcoming = competitions.filter((c) => c.coverage !== 'auto');
   return (
-    <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Desde cada unión argentina hasta las grandes competencias de selecciones y clubes.">
-      <div className="tournament-grid">{tournamentGroups.map((group) => <section className="tournament-group" key={group.title}><h2>{group.title}</h2>{group.items.map((item) => <a href={item === 'URBA Top 14' ? '/torneos/urba-top-14' : '#'} key={item}><span>{item}</span><i>→</i></a>)}</section>)}</div>
+    <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
+      {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
+      {status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los torneos.</p> : null}
+      {covered.length > 0 ? (
+        <section className="tournament-group">
+          <h2>Con datos en vivo</h2>
+          {covered.map((c) => (
+            <a href={`/torneos/${c.slug}`} key={c.slug}><span>{c.name}</span><i>→</i></a>
+          ))}
+        </section>
+      ) : null}
+      {upcoming.length > 0 ? (
+        <section className="tournament-group">
+          <h2>En preparación</h2>
+          {upcoming.map((c) => (
+            <div className="tournament-upcoming" key={c.slug} aria-disabled="true">
+              <span>{c.name}</span>
+              <small>Cobertura en preparación</small>
+            </div>
+          ))}
+        </section>
+      ) : null}
     </Frame>
   );
 }
@@ -107,9 +124,75 @@ export function PredictionPage() {
   );
 }
 
-export function TournamentPage() {
-  const rows = [['1','SIC','11','43'],['2','Hindú','11','40'],['3','Newman','11','37'],['4','Alumni','11','36'],['5','CUBA','11','31']];
-  return <Frame eyebrow="ARGENTINA · BUENOS AIRES" title="URBA Top 14" intro="Temporada 2026 · resultados, calendario, posiciones, estadísticas y prode."><nav className="tab-bar"><a href="#resultados">Resultados</a><a className="active" href="#posiciones">Posiciones</a><a href="#calendario">Calendario</a><a href="/prodes">Prode</a></nav><section className="table-card"><h2>Tabla de posiciones</h2><div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>{rows.map((row) => <div className="standing-row" key={row[1]}>{row.map((cell) => <span key={cell}>{cell}</span>)}</div>)}</section></Frame>;
+type TournamentTab = 'posiciones' | 'resultados' | 'calendario';
+
+export function TournamentPage({ slug }: { slug: string }) {
+  const [season, setSeason] = useState<number | undefined>(undefined);
+  const [tab, setTab] = useState<TournamentTab>('posiciones');
+  const { status, competition, standings, matches } = useTournament(slug, season);
+
+  if (status === 'loading' && !competition) {
+    return <Frame eyebrow="TORNEO" title="Cargando…" intro="Consultando los datos verificados del torneo."><p className="portal-live-status">Cargando…</p></Frame>;
+  }
+  if (status === 'error' || !competition) {
+    return <Frame eyebrow="TORNEO" title="Torneo no disponible" intro="No encontramos este torneo en nuestros datos verificados."><section className="match-detail match-detail--empty"><RugbyBallIcon /><a className="primary-action inline-action" href="/torneos">Ver todos los torneos</a></section></Frame>;
+  }
+
+  const results = matches.filter((m) => m.status === 'final');
+  const upcoming = matches.filter((m) => m.status !== 'final');
+  const activeSeason = season ?? competition.seasons[0]?.year;
+
+  return (
+    <Frame eyebrow="ARGENTINA · BUENOS AIRES" title={competition.name} intro={`Temporada ${activeSeason ?? ''} · posiciones, resultados y calendario reales.`}>
+      {competition.seasons.length > 1 ? (
+        <label className="season-picker">Temporada
+          <select value={activeSeason} onChange={(e) => setSeason(Number(e.target.value))}>
+            {competition.seasons.map((s) => <option key={s.year} value={s.year}>{s.name}</option>)}
+          </select>
+        </label>
+      ) : null}
+      <nav className="tab-bar">
+        <button type="button" className={tab === 'posiciones' ? 'active' : ''} onClick={() => setTab('posiciones')}>Posiciones</button>
+        <button type="button" className={tab === 'resultados' ? 'active' : ''} onClick={() => setTab('resultados')}>Resultados</button>
+        <button type="button" className={tab === 'calendario' ? 'active' : ''} onClick={() => setTab('calendario')}>Calendario</button>
+      </nav>
+
+      {tab === 'posiciones' ? (
+        <section className="table-card">
+          <h2>Tabla de posiciones</h2>
+          {standings && standings.rows.length > 0 ? (
+            <>
+              <div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>
+              {standings.rows.map((row) => (
+                <div className="standing-row" key={row.team.slug}>
+                  <span>{row.position}</span><span>{row.team.name}</span><span>{row.played}</span><span>{row.points}</span>
+                </div>
+              ))}
+              <DataProvenance source={standings.source} freshness={standings.freshness} />
+            </>
+          ) : <p className="portal-live-status">Todavía no hay posiciones para esta temporada.</p>}
+        </section>
+      ) : null}
+
+      {tab === 'resultados' ? (
+        <section className="portal-list">
+          {results.length === 0 ? <p className="portal-live-status">Sin resultados todavía.</p> : null}
+          {results.map((m) => (
+            <a className="portal-match" href={`/partidos/${m.id}`} key={m.id}><small>{m.round}</small><span>FINAL</span><div><b>{m.homeTeam}</b><strong>{matchScore(m)}</strong><b>{m.awayTeam}</b></div></a>
+          ))}
+        </section>
+      ) : null}
+
+      {tab === 'calendario' ? (
+        <section className="portal-list">
+          {upcoming.length === 0 ? <p className="portal-live-status">Sin próximos partidos programados.</p> : null}
+          {upcoming.map((m) => (
+            <a className="portal-match" href={`/partidos/${m.id}`} key={m.id}><small>{m.round}</small><span>{formatMatchTime(m.startsAt)}</span><div><b>{m.homeTeam}</b><em>vs</em><b>{m.awayTeam}</b></div></a>
+          ))}
+        </section>
+      ) : null}
+    </Frame>
+  );
 }
 
 export function MatchDetailPage({ matchId }: { matchId: string }) {

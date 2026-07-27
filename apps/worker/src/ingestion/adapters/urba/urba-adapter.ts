@@ -7,7 +7,11 @@ import type {
   SourceDescriptor,
 } from '@ovalia/domain';
 import { UrbaClient } from './urba-client';
-import { URBA_PRIORITY_COMPETITIONS, URBA_PRIORITY_IDS } from './urba-competitions';
+import {
+  URBA_PRIORITY_COMPETITIONS,
+  URBA_PRIORITY_IDS,
+  URBA_SLUG_BY_EXTERNAL_ID,
+} from './urba-competitions';
 import {
   parseClubsAsTeams,
   parseCompetitions,
@@ -40,7 +44,7 @@ export class UrbaAdapter implements SportsDataAdapter {
       this.client.clubs(),
     ]);
     return {
-      competitions: parseCompetitions(championshipsRaw, URBA_PRIORITY_IDS),
+      competitions: parseCompetitions(championshipsRaw, URBA_PRIORITY_IDS, URBA_SLUG_BY_EXTERNAL_ID),
       teams: parseClubsAsTeams(clubsRaw),
     };
   }

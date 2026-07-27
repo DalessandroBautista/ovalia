@@ -186,7 +186,7 @@ async function fetchCapability(
 async function persistCatalog(db: Database, sourceId: string, payload: CatalogPayload) {
   let persisted = 0;
   for (const competition of payload.competitions) {
-    const slug = normalizeName(competition.name).replace(/\s+/g, '-');
+    const slug = competition.slug ?? normalizeName(competition.name).replace(/\s+/g, '-');
     const saved = await upsertCompetition(db, {
       slug,
       name: competition.name,

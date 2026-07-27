@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const externalCompetitionSchema = z.object({
   externalId: z.string().min(1),
   name: z.string().min(1),
+  /** Slug canónico legible provisto por el adaptador (si no, se deriva del nombre). */
+  slug: z.string().min(1).optional(),
   category: z.string().min(1),
   gender: z.enum(['male', 'female', 'mixed']),
   countryCode: z.string().length(2).optional(),
