@@ -9,6 +9,12 @@ describe('readApiEnvironment', () => {
     );
   });
 
+  it('trata Vercel como entorno productivo aunque NODE_ENV no esté seteado', () => {
+    expect(() => readApiEnvironment({ VERCEL: '1' })).toThrow(
+      /DATABASE_URL.*WEB_ORIGIN|WEB_ORIGIN.*DATABASE_URL/,
+    );
+  });
+
   it('mantiene defaults locales únicamente fuera de producción', () => {
     expect(readApiEnvironment({ NODE_ENV: 'development' })).toMatchObject({
       databaseUrl: 'postgres://ovalia:ovalia@localhost:54329/ovalia',

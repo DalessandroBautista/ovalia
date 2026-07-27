@@ -4,7 +4,7 @@ import Fastify from 'fastify';
 import { configureApp } from './create-app.js';
 import { readApiEnvironment } from './environment.js';
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && process.env.VERCEL !== '1') {
   loadDotenv();
 }
 
