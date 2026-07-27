@@ -22,6 +22,30 @@ pnpm dev
 
 La web usará `http://localhost:3000`, la API `http://localhost:4000` y PostgreSQL el puerto local `54329`.
 
+## Cargar datos reales (URBA)
+
+El seed no crea partidos ficticios. Para poblar fixtures, resultados y posiciones
+reales de las competencias URBA prioritarias desde su API pública:
+
+```bash
+pnpm ingest --source urba --all          # catálogo + fixtures + posiciones
+pnpm ingest:status                        # ver últimas corridas
+```
+
+La ingestión es idempotente (checksum), conserva fuente/frescura y deja en cuarentena
+los equipos que no resuelven (revisables en `/admin`). Import manual de respaldo:
+
+```bash
+pnpm ingest:csv --file docs/data-sources/templates/matches.csv           # dry-run
+pnpm ingest:csv --file docs/data-sources/templates/matches.csv --confirm  # aplica
+```
+
+## Panel de conflictos (`/admin`)
+
+`/admin` deniega por defecto. Configurá `ADMIN_TOKEN` en `.env` para habilitarlo;
+el panel muestra contadores reales y la cola de conflictos de ingestión para resolver.
+Es una protección mínima temporal hasta la autenticación con roles (Release 2).
+
 ## Qué incluye
 
 - Portada editorial responsive y PWA.

@@ -7,8 +7,8 @@ const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: { root: workspaceRoot },
-  // Type checking runs as an explicit Turbo task before builds in CI/local verification.
-  typescript: { ignoreBuildErrors: true },
+  // next build valida tipos (además del task explícito de Turbo en el gate).
+  typescript: { ignoreBuildErrors: false },
   transpilePackages: ['@ovalia/domain', '@ovalia/i18n', '@ovalia/ui'],
 };
 
