@@ -106,11 +106,12 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
 
   // --- Salud ---
   app.get('/health', async () => ({ service: 'ovalia-api', status: 'ok' }));
-  app.get('/ready', async (_request, reply) => {
+  app.get('/ready', async (request, reply) => {
     try {
       await pingDatabase(db);
       return { status: 'ready' };
-    } catch {
+    } catch (error) {
+      request.log.error({ err: error }, 'database ping failed');
       return reply.code(503).send({ status: 'unavailable', reason: 'database' });
     }
   });
