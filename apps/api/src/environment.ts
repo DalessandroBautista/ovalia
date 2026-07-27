@@ -8,7 +8,11 @@ export interface ApiEnvironment {
 }
 
 export function readApiEnvironment(source: NodeJS.ProcessEnv = process.env): ApiEnvironment {
-  const isVercelRuntime = source.VERCEL === '1';
+  const isVercelRuntime =
+    source.VERCEL === '1' ||
+    source.VERCEL_ENV === 'preview' ||
+    source.VERCEL_ENV === 'production' ||
+    typeof source.VERCEL_URL === 'string';
   const nodeEnv = source.NODE_ENV ?? (isVercelRuntime ? 'production' : 'development');
   if (!['development', 'test', 'production'].includes(nodeEnv)) {
     throw new Error(`NODE_ENV inválido: ${nodeEnv}`);

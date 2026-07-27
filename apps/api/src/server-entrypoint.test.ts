@@ -12,8 +12,9 @@ describe('entrypoint de Vercel', () => {
     expect(source).toMatch(/const\s+app\s*=\s*Fastify\s*\(/);
     expect(source).not.toMatch(/await\s+app\.listen\s*\(/);
     expect(source).not.toMatch(/import\s+['"]dotenv\/config['"]/);
-    expect(source).toMatch(
-      /if\s*\(\s*process\.env\.NODE_ENV\s*!==\s*['"]production['"]\s*&&\s*process\.env\.VERCEL\s*!==\s*['"]1['"]\s*\)/,
-    );
+    expect(source).toMatch(/const\s+isHostedRuntime\s*=/);
+    expect(source).toMatch(/VERCEL_ENV\s*===\s*['"]preview['"]/);
+    expect(source).toMatch(/VERCEL_ENV\s*===\s*['"]production['"]/);
+    expect(source).toMatch(/typeof\s+process\.env\.VERCEL_URL\s*===\s*['"]string['"]/);
   });
 });

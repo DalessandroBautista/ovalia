@@ -15,6 +15,18 @@ describe('readApiEnvironment', () => {
     );
   });
 
+  it('trata VERCEL_ENV=preview como entorno productivo', () => {
+    expect(() => readApiEnvironment({ VERCEL_ENV: 'preview' })).toThrow(
+      /DATABASE_URL.*WEB_ORIGIN|WEB_ORIGIN.*DATABASE_URL/,
+    );
+  });
+
+  it('trata VERCEL_URL como señal de runtime alojado', () => {
+    expect(() => readApiEnvironment({ VERCEL_URL: 'ovalia-api.vercel.app' })).toThrow(
+      /DATABASE_URL.*WEB_ORIGIN|WEB_ORIGIN.*DATABASE_URL/,
+    );
+  });
+
   it('mantiene defaults locales únicamente fuera de producción', () => {
     expect(readApiEnvironment({ NODE_ENV: 'development' })).toMatchObject({
       databaseUrl: 'postgres://ovalia:ovalia@localhost:54329/ovalia',

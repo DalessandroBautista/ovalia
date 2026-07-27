@@ -4,7 +4,13 @@ import Fastify from 'fastify';
 import { configureApp } from './create-app.js';
 import { readApiEnvironment } from './environment.js';
 
-if (process.env.NODE_ENV !== 'production' && process.env.VERCEL !== '1') {
+const isHostedRuntime =
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL_ENV === 'preview' ||
+  process.env.VERCEL_ENV === 'production' ||
+  typeof process.env.VERCEL_URL === 'string';
+
+if (process.env.NODE_ENV !== 'production' && !isHostedRuntime) {
   loadDotenv();
 }
 
