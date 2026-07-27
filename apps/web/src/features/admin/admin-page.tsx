@@ -42,6 +42,21 @@ export function AdminPage() {
     }
   };
 
+  const dismissVisible = async () => {
+    setError(null);
+    try {
+      // Cada resolución conserva su propia entrada de auditoría en la API.
+      for (const conflict of conflicts) {
+        await resolveAdminConflict(token, conflict.id, 'dismissed');
+      }
+      setConflicts([]);
+      setSummary((prev) => (prev ? { ...prev, openConflicts: 0 } : prev));
+    } catch {
+      setError('La limpieza se interrumpió. Recargá la cola para ver qué conflictos siguen abiertos.');
+      await load(token);
+    }
+  };
+
   return (
     <div className="portal-shell">
       <PortalHeader />
@@ -67,6 +82,11 @@ export function AdminPage() {
             </div>
             <section className="review-queue">
               <h2>Cola de conflictos</h2>
+              {conflicts.length > 1 ? (
+                <button type="button" onClick={() => void dismissVisible()}>
+                  Descartar los {conflicts.length} visibles
+                </button>
+              ) : null}
               {conflicts.length === 0 ? <p className="portal-live-status">No hay conflictos abiertos.</p> : null}
               {conflicts.map((c) => (
                 <article key={c.id}>

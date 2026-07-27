@@ -64,6 +64,45 @@ describe('URBA parser (contract)', () => {
     expect(midnight).toBeDefined();
   });
 
+  it('omite las fechas libres representadas por el club Bye', () => {
+    const team = (id: number, name: string) => ({ id: id * 10, name, club: { id, name } });
+    const raw = {
+      championship: [{
+        id: 2025181,
+        name: 'TERCERA - Superior',
+        season: { id: 2026, name: '2026' },
+        rounds: [{
+          id: 1,
+          name: 'Fecha 1',
+          matches: [
+            {
+              id: 10,
+              playdate: '2026-04-11T00:00:00',
+              fulfilled: true,
+              suspended: false,
+              local_team_score: 0,
+              visit_team_score: 0,
+              local_team: team(92, 'Bye'),
+              visit_team: team(76, 'Ciudad de Campana'),
+            },
+            {
+              id: 11,
+              playdate: '2026-04-11T00:00:00',
+              fulfilled: true,
+              suspended: false,
+              local_team_score: 20,
+              visit_team_score: 10,
+              local_team: team(74, 'Almafuerte'),
+              visit_team: team(89, 'Berisso'),
+            },
+          ],
+        }],
+      }],
+    };
+
+    expect(parseFixtures(raw).map((match) => match.externalId)).toEqual(['11']);
+  });
+
   it('parsea posiciones con puntos oficiales y bonus combinado', () => {
     const standings = parseStandings(loadFixture('positions.sample.json'), '2025176', 2026);
     expect(standings.competitionExternalId).toBe('2025176');

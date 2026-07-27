@@ -37,6 +37,11 @@ export const feedbackSchema = z.object({
   contact: z.string().max(200).optional(),
 });
 
+export const adminConflictResolutionSchema = z.object({
+  status: z.enum(['resolved', 'dismissed']),
+  resolution: z.unknown().optional(),
+});
+
 export const competitionMatchesQuerySchema = z.object({
   season: z.coerce.number().int().optional(),
   round: z.string().min(1).optional(),

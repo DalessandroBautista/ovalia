@@ -178,6 +178,21 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
 
+.feedback-fab { position: fixed; right: 22px; bottom: 22px; z-index: 30; min-height: 42px; padding: 0 18px; border: 1px solid var(--lime); color: var(--ink); background: var(--lime); box-shadow: 5px 5px 0 rgba(4,11,7,.45); font: 900 10px var(--body); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
+.feedback-fab:hover { background: #fff; }
+.feedback-panel { position: fixed; right: 22px; bottom: 22px; z-index: 31; width: min(360px, calc(100vw - 28px)); padding: 22px; border: 1px solid var(--line-strong); color: var(--paper); background: var(--pitch-raised); box-shadow: 12px 14px 0 rgba(4,11,7,.5); }
+.feedback-panel label { display: grid; gap: 7px; margin-top: 14px; color: var(--mist); font-size: 11px; font-weight: 800; }
+.feedback-panel textarea,.feedback-panel input { width: 100%; border: 1px solid var(--line-strong); padding: 11px; color: var(--paper); background: var(--pitch); font: inherit; resize: vertical; }
+.feedback-panel textarea:focus,.feedback-panel input:focus { outline: 2px solid var(--lime); outline-offset: 2px; }
+.feedback-panel__actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+.feedback-panel__actions button { min-height: 38px; padding: 0 14px; border: 1px solid var(--line-strong); color: var(--paper); background: transparent; cursor: pointer; }
+.feedback-panel__actions .primary-action { color: var(--ink); background: var(--lime); }
+
+@media (max-width: 720px) {
+  .feedback-fab { right: 14px; bottom: 82px; }
+  .feedback-panel { right: 14px; bottom: 82px; max-height: calc(100vh - 110px); overflow-y: auto; }
+}
+
 .portal-shell { width: min(1180px, calc(100% - 40px)); margin: auto; }
 .portal-header { min-height: 76px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); }
 .portal-brand { color: var(--lime); font-size: 22px; font-weight: 900; letter-spacing: -.04em; }

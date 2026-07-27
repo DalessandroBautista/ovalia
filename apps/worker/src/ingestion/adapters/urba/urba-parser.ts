@@ -136,6 +136,10 @@ function matchStatus(m: z.infer<typeof rawMatchSchema>): ExternalMatch['status']
   return 'scheduled';
 }
 
+function isBye(team: z.infer<typeof rawMatchTeamSchema>): boolean {
+  return /^bye$/i.test(team.name.trim()) || /^bye$/i.test(team.club.name.trim());
+}
+
 export function parseFixtures(raw: unknown): ExternalMatch[] {
   const data = parseOrThrow(rawChampionshipDetailSchema, raw, 'championship detail');
   const championship = data.championship[0];
@@ -145,6 +149,9 @@ export function parseFixtures(raw: unknown): ExternalMatch[] {
   const matches: ExternalMatch[] = [];
   for (const round of championship.rounds) {
     for (const m of round.matches) {
+      // URBA modela la fecha libre como un partido 0-0 contra el club sintético
+      // "Bye". No es un encuentro deportivo ni debe entrar en la agenda.
+      if (isBye(m.local_team) || isBye(m.visit_team)) continue;
       const played = m.fulfilled;
       matches.push({
         externalId: String(m.id),

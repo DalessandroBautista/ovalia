@@ -240,6 +240,29 @@ describe.skipIf(!available)('API real', () => {
     delete process.env.ADMIN_TOKEN;
   });
 
+  it('admin rechaza una resolución inválida sin mutar ni auditar el conflicto', async () => {
+    const { db } = handle;
+    const conflict = await createConflict(db, {
+      entityType: 'match',
+      candidates: [{ home: 'x', away: 'y' }],
+      reason: 'equipo sin resolver',
+    });
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/admin/conflicts/${conflict.id}/resolve`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { status: 'cualquier-cosa' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect((await db.query.ingestionConflicts.findFirst())!.status).toBe('open');
+    expect(await db.query.auditLog.findMany()).toHaveLength(0);
+    delete process.env.ADMIN_TOKEN;
+  });
+
   it('permite CORS al web local', async () => {
     const app = makeAppFor();
     const res = await app.inject({

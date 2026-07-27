@@ -1,6 +1,6 @@
 # Ovalia — Roadmap por releases (checklist viva)
 
-Fecha: 2026-07-26
+Fecha: 2026-07-27
 Reemplaza el orden lineal de hitos del plan maestro por **entregas verticales validables**.
 El plan técnico (`2026-07-25-real-data-full-execution-plan.md`) sigue siendo el backlog
 de detalle; este documento define **qué se publica y en qué orden**, y el **estado real**.
@@ -18,10 +18,11 @@ de detalle; este documento define **qué se publica y en qué orden**, y el **es
   - CMS manual antes que IA; la IA es acelerador del editor, no prioridad.
   - Expansión de cobertura (UAR, internacionales, idiomas, sponsors) al final.
 
-## Estado global (al 2026-07-26)
+## Estado global (al 2026-07-27)
 
-`pnpm verify` verde con **132 tests**; `build` verde; audit de hardcodes limpio.
-Hitos del plan maestro completados: **0, 1, 2, 3, 6, 7, 8**.
+`pnpm verify` verde con **146 tests**; `build` verde; audit de hardcodes y audit de
+dependencias productivas limpios. Hitos del plan maestro completados: **0, 1, 2, 3,
+6, 7, 8, 9**; los subsets publicables de admin, analytics y SEO también están listos.
 
 ---
 
@@ -35,17 +36,17 @@ resultados y tabla reales, con fuente y frescura, sin controles ficticios.
 | 1 | Fuente URBA validada legal y técnicamente | 3.1 | ✅ hecho (`docs/data-sources/urba.md`) |
 | 2 | CSV trazable de respaldo | 3.6 | ✅ hecho (`ingest:csv`, checksum+auditoría) |
 | 3 | Fixtures/resultados/tabla completos en PostgreSQL | 3 | ✅ hecho (1182 partidos, tabla = fuente oficial) |
-| 4 | Locks, retries y scheduler de ingestión | 2.3/2.4 | ✅ hecho (SKIP LOCKED, advisory lock, scheduler) |
+| 4 | Locks, retries y scheduler de ingestión | 2.3/2.4 | ✅ hecho (locks + GitHub Actions: 10 min/6 h) |
 | 5 | API sin `demo-data` | 6 | ✅ hecho (`demo-data.ts` eliminado) |
-| 6 | Inicio conectado a datos reales | 7/9 | 🟨 parcial (agenda real; agregados pendientes) |
+| 6 | Inicio conectado a datos reales | 7/9 | ✅ hecho (agenda y agregados reales; vacíos honestos) |
 | 7 | Agenda por rango + fecha en URL | 7 | ✅ hecho |
 | 8 | Página de torneo (tabla, fixtures, resultados) | 8 | ✅ hecho (catálogo + torneo real, slugs lindos) |
 | 9 | Detalle de partido desde DB (+overlay live) | 7 | ✅ hecho |
 | 10 | Frescura y fuente visibles en UI | 7/8 | ✅ hecho (agenda, detalle y torneo) |
-| 11 | Sin controles ficticios (`href="#"`, botones muertos) | 14 | 🟨 parcial (torneos ok; quedan noticias/ingresar) |
-| 12 | Admin mínimo: importar y corregir conflictos | 13 (subset) | ⬜ pendiente |
-| 13 | Analytics de navegación + canal de feedback | nuevo | ⬜ pendiente |
-| 14 | SEO básico por partido/torneo | nuevo | ⬜ pendiente |
+| 11 | Sin controles ficticios (`href="#"`, botones muertos) | 14 | ✅ hecho |
+| 12 | Admin mínimo: importar y corregir conflictos | 13 (subset) | ✅ hecho (token, cola real, cierre y auditoría) |
+| 13 | Analytics de navegación + canal de feedback | nuevo | ✅ hecho (propio, anónimo, sin cookies) |
+| 14 | SEO básico por partido/torneo | nuevo | ✅ hecho (metadata, sitemap, robots, canonical) |
 | 15 | 5–10 usuarios beta recurrentes | operativo | ⬜ pendiente |
 
 **Definition of Done Release 1**: la agenda, el torneo Top 14 y el detalle leen de la
@@ -57,11 +58,12 @@ un canal de feedback; corre localmente con un comando.
 
 1. ✅ **Hito 7** — cliente API tipado en web + agenda por rango/URL + detalle real.
 2. ✅ **Hito 8** — catálogo + página de torneo real con slugs canónicos.
-3. **Hito 9 (parcial)** — agregados reales de inicio (sin countdown/nota falsos).
-4. **Admin mínimo de conflictos** (subset de Hito 13): ver raw vs normalizado,
-   asociar equipo, cerrar conflicto (los 40 de Tercera/Femenino).
-5. **Analytics + feedback** (privacidad primero) y **SEO** por partido/torneo.
-6. Quitar controles ficticios de las pantallas de Release 1.
+3. ✅ **Hito 9** — agregados reales de inicio (sin countdown/nota falsos).
+4. ✅ **Admin mínimo de conflictos**: cola real, cierre individual/masivo y auditoría.
+   Los 40 históricos eran fechas libres `Bye`; el parser ya las omite.
+5. ✅ **Analytics + feedback** (privacidad primero) y **SEO** por partido/torneo.
+6. ✅ Controles ficticios removidos de las pantallas de Release 1.
+7. ⬜ Reclutar y observar 5–10 usuarios beta recurrentes (trabajo operativo).
 
 ---
 
@@ -102,13 +104,13 @@ Prioridad: **favoritos y alertas antes que prode**, por su potencial de uso recu
 | Definición de usuario inicial | ✅ definido arriba | jugador/exjugador URBA |
 | Métrica norte | ✅ definida | usuarios semanales que ven fecha/equipo favorito |
 | Métricas de calidad de datos | ⬜ | cobertura, exactitud, antigüedad, tiempo-hasta-corregir |
-| Analytics (navegación/prode/favoritos/errores) | ⬜ | privacidad primero, sin PII innecesaria |
-| Canal de feedback visible | ⬜ | Release 1 |
+| Analytics (navegación actual) | ✅ | propio, sin cookies ni PII obligatoria |
+| Canal de feedback visible | ✅ | Release 1 |
 | SLA por fuente | ⬜ | cada cuánto actualiza, cuánto puede estar stale |
 | Responsable operativo de datos (fin de semana) | ⬜ | rol humano |
 | Registro de decisiones + checklist viva | ✅ este documento | mantener actualizado por hito |
 | Criterios de abandono de competencia | ⬜ | cuándo pasa a manual o se deja de mostrar |
-| Estrategia SEO por partido/torneo | ⬜ | tras contenido real |
+| Estrategia SEO por partido/torneo | ✅ | metadata dinámica + sitemap/robots |
 
 ## SLA de datos (borrador inicial, a confirmar con operador)
 

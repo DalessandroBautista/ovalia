@@ -2,13 +2,15 @@ import 'dotenv/config';
 
 import { createDatabase } from '@ovalia/database';
 import { buildApp } from './create-app.js';
+import { readApiEnvironment } from './environment.js';
 
-const port = Number(process.env.API_PORT ?? 4000);
-const host = process.env.API_HOST ?? '0.0.0.0';
-const connectionString =
-  process.env.DATABASE_URL ?? 'postgres://ovalia:ovalia@localhost:54329/ovalia';
+const environment = readApiEnvironment();
 
-const { db, pool } = createDatabase(connectionString);
+const { db, pool } = createDatabase(environment.databaseUrl, {
+  max: environment.databasePoolMax,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+});
 const app = buildApp({ logger: true }, { db });
 
 const stop = async (signal: string) => {
@@ -21,4 +23,4 @@ const stop = async (signal: string) => {
 process.once('SIGINT', () => void stop('SIGINT'));
 process.once('SIGTERM', () => void stop('SIGTERM'));
 
-await app.listen({ host, port });
+await app.listen({ host: environment.host, port: environment.port });

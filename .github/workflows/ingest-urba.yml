@@ -1,0 +1,49 @@
+name: Refresh URBA data
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+    - cron: '7 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Data set to refresh
+        required: true
+        default: results
+        type: choice
+        options: [results, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: urba-production-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PARSER_VERSION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require the production database URL
+        run: test -n "$DATABASE_URL"
+      - name: Refresh results
+        if: github.event.schedule == '*/10 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'results')
+        run: pnpm ingest --source urba --capability results
+      - name: Refresh catalog, fixtures and standings
+        if: github.event.schedule == '7 */6 * * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'full')
+        run: pnpm ingest --source urba --all

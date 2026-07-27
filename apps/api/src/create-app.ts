@@ -38,6 +38,7 @@ import {
   type LiveProvider,
 } from './live/live-feed.js';
 import {
+  adminConflictResolutionSchema,
   analyticsEventSchema,
   competitionMatchesQuerySchema,
   decodeCursor,
@@ -368,9 +369,10 @@ export function buildApp(options: FastifyServerOptions = {}, dependencies: AppDe
   app.post('/admin/conflicts/:id/resolve', async (request, reply) => {
     if (!requireAdmin(request, reply)) return reply;
     const { id } = request.params as { id: string };
-    const body = request.body as { status?: 'resolved' | 'dismissed'; resolution?: unknown };
-    const status = body?.status === 'resolved' ? 'resolved' : 'dismissed';
-    const row = await resolveConflict(db, id, { status, resolution: body?.resolution });
+    const parsed = adminConflictResolutionSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_resolution' });
+    const { status, resolution } = parsed.data;
+    const row = await resolveConflict(db, id, { status, resolution });
     if (!row) return reply.code(404).send({ error: 'conflict_not_found' });
     await recordAudit(db, {
       action: 'admin.conflict.resolve',

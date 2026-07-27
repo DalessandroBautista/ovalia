@@ -59,7 +59,9 @@ Es una protección mínima temporal hasta la autenticación con roles (Release 2
 - Gateway de resultados en vivo sin datos inventados, preparado para Highlightly.
 - Escudos oficiales almacenados localmente, con resolución por alias y fallback SVG para equipos todavía no catalogados.
 
-Los datos visibles iniciales son demostrativos. La arquitectura deja aislado el proveedor deportivo para conectar una fuente licenciada sin reescribir la experiencia.
+La beta URBA muestra fixtures, resultados y posiciones persistidos desde la fuente
+documentada. Cuando una sección todavía no tiene contenido real, muestra un estado
+vacío explícito en lugar de datos demostrativos.
 
 Para habilitar el agente editorial, agregá `OPENAI_API_KEY` en `.env`. Sin esa variable el worker arranca normalmente, pero no llama al proveedor externo.
 
@@ -94,3 +96,5 @@ pnpm build
 ```
 
 La especificación funcional y el plan completo están en `docs/superpowers/`.
+La configuración, migración, ingestión programada y checklist de publicación están en
+[`docs/production-runbook.md`](docs/production-runbook.md).
