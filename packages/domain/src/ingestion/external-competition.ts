@@ -9,6 +9,8 @@ export const externalCompetitionSchema = z.object({
   gender: z.enum(['male', 'female', 'mixed']),
   countryCode: z.string().length(2).optional(),
   format: z.enum(['xv', 'sevens']).default('xv'),
+  familySlug: z.string().optional(),
+  tier: z.string().optional(),
   season: z.object({
     externalId: z.string().optional(),
     name: z.string().min(1),

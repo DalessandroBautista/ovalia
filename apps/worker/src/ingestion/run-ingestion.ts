@@ -195,6 +195,8 @@ async function persistCatalog(db: Database, sourceId: string, payload: CatalogPa
       countryCode: competition.countryCode ?? null,
       format: competition.format,
       coverage: 'auto',
+      familySlug: competition.familySlug ?? null,
+      tier: competition.tier ?? 'senior',
     });
     const season = await upsertSeason(db, {
       competitionId: saved.id,

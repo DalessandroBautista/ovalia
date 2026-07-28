@@ -6,6 +6,7 @@ import type {
   ExternalTeam,
 } from '@ovalia/domain';
 import { localWallClockToUtc } from '../../normalization/dates';
+import { deriveUrbaTaxonomy } from './urba-taxonomy';
 
 export const URBA_PARSER_VERSION = 'urba-1';
 
@@ -106,6 +107,7 @@ export function parseCompetitions(
     .filter((c) => !priorityIds || priorityIds.includes(c.id))
     .map((c) => {
       const slug = slugByExternalId?.get(String(c.id));
+      const taxonomy = deriveUrbaTaxonomy(c.name);
       return {
         externalId: String(c.id),
         name: c.name,
@@ -114,6 +116,8 @@ export function parseCompetitions(
         gender: genderFromName(c.name),
         countryCode: 'AR',
         format: 'xv' as const,
+        familySlug: taxonomy.familySlug,
+        tier: taxonomy.tier,
         season: { externalId: String(c.season.id), name: c.season.name, year: c.season.id },
       };
     });

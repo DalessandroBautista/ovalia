@@ -12,6 +12,8 @@ export type CompetitionInput = {
   priority?: number;
   coverage?: string;
   organizationId?: string | null;
+  familySlug?: string | null;
+  tier?: string;
 };
 
 export function listCompetitions(db: Database) {
@@ -37,6 +39,8 @@ export async function upsertCompetition(db: Database, input: CompetitionInput) {
     priority: input.priority,
     coverage: input.coverage ?? 'manual',
     organizationId: input.organizationId ?? null,
+    familySlug: input.familySlug ?? null,
+    tier: input.tier ?? 'senior',
   };
   const [row] = await db
     .insert(competitions)
@@ -55,6 +59,8 @@ export async function upsertCompetition(db: Database, input: CompetitionInput) {
         ...(values.priority !== undefined ? { priority: values.priority } : {}),
         coverage: values.coverage,
         organizationId: values.organizationId,
+        familySlug: values.familySlug,
+        tier: values.tier,
       },
     })
     .returning();

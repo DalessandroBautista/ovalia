@@ -37,6 +37,12 @@ describe('URBA parser (contract)', () => {
     expect(competitions[0]!.slug).toBe('urba-top-14');
   });
 
+  it('parsea familySlug y tier derivados del nombre', () => {
+    const competitions = parseCompetitions(loadFixture('championships.sample.json'));
+    const top14 = competitions.find((c) => c.externalId === '2025176');
+    expect(top14).toMatchObject({ familySlug: 'top-14', tier: 'senior' });
+  });
+
   it('sin filtro de IDs devuelve todas las competencias del fixture', () => {
     const competitions = parseCompetitions(loadFixture('championships.sample.json'));
     expect(competitions.length).toBe(8);

@@ -147,6 +147,20 @@ describe.skipIf(!available)('repositories', () => {
     expect(explicitlyZero.priority).toBe(0);
   });
 
+  it('upsertCompetition persiste familySlug y tier', async () => {
+    const { db } = handle;
+    const row = await upsertCompetition(db, {
+      slug: 'top-14-intermedia',
+      name: 'TOP 14 - Intermedia',
+      category: 'clubs',
+      gender: 'male',
+      familySlug: 'top-14',
+      tier: 'intermediate',
+    });
+    expect(row.familySlug).toBe('top-14');
+    expect(row.tier).toBe('intermediate');
+  });
+
   it('upsertMatchByNaturalKey no duplica y actualiza horario/resultado', async () => {
     const { db } = handle;
     const competition = await makeCompetition(db);
