@@ -5,7 +5,9 @@ import {
   createDraft,
   replaceStandings,
   setArticleStatus,
+  upsertCompetition,
   upsertMatchByNaturalKey,
+  upsertOrganization,
 } from '@ovalia/database';
 import {
   getTestDatabase,
@@ -171,6 +173,29 @@ describe.skipIf(!available)('API real', () => {
       points: 4,
     });
     expect(body.source).toBe('urba');
+  });
+
+  it('/v1/competitions incluye organización, familia y tier', async () => {
+    const { db } = handle;
+    const org = await upsertOrganization(db, { slug: 'urba', name: 'URBA', kind: 'union', countryCode: 'AR' });
+    await upsertCompetition(db, {
+      slug: 'urba-top-14',
+      name: 'TOP 14 - Superior',
+      category: 'clubs',
+      gender: 'male',
+      familySlug: 'top-14',
+      tier: 'senior',
+      organizationId: org.id,
+    });
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/competitions' });
+    const body = res.json();
+    const top14 = body.competitions.find((c: { slug: string }) => c.slug === 'urba-top-14');
+    expect(top14).toMatchObject({
+      organization: { slug: 'urba', name: 'URBA' },
+      familySlug: 'top-14',
+      tier: 'senior',
+    });
   });
 
   it('404 para competencia inexistente', async () => {

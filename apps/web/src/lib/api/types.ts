@@ -65,6 +65,9 @@ export interface ApiCompetition {
   gender: string;
   countryCode: string | null;
   coverage: string;
+  organization: { slug: string; name: string } | null;
+  familySlug: string | null;
+  tier: string;
 }
 
 export interface ApiCompetitionsResponse {
@@ -100,6 +103,7 @@ export interface ApiCompetitionDetail {
     category: string;
     gender: string;
     coverage: string;
+    familySlug: string | null;
     seasons: Array<{ year: number; name: string }>;
   };
 }

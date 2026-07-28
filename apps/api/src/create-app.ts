@@ -176,6 +176,9 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         gender: c.gender,
         countryCode: c.countryCode,
         coverage: c.coverage,
+        organization: c.organization ? { slug: c.organization.slug, name: c.organization.name } : null,
+        familySlug: c.familySlug,
+        tier: c.tier,
       })),
     };
   });
@@ -192,6 +195,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         category: competition.category,
         gender: competition.gender,
         coverage: competition.coverage,
+        familySlug: competition.familySlug,
         seasons: seasons.map((s) => ({ year: s.year, name: s.name })),
       },
     };

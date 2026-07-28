@@ -17,7 +17,7 @@ export type CompetitionInput = {
 };
 
 export function listCompetitions(db: Database) {
-  return db.query.competitions.findMany();
+  return db.query.competitions.findMany({ with: { organization: true } });
 }
 
 export function countCoveredCompetitions(db: Database): Promise<number> {

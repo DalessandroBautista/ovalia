@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, relations } from 'drizzle-orm';
 import {
   boolean,
   check,
@@ -413,3 +413,9 @@ export const feedback = pgTable('feedback', {
   contact: text('contact'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
+
+// --- Relations ---
+
+export const competitionsRelations = relations(competitions, ({ one }) => ({
+  organization: one(organizations, { fields: [competitions.organizationId], references: [organizations.id] }),
+}));
