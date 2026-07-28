@@ -169,11 +169,19 @@ export function TournamentPage({ slug }: { slug: string }) {
           {standings && standings.rows.length > 0 ? (
             <>
               <div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>
-              {standings.rows.map((row) => (
-                <div className="standing-row" key={row.team.slug}>
-                  <span>{row.position}</span><span>{row.team.name}</span><span>{row.played}</span><span>{row.points}</span>
-                </div>
-              ))}
+              {standings.rows.map((row) => {
+                const shortCode = findTeamBadge({ name: row.team.name })?.shortCode ?? row.team.name.slice(0, 3).toUpperCase();
+                return (
+                  <div className="standing-row" key={row.team.slug}>
+                    <span>{row.position}</span>
+                    <span className="standing-team">
+                      <TeamBadge name={row.team.name} shortCode={shortCode} badgeUrl={row.team.badgeUrl ?? undefined} size="small" />
+                      {row.team.name}
+                    </span>
+                    <span>{row.played}</span><span>{row.points}</span>
+                  </div>
+                );
+              })}
               <DataProvenance source={standings.source} freshness={standings.freshness} />
             </>
           ) : <p className="portal-live-status">Todavía no hay posiciones para esta temporada.</p>}
