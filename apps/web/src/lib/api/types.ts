@@ -39,7 +39,7 @@ export interface ApiMatchListResponse {
 
 export interface ApiStandingRow {
   position: number;
-  team: { slug: string; name: string };
+  team: { slug: string; name: string; badgeUrl: string | null };
   played: number;
   won: number;
   drawn: number;
