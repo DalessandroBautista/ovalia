@@ -8,5 +8,9 @@ export const externalTeamSchema = z.object({
   countryCode: z.string().length(2).optional(),
   union: z.string().optional(),
   badgeUrl: z.string().url().optional(),
+  /** URL de origen del escudo, para atribución. */
+  badgeSourceUrl: z.string().url().optional(),
+  /** Extensión del archivo del escudo (ej. "png", "svg"). */
+  badgeFormat: z.string().optional(),
 });
 export type ExternalTeam = z.infer<typeof externalTeamSchema>;
