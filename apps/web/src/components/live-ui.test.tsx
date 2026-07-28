@@ -17,6 +17,27 @@ describe('live rugby UI', () => {
     expect(html).not.toContain('Argentina 27');
   });
 
+  it('shows upcoming important matches when there is nothing live', () => {
+    const html = renderToStaticMarkup(
+      createElement(LiveRailView, {
+        feed: { status: 'empty', source: 'database', freshness: 'fresh', generatedAt: '', matches: [] },
+        upcoming: [
+          {
+            id: 'm1',
+            competition: 'TOP 14 - Superior',
+            startsAt: '2026-08-02T18:00:00.000Z',
+            home: { name: 'SIC', shortCode: 'SIC' },
+            away: { name: 'Hindú', shortCode: 'HIN' },
+          },
+        ],
+      }),
+    );
+
+    expect(html).toContain('SIC');
+    expect(html).toContain('Hindú');
+    expect(html).not.toContain('No hay partidos en vivo ahora');
+  });
+
   it('prioritizes the verified local badge over a remote provider badge', () => {
     const html = renderToStaticMarkup(
       createElement(TeamBadge, { name: 'Argentina', shortCode: 'ARG', badgeUrl: 'https://img.example/arg.png' }),
