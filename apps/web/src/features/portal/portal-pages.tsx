@@ -18,6 +18,7 @@ import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
 import { useCompetitions, useTournament } from '../tournaments/use-tournaments';
 import { track } from '../../lib/analytics';
+import type { ApiCompetition } from '../../lib/api/types';
 
 export function PortalHeader() {
   return (
@@ -87,22 +88,55 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
   );
 }
 
+interface OrgGroup {
+  orgName: string;
+  senior: ApiCompetition[];
+  youth: ApiCompetition[];
+}
+
+function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
+  const seniorSeen = new Set<string>();
+  const youthSeen = new Set<string>();
+  const groups = new Map<string, OrgGroup>();
+  for (const c of competitions) {
+    if (c.coverage !== 'auto') continue;
+    const orgName = c.organization?.name ?? 'Sin unión';
+    if (!groups.has(orgName)) groups.set(orgName, { orgName, senior: [], youth: [] });
+    const group = groups.get(orgName)!;
+    const familyKey = `${orgName}:${c.familySlug ?? c.slug}`;
+    if (c.tier === 'youth') {
+      if (!youthSeen.has(familyKey)) { youthSeen.add(familyKey); group.youth.push(c); }
+    } else if (c.tier === 'senior') {
+      if (!seniorSeen.has(familyKey)) { seniorSeen.add(familyKey); group.senior.push(c); }
+    }
+  }
+  return [...groups.values()];
+}
+
 export function TournamentsPage() {
   const { status, competitions } = useCompetitions();
-  const covered = competitions.filter((c) => c.coverage === 'auto');
+  const groups = groupByOrganization(competitions);
   const upcoming = competitions.filter((c) => c.coverage !== 'auto');
   return (
     <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
       {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
       {status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los torneos.</p> : null}
-      {covered.length > 0 ? (
-        <section className="tournament-group">
-          <h2>Con datos en vivo</h2>
-          {covered.map((c) => (
+      {groups.map((group) => (
+        <section className="tournament-group" key={group.orgName}>
+          <h2>{group.orgName}</h2>
+          {group.senior.map((c) => (
             <a href={`/torneos/${c.slug}`} key={c.slug}><span>{c.name}</span><i>→</i></a>
           ))}
+          {group.youth.length > 0 ? (
+            <>
+              <h3>Juveniles</h3>
+              {group.youth.map((c) => (
+                <a href={`/torneos/${c.slug}`} key={c.slug}><span>{c.name}</span><i>→</i></a>
+              ))}
+            </>
+          ) : null}
         </section>
-      ) : null}
+      ))}
       {upcoming.length > 0 ? (
         <section className="tournament-group">
           <h2>En preparación</h2>
