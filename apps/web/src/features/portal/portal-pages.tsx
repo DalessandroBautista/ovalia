@@ -79,7 +79,7 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
           const homeCode = findTeamBadge({ name: match.homeTeam })?.shortCode ?? match.homeTeam.slice(0, 3).toUpperCase();
           const awayCode = findTeamBadge({ name: match.awayTeam })?.shortCode ?? match.awayTeam.slice(0, 3).toUpperCase();
           const status = match.status === 'final' ? 'FINAL' : formatMatchTime(match.startsAt);
-          return <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition} · {match.round}</small><span>{status}</span><div><b><TeamBadge name={match.homeTeam} shortCode={homeCode} />{match.homeTeam}</b><strong>{matchScore(match)}</strong><b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} /></b></div></a>;
+          return <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition} · {match.round}</small><span>{status}</span><div><b><TeamBadge name={match.homeTeam} shortCode={homeCode} badgeUrl={match.homeBadgeUrl ?? undefined} />{match.homeTeam}</b><strong>{matchScore(match)}</strong><b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} badgeUrl={match.awayBadgeUrl ?? undefined} /></b></div></a>;
         })}
       </div>
       {agenda.status === 'ready' && scheduledMatches.length > 0 ? <DataProvenance source={agenda.source} freshness={agenda.freshness} /> : null}
@@ -241,9 +241,9 @@ export function MatchDetailPage({ matchId }: { matchId: string }) {
     <Frame eyebrow={match.competition.name.toUpperCase()} title={title} intro={intro}>
       <section className="match-detail">
         <div className="live-detail-teams">
-          <TeamBadge name={match.home.name} shortCode={homeCode} size="large" />
+          <TeamBadge name={match.home.name} shortCode={homeCode} badgeUrl={match.home.badgeUrl ?? undefined} size="large" />
           <strong>{isScored ? `${homeScore ?? 0} — ${awayScore ?? 0}` : '—'}</strong>
-          <TeamBadge name={match.away.name} shortCode={awayCode} size="large" />
+          <TeamBadge name={match.away.name} shortCode={awayCode} badgeUrl={match.away.badgeUrl ?? undefined} size="large" />
         </div>
         <h2>{live ? 'Actualización en vivo' : match.status === 'final' ? 'Resultado final' : 'Próximo partido'}</h2>
         {match.venue ? <p>Sede: {match.venue}</p> : null}

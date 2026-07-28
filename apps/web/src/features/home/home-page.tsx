@@ -140,9 +140,9 @@ function MatchRow({ match }: { match: AgendaMatch }) {
   const isScored = match.status === 'final' || match.status === 'live';
   return (
     <a className="match-row" href={`/partidos/${match.id}`}>
-      <div className="match-row__team"><TeamBadge name={match.homeTeam} shortCode={teamCode(match.homeTeam)} /><b>{match.homeTeam}</b></div>
+      <div className="match-row__team"><TeamBadge name={match.homeTeam} shortCode={teamCode(match.homeTeam)} badgeUrl={match.homeBadgeUrl ?? undefined} /><b>{match.homeTeam}</b></div>
       <time dateTime={match.startsAt}>{isScored ? matchScore(match) : formatMatchTime(match.startsAt)}</time>
-      <div className="match-row__team match-row__team--away"><b>{match.awayTeam}</b><TeamBadge name={match.awayTeam} shortCode={teamCode(match.awayTeam)} /></div>
+      <div className="match-row__team match-row__team--away"><b>{match.awayTeam}</b><TeamBadge name={match.awayTeam} shortCode={teamCode(match.awayTeam)} badgeUrl={match.awayBadgeUrl ?? undefined} /></div>
       <span className="row-arrow">›</span>
     </a>
   );

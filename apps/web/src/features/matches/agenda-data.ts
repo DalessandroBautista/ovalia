@@ -12,6 +12,8 @@ export interface AgendaMatch {
   status: 'scheduled' | 'live' | 'halftime' | 'final' | 'postponed' | 'cancelled';
   homeTeam: string;
   awayTeam: string;
+  homeBadgeUrl: string | null;
+  awayBadgeUrl: string | null;
   homeScore: number | null;
   awayScore: number | null;
   source?: string | null;
@@ -37,6 +39,8 @@ export function mapApiMatch(api: ApiMatch): AgendaMatch {
     status: api.status,
     homeTeam: api.home.name,
     awayTeam: api.away.name,
+    homeBadgeUrl: api.home.badgeUrl,
+    awayBadgeUrl: api.away.badgeUrl,
     homeScore: api.homeScore,
     awayScore: api.awayScore,
     source: api.source,
