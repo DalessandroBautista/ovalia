@@ -219,6 +219,8 @@ async function persistCatalog(db: Database, sourceId: string, payload: CatalogPa
       countryCode: team.countryCode ?? 'AR',
       union: team.union ?? null,
       badgeUrl: team.badgeUrl ?? null,
+      badgeSourceUrl: team.badgeSourceUrl ?? null,
+      badgeFormat: team.badgeFormat ?? null,
     })),
   );
   // Enlaza external IDs de equipos recién creados.
