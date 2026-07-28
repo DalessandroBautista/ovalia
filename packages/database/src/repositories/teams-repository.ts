@@ -11,6 +11,8 @@ export type TeamInput = {
   aliases?: string[];
   externalIds?: Record<string, string | number>;
   badgeUrl?: string | null;
+  badgeSourceUrl?: string | null;
+  badgeFormat?: string | null;
   active?: boolean;
 };
 
@@ -54,6 +56,8 @@ export async function upsertTeams(db: Database, inputs: TeamInput[]): Promise<vo
         aliases: input.aliases ?? [],
         externalIds: input.externalIds ?? {},
         badgeUrl: input.badgeUrl ?? null,
+        badgeSourceUrl: input.badgeSourceUrl ?? null,
+        badgeFormat: input.badgeFormat ?? null,
         active: input.active ?? true,
       };
       await tx
@@ -70,6 +74,13 @@ export async function upsertTeams(db: Database, inputs: TeamInput[]): Promise<vo
             // Los external IDs se fusionan para no perder proveedores previos.
             externalIds: sql`${teams.externalIds} || ${JSON.stringify(values.externalIds)}::jsonb`,
             active: values.active,
+            // El badge solo se pisa cuando llega uno nuevo; si el upsert no trae
+            // badgeUrl, se conserva el que ya estaba (curado a mano o de un ingest previo).
+            badgeUrl: values.badgeUrl ? values.badgeUrl : teams.badgeUrl,
+            badgeSourceUrl: values.badgeUrl ? values.badgeSourceUrl : teams.badgeSourceUrl,
+            badgeFormat: values.badgeUrl ? values.badgeFormat : teams.badgeFormat,
+            badgeStatus: values.badgeUrl ? 'verified' : teams.badgeStatus,
+            badgeVerifiedAt: values.badgeUrl ? new Date() : teams.badgeVerifiedAt,
           },
         });
     }

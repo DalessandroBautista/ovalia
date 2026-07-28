@@ -69,6 +69,40 @@ describe.skipIf(!available)('repositories', () => {
     expect(all).toHaveLength(1);
   });
 
+  it('upsertTeams actualiza y verifica el badge cuando llega uno nuevo', async () => {
+    const { db } = handle;
+    await upsertTeams(db, [
+      { slug: 'sic', name: 'SIC', shortName: 'SIC', countryCode: 'AR' },
+    ]);
+    const before = await db.query.teams.findFirst({ where: (t, { eq }) => eq(t.slug, 'sic') });
+    expect(before?.badgeStatus).toBe('pending');
+    expect(before?.badgeUrl).toBeNull();
+
+    await upsertTeams(db, [
+      {
+        slug: 'sic',
+        name: 'SIC',
+        shortName: 'SIC',
+        countryCode: 'AR',
+        badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+        badgeSourceUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+        badgeFormat: 'png',
+      },
+    ]);
+    const after = await db.query.teams.findFirst({ where: (t, { eq }) => eq(t.slug, 'sic') });
+    expect(after?.badgeUrl).toBe('https://api.urba.org.ar/img/clubs/sic.png');
+    expect(after?.badgeSourceUrl).toBe('https://api.urba.org.ar/img/clubs/sic.png');
+    expect(after?.badgeFormat).toBe('png');
+    expect(after?.badgeStatus).toBe('verified');
+    expect(after?.badgeVerifiedAt).not.toBeNull();
+
+    // Un upsert posterior sin badgeUrl no debe borrar el que ya quedó verificado.
+    await upsertTeams(db, [{ slug: 'sic', name: 'SIC', shortName: 'SIC', countryCode: 'AR' }]);
+    const stillVerified = await db.query.teams.findFirst({ where: (t, { eq }) => eq(t.slug, 'sic') });
+    expect(stillVerified?.badgeUrl).toBe('https://api.urba.org.ar/img/clubs/sic.png');
+    expect(stillVerified?.badgeStatus).toBe('verified');
+  });
+
   it('upsertMatchByNaturalKey no duplica y actualiza horario/resultado', async () => {
     const { db } = handle;
     const competition = await makeCompetition(db);
