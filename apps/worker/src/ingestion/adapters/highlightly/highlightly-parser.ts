@@ -13,7 +13,7 @@ const matchSchema = z.object({
   homeTeam: teamSchema,
   awayTeam: teamSchema,
   league: z.object({ id: z.number(), name: z.string(), season: z.number() }),
-  state: z.object({ description: z.string(), score: z.string() }),
+  state: z.object({ description: z.string(), score: z.string().nullable() }),
 });
 
 const matchesResponseSchema = z.object({ data: z.array(matchSchema) });
@@ -40,7 +40,8 @@ function matchStatus(m: z.infer<typeof matchSchema>): ExternalMatch['status'] {
   return 'scheduled';
 }
 
-function parseScore(score: string): [number | null, number | null] {
+function parseScore(score: string | null): [number | null, number | null] {
+  if (!score) return [null, null];
   const parts = score.split('-').map((v) => Number(v.trim()));
   const [home, away] = parts;
   if (!Number.isFinite(home) || !Number.isFinite(away)) return [null, null];

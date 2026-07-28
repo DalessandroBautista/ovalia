@@ -147,6 +147,15 @@ await upsertSource(db, {
   active: false,
   attribution: 'Highlightly',
 });
+await upsertSource(db, {
+  slug: 'highlightly-ingest',
+  name: 'Highlightly (Súper Rugby, internacionales, seven)',
+  priority: 70,
+  capabilities: ['catalog', 'fixtures', 'results', 'standings'],
+  automationAllowed: true,
+  active: true,
+  attribution: 'Highlightly — highlightly.net',
+});
 
 // Prioridad curada de las divisiones Superior/Primera de URBA (Hito: home fallback).
 // La ingesta (persistCatalog) nunca vuelve a pisar esto porque upsertCompetition

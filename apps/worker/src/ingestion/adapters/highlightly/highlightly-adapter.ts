@@ -43,7 +43,10 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
 
   async fetchFixtures(ctx: FetchContext): Promise<ExternalMatch[]> {
     if (!ctx.competitionExternalId) throw new Error('Highlightly fixtures requiere competitionExternalId');
-    const raw = await this.client.matches({ leagueId: Number(ctx.competitionExternalId) });
+    // Se filtra por season para que coincida con la temporada que fetchCatalog creó en
+    // Ovalia — sin este filtro, /matches devuelve partidos de varios años y el resolver
+    // de temporada de run-ingestion los marca en conflicto por no encontrar la season.
+    const raw = await this.client.matches({ leagueId: Number(ctx.competitionExternalId), season: ctx.seasonYear });
     return parseMatchesAsFixtures(raw, ctx.competitionExternalId);
   }
 

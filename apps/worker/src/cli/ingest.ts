@@ -69,6 +69,20 @@ async function main() {
       return;
     }
 
+    // Highlightly con --all: catálogo curado + fixtures/posiciones por competencia.
+    if (args.source === 'highlightly-ingest' && args.all) {
+      const { importHighlightly } = await import('../ingestion/adapters/highlightly/highlightly-import');
+      const report = await importHighlightly({ db, sourceId: source.id, dryRun: args.dryRun });
+      console.log(`[highlightly/catalog] ${report.catalog.status} persisted=${report.catalog.persisted}`);
+      for (const comp of report.perCompetition) {
+        console.log(
+          `[highlightly/${comp.name}] fixtures=${comp.fixtures.status}(${comp.fixtures.persisted}/${comp.fixtures.conflicts}) ` +
+            `standings=${comp.standings.status}(${comp.standings.persisted}/${comp.standings.conflicts})`,
+        );
+      }
+      return;
+    }
+
     const capabilities: Capability[] = args.all
       ? adapter.descriptor.capabilities.filter((c) => c !== 'live')
       : args.capability

@@ -25,6 +25,16 @@ describe('Highlightly parser (contrato)', () => {
     expect(new Set(teams.map((t) => t.externalId)).size).toBe(teams.length);
   });
 
+  it('tolera score null (partido todavía no jugado) sin lanzar', () => {
+    const matches = parseMatchesAsFixtures(
+      { data: [{ id: 1, date: '2026-08-01T00:00:00.000Z', homeTeam: { id: 1, name: 'A' }, awayTeam: { id: 2, name: 'B' }, league: { id: 1, name: 'X', season: 2026 }, state: { description: 'Not started', score: null } }] },
+      '1',
+    );
+    expect(matches[0]!.homeScore).toBeNull();
+    expect(matches[0]!.awayScore).toBeNull();
+    expect(matches[0]!.status).toBe('scheduled');
+  });
+
   it('devuelve rows vacío sin lanzar cuando standings no tiene groups', () => {
     const standings = parseStandingsPayload(loadFixture('standings-empty.sample.json'), '73119', 2025);
     expect(standings.rows).toEqual([]);
