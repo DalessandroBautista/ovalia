@@ -8,7 +8,9 @@ import {
   findMatchById,
   findMatchesInRange,
   findTeamByExternalId,
+  findUpcomingMatches,
   findUserByEmail,
+  findOrganizationBySlug,
   getActiveContest,
   getStandingsForSeason,
   hasArtifact,
@@ -22,6 +24,7 @@ import {
   setArticleStatus,
   upsertCompetition,
   upsertMatchByNaturalKey,
+  upsertOrganization,
   upsertPrediction,
   upsertTeams,
 } from './repositories';
@@ -67,6 +70,16 @@ describe.skipIf(!available)('repositories', () => {
     const team = await findTeamByExternalId(db, 'urba', '11');
     expect(team?.name).toBe('San Isidro Club');
     const all = await db.query.teams.findMany();
+    expect(all).toHaveLength(1);
+  });
+
+  it('upsertOrganization es idempotente por slug', async () => {
+    const { db } = handle;
+    await upsertOrganization(db, { slug: 'urba', name: 'Unión de Rugby de Buenos Aires', kind: 'union', countryCode: 'AR' });
+    await upsertOrganization(db, { slug: 'urba', name: 'URBA', kind: 'union', countryCode: 'AR' });
+    const org = await findOrganizationBySlug(db, 'urba');
+    expect(org?.name).toBe('URBA');
+    const all = await db.query.organizations.findMany();
     expect(all).toHaveLength(1);
   });
 
@@ -214,6 +227,45 @@ describe.skipIf(!available)('repositories', () => {
     expect(detail?.home.name).toBe('SIC');
     expect(detail?.away.name).toBe('CASI');
     expect(detail?.competitionName).toBe('URBA Top 14');
+  });
+
+  it('findUpcomingMatches trae solo partidos de competencias con priority > 0, ordenados por prioridad y fecha', async () => {
+    const { db } = handle;
+    const important = await makeCompetition(db, { slug: 'urba-top-14', priority: 100 });
+    const minor = await makeCompetition(db, { slug: 'top-14-preintermedia', priority: 0 });
+    const importantSeason = await makeSeason(db, important.id);
+    const minorSeason = await makeSeason(db, minor.id);
+    const a = await makeTeam(db, { name: 'A' });
+    const b = await makeTeam(db, { name: 'B' });
+    const c = await makeTeam(db, { name: 'C' });
+    const d = await makeTeam(db, { name: 'D' });
+
+    // Partido de competencia sin prioridad: no debe aparecer.
+    await upsertMatchByNaturalKey(db, {
+      seasonId: minorSeason.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-08-01T00:00:00Z'),
+      homeTeamId: a.id,
+      awayTeamId: b.id,
+    });
+    // Dos partidos de competencia importante, en orden inverso al que deben salir.
+    const later = await upsertMatchByNaturalKey(db, {
+      seasonId: importantSeason.id,
+      round: 'Fecha 2',
+      startsAt: new Date('2026-08-10T00:00:00Z'),
+      homeTeamId: a.id,
+      awayTeamId: c.id,
+    });
+    const sooner = await upsertMatchByNaturalKey(db, {
+      seasonId: importantSeason.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-08-02T00:00:00Z'),
+      homeTeamId: b.id,
+      awayTeamId: d.id,
+    });
+
+    const upcoming = await findUpcomingMatches(db, { limit: 5, now: new Date('2026-07-28T00:00:00Z') });
+    expect(upcoming.map((m) => m.id)).toEqual([sooner.match.id, later.match.id]);
   });
 
   it('replaceStandings reemplaza la tabla completa y ordena por puntos', async () => {

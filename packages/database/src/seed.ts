@@ -3,6 +3,7 @@ import { TEAM_BADGES } from '@ovalia/domain';
 import { createDatabase } from './client.js';
 import { upsertSource } from './repositories/ingestion-repository.js';
 import { upsertCompetition, upsertSeason } from './repositories/competitions-repository.js';
+import { upsertOrganization } from './repositories/organizations-repository.js';
 import { createUser } from './repositories/users-repository.js';
 import { competitions, teams, users } from './schema.js';
 import { eq } from 'drizzle-orm';
@@ -55,6 +56,17 @@ for (const team of TEAM_BADGES) {
         externalIds: values.externalIds,
       },
     });
+}
+
+// Organizaciones (uniones, ligas, torneos internacionales).
+const ORGANIZATIONS: Array<{ slug: string; name: string; kind: string; countryCode: string | null }> = [
+  { slug: 'urba', name: 'Unión de Rugby de Buenos Aires', kind: 'union', countryCode: 'AR' },
+  { slug: 'super-rugby', name: 'Súper Rugby', kind: 'league', countryCode: null },
+  { slug: 'rugby-internacional', name: 'Rugby Internacional', kind: 'international', countryCode: null },
+  { slug: 'rugby-seven', name: 'Rugby Seven', kind: 'sevens', countryCode: null },
+];
+for (const org of ORGANIZATIONS) {
+  await upsertOrganization(db, org);
 }
 
 await db

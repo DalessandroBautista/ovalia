@@ -1,4 +1,5 @@
 export * from './teams-repository.js';
+export * from './organizations-repository.js';
 export * from './competitions-repository.js';
 export * from './matches-repository.js';
 export * from './standings-repository.js';
