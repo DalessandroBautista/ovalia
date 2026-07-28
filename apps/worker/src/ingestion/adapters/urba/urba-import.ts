@@ -1,7 +1,6 @@
 import type { Database } from '@ovalia/database';
 import { runIngestion, type RunIngestionResult } from '../../run-ingestion';
 import { URBA_PARSER_VERSION } from './urba-parser';
-import { URBA_PRIORITY_COMPETITIONS } from './urba-competitions';
 import { UrbaAdapter } from './urba-adapter';
 
 export interface UrbaImportOptions {
@@ -23,7 +22,7 @@ export interface UrbaImportReport {
   }>;
 }
 
-/** Importa el catálogo y, por cada competencia prioritaria, fixtures y posiciones. */
+/** Importa el catálogo y, por cada competencia del feed, fixtures y posiciones. */
 export async function importUrba(options: UrbaImportOptions): Promise<UrbaImportReport> {
   const adapter = options.adapter ?? new UrbaAdapter();
   const seasonYear = options.seasonYear ?? 2026;
@@ -35,6 +34,11 @@ export async function importUrba(options: UrbaImportOptions): Promise<UrbaImport
     dryRun: options.dryRun,
   } as const;
 
+  // fetchCatalog no tiene efectos secundarios (solo lee de la API de URBA), así que se
+  // puede llamar acá para conocer la lista real de competencias del feed, además de
+  // dejar que runIngestion haga su propio fetch+persist con checksum/idempotencia.
+  const catalogPayload = await adapter.fetchCatalog!({ seasonYear });
+
   const catalog = await runIngestion({
     ...base,
     capability: 'catalog',
@@ -42,10 +46,10 @@ export async function importUrba(options: UrbaImportOptions): Promise<UrbaImport
   });
 
   const competitions = options.competitionExternalIds
-    ? URBA_PRIORITY_COMPETITIONS.filter((c) =>
+    ? catalogPayload.competitions.filter((c) =>
         options.competitionExternalIds!.includes(c.externalId),
       )
-    : URBA_PRIORITY_COMPETITIONS;
+    : catalogPayload.competitions;
 
   const perCompetition: UrbaImportReport['perCompetition'] = [];
   for (const competition of competitions) {
