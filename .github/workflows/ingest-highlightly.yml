@@ -1,0 +1,40 @@
+name: Refresh Highlightly data
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highlightly-production-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HIGHLIGHTLY_API_KEY: ${{ secrets.HIGHLIGHTLY_API_KEY }}
+      PARSER_VERSION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ovalia/domain build
+      - run: pnpm --filter @ovalia/database build
+      - name: Require the production credentials
+        run: test -n "$DATABASE_URL" && test -n "$HIGHLIGHTLY_API_KEY"
+      - name: Refresh Highlightly catalog, fixtures and standings
+        run: pnpm --filter @ovalia/worker exec tsx src/cli/ingest.ts --source highlightly-ingest --all
