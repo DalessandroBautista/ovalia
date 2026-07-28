@@ -13,7 +13,19 @@ vi.mock('../tournaments/use-tournaments', () => ({
       { slug: 'rugby-championship', name: 'Rugby Championship', category: 'national-teams', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'rugby-internacional', name: 'Rugby Internacional' }, familySlug: 'rugby-championship', tier: 'senior' },
     ],
   }),
-  useTournament: vi.fn(),
+  useTournament: (slug: string) => {
+    const competitions = [
+      { slug: 'urba-top-14', name: 'TOP 14 - Superior', familySlug: 'top-14' },
+      { slug: 'top-14-intermedia', name: 'TOP 14 - Intermedia', familySlug: 'top-14' },
+    ];
+    const comp = competitions.find((c) => c.slug === slug);
+    return {
+      status: 'ready' as const,
+      competition: comp ? { slug: comp.slug, name: comp.name, familySlug: comp.familySlug, seasons: [{ year: 2026, name: '2026' }] } : null,
+      standings: null,
+      matches: [],
+    };
+  },
 }));
 
 vi.mock('../matches/use-agenda', () => ({
@@ -24,7 +36,7 @@ vi.mock('../../components/live-rail', () => ({
   useLiveFeed: () => ({ status: 'loading' as const, matches: [] }),
 }));
 
-import { MatchesPage, PredictionPage, TournamentsPage } from './portal-pages';
+import { MatchesPage, PredictionPage, TournamentsPage, TournamentPage } from './portal-pages';
 
 describe('public portal pages', () => {
   it('renders the match center', () => {
@@ -49,5 +61,14 @@ describe('public portal pages', () => {
 
   it('renders the prediction experience', () => {
     expect(renderToStaticMarkup(createElement(PredictionPage))).toContain('Prode Ovalia');
+  });
+});
+
+describe('TournamentPage family selector', () => {
+  it('muestra un selector con las competencias de la misma familia', () => {
+    const html = renderToStaticMarkup(createElement(TournamentPage, { slug: 'urba-top-14' }));
+    expect(html).toContain('family-selector');
+    expect(html).toContain('Intermedia');
+    expect(html).toContain('Superior');
   });
 });

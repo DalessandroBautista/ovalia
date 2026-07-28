@@ -182,6 +182,9 @@ export function TournamentPage({ slug }: { slug: string }) {
   const upcoming = matches.filter((m) => m.status !== 'final');
   const activeSeason = season ?? competition.seasons[0]?.year;
 
+  const { competitions } = useCompetitions();
+  const siblings = competitions.filter((c) => c.familySlug && c.familySlug === competition.familySlug);
+
   return (
     <Frame eyebrow="ARGENTINA · BUENOS AIRES" title={competition.name} intro={`Temporada ${activeSeason ?? ''} · posiciones, resultados y calendario reales.`}>
       {competition.seasons.length > 1 ? (
@@ -196,6 +199,20 @@ export function TournamentPage({ slug }: { slug: string }) {
         <button type="button" className={tab === 'resultados' ? 'active' : ''} onClick={() => setTab('resultados')}>Resultados</button>
         <button type="button" className={tab === 'calendario' ? 'active' : ''} onClick={() => setTab('calendario')}>Calendario</button>
       </nav>
+
+      {siblings.length > 1 ? (
+        <nav className="family-selector" aria-label="Otras categorías de este torneo">
+          {siblings.map((s) => (
+            <a
+              key={s.slug}
+              href={`/torneos/${s.slug}`}
+              className={s.slug === slug ? 'active' : ''}
+            >
+              {s.name.split(' - ').at(-1) ?? s.name}
+            </a>
+          ))}
+        </nav>
+      ) : null}
 
       {tab === 'posiciones' ? (
         <section className="table-card">
