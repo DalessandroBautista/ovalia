@@ -20,6 +20,7 @@ export function getStandingsForSeason(db: Database, seasonId: string) {
       teamId: standings.teamId,
       teamSlug: teams.slug,
       teamName: teams.name,
+      teamBadgeUrl: teams.badgeUrl,
       played: standings.played,
       won: standings.won,
       drawn: standings.drawn,

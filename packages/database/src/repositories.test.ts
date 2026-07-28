@@ -190,7 +190,7 @@ describe.skipIf(!available)('repositories', () => {
     const competition = await makeCompetition(db);
     const season = await makeSeason(db, competition.id);
     const a = await makeTeam(db, { name: 'A' });
-    const b = await makeTeam(db, { name: 'B' });
+    const b = await makeTeam(db, { name: 'B', badgeUrl: 'https://example.com/b.png' });
     await replaceStandings(
       db,
       season.id,
@@ -213,6 +213,7 @@ describe.skipIf(!available)('repositories', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]!.teamName).toBe('B');
     expect(rows[0]!.source).toBe('urba');
+    expect(rows[0]!.teamBadgeUrl).toBe('https://example.com/b.png');
   });
 
   it('recordArtifact es idempotente por fuente y checksum', async () => {
