@@ -28,9 +28,9 @@ describe('live rugby UI', () => {
   });
 
   it('resolves a verified local club badge from its alias', () => {
-    const html = renderToStaticMarkup(createElement(TeamBadge, { name: 'SIC', shortCode: 'SIC' }));
+    const html = renderToStaticMarkup(createElement(TeamBadge, { name: 'Los Pumas', shortCode: 'ARG' }));
 
-    expect(html).toContain('src="/teams/sic.svg"');
+    expect(html).toContain('src="/teams/argentina.png"');
     expect(html).not.toContain('<svg');
   });
 
