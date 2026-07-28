@@ -60,6 +60,8 @@ export const competitions = pgTable('competitions', {
   gender: text('gender').notNull(),
   format: text('format').notNull().default('xv'),
   priority: integer('priority').notNull().default(0),
+  familySlug: text('family_slug'),
+  tier: text('tier').notNull().default('senior'),
   coverage: text('coverage').notNull().default('manual')
 }, (table) => [uniqueIndex('competitions_slug_unique').on(table.slug)]);
 
