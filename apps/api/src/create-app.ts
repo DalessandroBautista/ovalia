@@ -201,7 +201,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       season: season.year,
       rows: rows.map((r, index) => ({
         position: index + 1,
-        team: { slug: r.teamSlug, name: r.teamName },
+        team: { slug: r.teamSlug, name: r.teamName, badgeUrl: r.teamBadgeUrl },
         played: r.played,
         won: r.won,
         drawn: r.drawn,

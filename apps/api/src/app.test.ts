@@ -43,7 +43,7 @@ describe.skipIf(!available)('API real', () => {
     const { db } = handle;
     const competition = await makeCompetition(db, { slug: 'urba-top-14', name: 'URBA Top 14' });
     const season = await makeSeason(db, competition.id, { year: 2026 });
-    const sic = await makeTeam(db, { slug: 'sic', name: 'SIC' });
+    const sic = await makeTeam(db, { slug: 'sic', name: 'SIC', badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png' });
     const hindu = await makeTeam(db, { slug: 'hindu', name: 'Hindú' });
     await upsertMatchByNaturalKey(db, {
       seasonId: season.id,
@@ -133,7 +133,11 @@ describe.skipIf(!available)('API real', () => {
     expect(standings.statusCode).toBe(200);
     const body = standings.json();
     expect(body.season).toBe(2026);
-    expect(body.rows[0]).toMatchObject({ position: 1, team: { slug: 'sic' }, points: 4 });
+    expect(body.rows[0]).toMatchObject({
+      position: 1,
+      team: { slug: 'sic', badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png' },
+      points: 4,
+    });
     expect(body.source).toBe('urba');
   });
 
