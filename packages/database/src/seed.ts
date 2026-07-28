@@ -2,7 +2,7 @@ import { extname } from 'node:path';
 import { TEAM_BADGES } from '@ovalia/domain';
 import { createDatabase } from './client.js';
 import { upsertSource } from './repositories/ingestion-repository.js';
-import { upsertSeason } from './repositories/competitions-repository.js';
+import { upsertCompetition, upsertSeason } from './repositories/competitions-repository.js';
 import { createUser } from './repositories/users-repository.js';
 import { competitions, teams, users } from './schema.js';
 import { eq } from 'drizzle-orm';
@@ -135,6 +135,36 @@ await upsertSource(db, {
   active: false,
   attribution: 'Highlightly',
 });
+
+// Prioridad curada de las divisiones Superior/Primera de URBA (Hito: home fallback).
+// La ingesta (persistCatalog) nunca vuelve a pisar esto porque upsertCompetition
+// preserva priority si no viene explícito.
+const URBA_TOP_FLIGHT_PRIORITY: Record<string, number> = {
+  'urba-top-14': 100,
+  'urba-primera-a': 90,
+  'urba-primera-b': 80,
+  'urba-primera-c': 70,
+  'urba-segunda': 60,
+  'urba-tercera': 50,
+  'urba-desarrollo': 40,
+  'urba-femenino-top-9': 30,
+};
+for (const [slug, priority] of Object.entries(URBA_TOP_FLIGHT_PRIORITY)) {
+  const existing = await db.select().from(competitions).where(eq(competitions.slug, slug)).limit(1);
+  const row = existing[0];
+  if (row) {
+    await upsertCompetition(db, {
+      slug: row.slug,
+      name: row.name,
+      category: row.category,
+      gender: row.gender,
+      countryCode: row.countryCode,
+      format: row.format,
+      priority,
+      coverage: row.coverage,
+    });
+  }
+}
 
 // Temporada estructural de bootstrap para la competencia con cobertura prioritaria.
 const [urba] = await db
