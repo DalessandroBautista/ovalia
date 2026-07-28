@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, lte, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Database } from '../client.js';
 import { competitions, matches, seasons, teams } from '../schema.js';
@@ -106,6 +106,17 @@ export async function findMatchesInRange(db: Database, params: MatchListParams) 
 export async function findMatchById(db: Database, id: string) {
   const [row] = await baseSelect(db).where(eq(matches.id, id)).limit(1);
   return row ?? null;
+}
+
+export async function findUpcomingMatches(db: Database, params: { limit: number; now: Date }) {
+  return baseSelect(db)
+    .where(and(
+      eq(matches.status, 'scheduled'),
+      gt(competitions.priority, 0),
+      gte(matches.startsAt, params.now),
+    ))
+    .orderBy(desc(competitions.priority), asc(matches.startsAt))
+    .limit(params.limit);
 }
 
 export type CompetitionMatchesParams = {
