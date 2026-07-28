@@ -20,6 +20,7 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
   }
 
   async fetchCatalog(_ctx: FetchContext) {
+    void _ctx;
     const currentYear = new Date().getFullYear();
     const competitions = HIGHLIGHTLY_COMPETITIONS.map((c) => {
       const format: 'xv' | 'sevens' = c.tier === 'sevens' ? 'sevens' : 'xv';
