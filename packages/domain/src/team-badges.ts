@@ -12,12 +12,6 @@ export interface TeamBadgeRecord {
 }
 
 export const TEAM_BADGES: readonly TeamBadgeRecord[] = [
-  { slug: 'sic', name: 'San Isidro Club', shortCode: 'SIC', aliases: ['SIC'], badgePath: '/teams/sic.svg', providerQuery: 'San Isidro Club', sourceUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/San%20Isidro%20Club%20logo.svg' },
-  { slug: 'hindu', name: 'Hindú Club', shortCode: 'HIN', aliases: ['Hindú', 'Hindu', 'Hindu Club'], badgePath: '/teams/hindu.svg', providerQuery: 'Hindu Club', sourceUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Hindu%20club%20logo.svg' },
-  { slug: 'casi', name: 'Club Atlético de San Isidro', shortCode: 'CAS', aliases: ['CASI'], badgePath: '/teams/casi.svg', providerQuery: 'CASI', sourceUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Escudo%20de%20Club%20Atl%C3%A9tico%20San%20Isidro.svg' },
-  { slug: 'newman', name: 'Club Newman', shortCode: 'NEW', aliases: ['Newman'], badgePath: '/teams/newman.png', providerQuery: 'Club Newman', sourceUrl: 'https://clubnewman.com.ar/wp-content/uploads/2026/03/escudo-NWM.png' },
-  { slug: 'alumni', name: 'Asociación Alumni', shortCode: 'ALU', aliases: ['Alumni', 'Alumni Rugby'], badgePath: '/teams/alumni.svg', providerQuery: 'Alumni', sourceUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Alumni%20rugby%20logo.svg' },
-  { slug: 'cuba', name: 'Club Universitario de Buenos Aires', shortCode: 'CUB', aliases: ['CUBA'], badgePath: '/teams/cuba.svg', providerQuery: 'CUBA', sourceUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/47/Universitario_BA_logo.svg' },
   { slug: 'argentina', name: 'Argentina', shortCode: 'ARG', aliases: ['Los Pumas', 'Argentina XV'], badgePath: '/teams/argentina.png', providerQuery: 'Argentina', sourceUrl: 'https://upload.wikimedia.org/wikipedia/en/7/74/Los_pumas_argentina_logo23.png' },
   { slug: 'sudafrica', name: 'Sudáfrica', shortCode: 'RSA', aliases: ['South Africa', 'Springboks', 'Sudafrica'], badgePath: '/teams/sudafrica.svg', providerQuery: 'South Africa', sourceUrl: 'https://upload.wikimedia.org/wikipedia/en/8/83/South_Africa_national_rugby_union_team.svg' },
   { slug: 'nueva-zelanda', name: 'Nueva Zelanda', shortCode: 'NZL', aliases: ['New Zealand', 'All Blacks'], badgePath: '/teams/nueva-zelanda.svg', providerQuery: 'New Zealand', sourceUrl: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Allblacks-logo.svg' },

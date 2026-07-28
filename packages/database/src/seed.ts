@@ -17,12 +17,6 @@ const connectionString =
 const { db, pool } = createDatabase(connectionString);
 
 const metadata: Record<string, { countryCode: string; union: string; shortName: string }> = {
-      sic: { countryCode: 'AR', union: 'URBA', shortName: 'SIC' },
-      hindu: { countryCode: 'AR', union: 'URBA', shortName: 'Hindú' },
-      casi: { countryCode: 'AR', union: 'URBA', shortName: 'CASI' },
-      newman: { countryCode: 'AR', union: 'URBA', shortName: 'Newman' },
-      alumni: { countryCode: 'AR', union: 'URBA', shortName: 'Alumni' },
-      cuba: { countryCode: 'AR', union: 'URBA', shortName: 'CUBA' },
       argentina: { countryCode: 'AR', union: 'UAR', shortName: 'Los Pumas' },
       sudafrica: { countryCode: 'ZA', union: 'SARU', shortName: 'Springboks' },
       'nueva-zelanda': { countryCode: 'NZ', union: 'NZR', shortName: 'All Blacks' },
