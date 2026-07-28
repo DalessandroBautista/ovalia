@@ -34,13 +34,13 @@ export async function upsertCompetition(db: Database, input: CompetitionInput) {
     gender: input.gender,
     countryCode: input.countryCode ?? null,
     format: input.format ?? 'xv',
-    priority: input.priority ?? 0,
+    priority: input.priority,
     coverage: input.coverage ?? 'manual',
     organizationId: input.organizationId ?? null,
   };
   const [row] = await db
     .insert(competitions)
-    .values(values)
+    .values({ ...values, priority: values.priority ?? 0 })
     .onConflictDoUpdate({
       target: competitions.slug,
       set: {
@@ -49,7 +49,10 @@ export async function upsertCompetition(db: Database, input: CompetitionInput) {
         gender: values.gender,
         countryCode: values.countryCode,
         format: values.format,
-        priority: values.priority,
+        // Solo se actualiza priority si vino explícito en este upsert; si no, se
+        // conserva el valor ya guardado (evita que la ingesta pise una prioridad
+        // curada a mano).
+        ...(values.priority !== undefined ? { priority: values.priority } : {}),
         coverage: values.coverage,
         organizationId: values.organizationId,
       },

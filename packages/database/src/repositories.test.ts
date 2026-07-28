@@ -20,6 +20,7 @@ import {
   replaceStandings,
   resolveExternalEntity,
   setArticleStatus,
+  upsertCompetition,
   upsertMatchByNaturalKey,
   upsertPrediction,
   upsertTeams,
@@ -101,6 +102,36 @@ describe.skipIf(!available)('repositories', () => {
     const stillVerified = await db.query.teams.findFirst({ where: (t, { eq }) => eq(t.slug, 'sic') });
     expect(stillVerified?.badgeUrl).toBe('https://api.urba.org.ar/img/clubs/sic.png');
     expect(stillVerified?.badgeStatus).toBe('verified');
+  });
+
+  it('upsertCompetition preserva priority si no viene explícito en un upsert posterior', async () => {
+    const { db } = handle;
+    const created = await upsertCompetition(db, {
+      slug: 'urba-top-14',
+      name: 'TOP 14 - Superior',
+      category: 'clubs',
+      gender: 'male',
+      priority: 100,
+    });
+    expect(created.priority).toBe(100);
+
+    const updated = await upsertCompetition(db, {
+      slug: 'urba-top-14',
+      name: 'TOP 14 - Superior',
+      category: 'clubs',
+      gender: 'male',
+      // sin priority: no debe resetear a 0
+    });
+    expect(updated.priority).toBe(100);
+
+    const explicitlyZero = await upsertCompetition(db, {
+      slug: 'urba-top-14',
+      name: 'TOP 14 - Superior',
+      category: 'clubs',
+      gender: 'male',
+      priority: 0,
+    });
+    expect(explicitlyZero.priority).toBe(0);
   });
 
   it('upsertMatchByNaturalKey no duplica y actualiza horario/resultado', async () => {
