@@ -121,13 +121,18 @@ export function parseCompetitions(
 
 export function parseClubsAsTeams(raw: unknown): ExternalTeam[] {
   const data = parseOrThrow(rawClubsSchema, raw, 'clubs');
-  return data.clubs.map((club) => ({
-    externalId: String(club.id),
-    name: club.name,
-    countryCode: 'AR' as const,
-    union: 'URBA',
-    ...(club.image_uri ? { badgeUrl: `https://api.urba.org.ar/${club.image_uri}` } : {}),
-  }));
+  return data.clubs.map((club) => {
+    const badgeUrl = club.image_uri ? `https://api.urba.org.ar/${club.image_uri}` : undefined;
+    const badgeFormat = club.image_uri ? club.image_uri.split('.').pop() : undefined;
+    return {
+      externalId: String(club.id),
+      name: club.name,
+      countryCode: 'AR' as const,
+      union: 'URBA',
+      ...(badgeUrl ? { badgeUrl, badgeSourceUrl: badgeUrl } : {}),
+      ...(badgeFormat ? { badgeFormat } : {}),
+    };
+  });
 }
 
 function matchStatus(m: z.infer<typeof rawMatchSchema>): ExternalMatch['status'] {

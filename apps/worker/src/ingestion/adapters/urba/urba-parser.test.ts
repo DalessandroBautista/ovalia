@@ -47,7 +47,18 @@ describe('URBA parser (contract)', () => {
       countryCode: 'AR',
       union: 'URBA',
       badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+      badgeSourceUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+      badgeFormat: 'png',
     });
+  });
+
+  it('no emite campos de badge cuando el club no trae image_uri', () => {
+    const teams = parseClubsAsTeams({
+      clubs: [{ id: 2, name: 'Sin Logo', image_uri: '' }],
+    });
+    expect(teams[0]!.badgeUrl).toBeUndefined();
+    expect(teams[0]!.badgeSourceUrl).toBeUndefined();
+    expect(teams[0]!.badgeFormat).toBeUndefined();
   });
 
   it('parsea fixtures: fecha AR→UTC, estado y equipos por club', () => {
