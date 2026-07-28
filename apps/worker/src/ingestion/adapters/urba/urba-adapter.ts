@@ -9,7 +9,6 @@ import type {
 import { UrbaClient } from './urba-client';
 import {
   URBA_PRIORITY_COMPETITIONS,
-  URBA_PRIORITY_IDS,
   URBA_SLUG_BY_EXTERNAL_ID,
 } from './urba-competitions';
 import {
@@ -44,7 +43,7 @@ export class UrbaAdapter implements SportsDataAdapter {
       this.client.clubs(),
     ]);
     return {
-      competitions: parseCompetitions(championshipsRaw, URBA_PRIORITY_IDS, URBA_SLUG_BY_EXTERNAL_ID),
+      competitions: parseCompetitions(championshipsRaw, undefined, URBA_SLUG_BY_EXTERNAL_ID),
       teams: parseClubsAsTeams(clubsRaw),
     };
   }

@@ -37,6 +37,11 @@ describe('URBA parser (contract)', () => {
     expect(competitions[0]!.slug).toBe('urba-top-14');
   });
 
+  it('sin filtro de IDs devuelve todas las competencias del fixture', () => {
+    const competitions = parseCompetitions(loadFixture('championships.sample.json'));
+    expect(competitions.length).toBe(8);
+  });
+
   it('parsea clubes como equipos con escudo y external ID de club', () => {
     const teams = parseClubsAsTeams({
       clubs: [{ id: 1, name: 'SIC', image_uri: 'img/clubs/sic.png' }],
