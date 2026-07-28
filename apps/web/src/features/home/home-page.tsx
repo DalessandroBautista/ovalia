@@ -4,7 +4,7 @@ import { findTeamBadge } from '@ovalia/domain';
 import { useState } from 'react';
 
 import { DiamondIcon, HomeIcon, RugbyBallIcon, SearchIcon, TargetIcon, UserIcon, ClockIcon } from '../../components/icons';
-import { LiveRailView, type LiveFeedPayload, useLiveFeed } from '../../components/live-rail';
+import { LiveRailView, type LiveFeedPayload, type UpcomingRailMatch, useLiveFeed, formatUpcomingTime } from '../../components/live-rail';
 import { TeamBadge } from '../../components/team-badge';
 import {
   argentinaDateKey,
@@ -17,8 +17,9 @@ import {
   type AgendaMatch,
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
+import { useUpcomingMatches } from '../matches/use-upcoming';
 import { useCountdown, useHome } from './use-home';
-import type { ApiHomeResponse } from '../../lib/api/types';
+import type { ApiHomeResponse, ApiMatch } from '../../lib/api/types';
 
 export function BallMark() {
   return (
@@ -50,9 +51,42 @@ function Header() {
   );
 }
 
-function FeaturedMatch({ feed }: { feed: LiveFeedPayload }) {
+function toUpcomingRailMatches(matches: ApiMatch[]): UpcomingRailMatch[] {
+  return matches.map((m) => ({
+    id: m.id,
+    competition: m.competition.name,
+    startsAt: m.startsAt,
+    home: { name: m.home.name, shortCode: m.home.shortName, badgeUrl: m.home.badgeUrl ?? undefined },
+    away: { name: m.away.name, shortCode: m.away.shortName, badgeUrl: m.away.badgeUrl ?? undefined },
+  }));
+}
+
+export function FeaturedMatch({ feed, upcoming = [] }: { feed: LiveFeedPayload; upcoming?: UpcomingRailMatch[] }) {
   const match = feed.matches[0];
   if (!match) {
+    const next = upcoming[0];
+    if (next) {
+      return (
+        <article className="featured-match">
+          <div className="featured-match__topline">
+            <span>PRÓXIMO PARTIDO IMPORTANTE</span>
+            <span>{next.competition}</span>
+          </div>
+          <div className="featured-match__score">
+            <div className="featured-team">
+              <TeamBadge name={next.home.name} shortCode={next.home.shortCode} badgeUrl={next.home.badgeUrl} size="large" />
+              <div><small>{next.home.shortCode}</small><h2>{next.home.name}</h2></div>
+            </div>
+            <div className="scoreboard"><b>{formatUpcomingTime(next.startsAt)}</b></div>
+            <div className="featured-team featured-team--away">
+              <div><small>{next.away.shortCode}</small><h2>{next.away.name}</h2></div>
+              <TeamBadge name={next.away.name} shortCode={next.away.shortCode} badgeUrl={next.away.badgeUrl} size="large" />
+            </div>
+          </div>
+          <a className="match-link" href={`/partidos/${next.id}`}>Ver detalle <span>↗</span></a>
+        </article>
+      );
+    }
     const message = feed.status === 'loading'
       ? 'Consultando partidos en vivo'
       : feed.status === 'error'
@@ -92,7 +126,7 @@ function FeaturedMatch({ feed }: { feed: LiveFeedPayload }) {
   );
 }
 
-function Hero({ feed, home }: { feed: LiveFeedPayload; home: ApiHomeResponse | null }) {
+function Hero({ feed, home, upcoming = [] }: { feed: LiveFeedPayload; home: ApiHomeResponse | null; upcoming?: UpcomingRailMatch[] }) {
   return (
     <section className="hero" id="inicio">
       <div className="hero__copy">
@@ -105,7 +139,7 @@ function Hero({ feed, home }: { feed: LiveFeedPayload; home: ApiHomeResponse | n
           <div><strong>{home?.stats.live ?? feed.matches.length}</strong><span>en vivo</span></div>
         </div>
       </div>
-      <FeaturedMatch feed={feed} />
+      <FeaturedMatch feed={feed} upcoming={upcoming} />
     </section>
   );
 }
@@ -249,13 +283,15 @@ function BottomNav() {
 export function HomePage() {
   const liveFeed = useLiveFeed();
   const home = useHome();
+  const upcoming = useUpcomingMatches(5);
+  const upcomingRail = toUpcomingRailMatches(upcoming.matches);
   return (
     <>
-      <LiveRailView feed={liveFeed} />
+      <LiveRailView feed={liveFeed} upcoming={upcomingRail} />
       <div className="page-shell">
         <Header />
         <main>
-          <Hero feed={liveFeed} home={home.data} />
+          <Hero feed={liveFeed} home={home.data} upcoming={upcomingRail} />
           <div className="content-grid">
             <Agenda />
             <Sidebar home={home.data} />
