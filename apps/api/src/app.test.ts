@@ -120,6 +120,38 @@ describe.skipIf(!available)('API real', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('sirve próximos partidos importantes en /v1/matches/upcoming', async () => {
+    const { db } = handle;
+    const important = await makeCompetition(db, { slug: 'urba-top-14', priority: 100 });
+    const minor = await makeCompetition(db, { slug: 'top-14-preintermedia', priority: 0 });
+    const importantSeason = await makeSeason(db, important.id);
+    const minorSeason = await makeSeason(db, minor.id);
+    const a = await makeTeam(db, { slug: 'a', name: 'A' });
+    const b = await makeTeam(db, { slug: 'b', name: 'B' });
+    const futureDate = new Date(Date.now() + 7 * 864e5);
+    await upsertMatchByNaturalKey(db, {
+      seasonId: importantSeason.id,
+      round: 'Fecha 1',
+      startsAt: futureDate,
+      homeTeamId: a.id,
+      awayTeamId: b.id,
+    });
+    await upsertMatchByNaturalKey(db, {
+      seasonId: minorSeason.id,
+      round: 'Fecha 1',
+      startsAt: futureDate,
+      homeTeamId: a.id,
+      awayTeamId: b.id,
+    });
+
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/matches/upcoming?limit=5' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0]).toMatchObject({ competition: { slug: 'urba-top-14' } });
+  });
+
   it('sirve el catálogo y la tabla de posiciones desde DB', async () => {
     await seedCompetition();
     const app = makeAppFor();

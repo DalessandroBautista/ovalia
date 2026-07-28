@@ -27,6 +27,7 @@ import {
   findMatchesInRange,
   findSeason,
   findTeamBySlug,
+  findUpcomingMatches,
   getActiveContest,
   getLatestSeason,
   getStandingsForSeason,
@@ -143,6 +144,17 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       generatedAt: now.toISOString(),
       matches: result.matches.map((m) => serializeMatch(m as NonNullable<MatchRow>)),
       nextCursor: encodeCursor(result.nextCursor),
+    };
+  });
+
+  app.get('/v1/matches/upcoming', async (request) => {
+    const query = request.query as Record<string, string>;
+    const limit = Math.min(Number(query.limit) || 5, 20);
+    const now = new Date();
+    const rows = await findUpcomingMatches(db, { limit, now });
+    return {
+      generatedAt: now.toISOString(),
+      matches: rows.map((m) => serializeMatch(m as NonNullable<MatchRow>)),
     };
   });
 
