@@ -99,6 +99,13 @@ export function fetchMatchById(id: string, options?: ApiFetchOptions) {
   return apiFetch<{ match: ApiMatch }>(`/v1/matches/${encodeURIComponent(id)}`, options);
 }
 
+export function fetchUpcomingMatches(limit: number, options?: ApiFetchOptions) {
+  return apiFetch<{ generatedAt: string; matches: ApiMatch[] }>(
+    `/v1/matches/upcoming${toQueryString({ limit })}`,
+    options,
+  );
+}
+
 export function fetchCompetitions(options?: ApiFetchOptions) {
   return apiFetch<ApiCompetitionsResponse>('/v1/competitions', options);
 }
