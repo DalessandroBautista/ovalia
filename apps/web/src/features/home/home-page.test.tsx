@@ -81,6 +81,13 @@ describe('FeaturedMatch fallback', () => {
 });
 
 describe('Agenda en HomePage', () => {
+  it('incluye Torneos en la navegación móvil principal', () => {
+    const html = renderToStaticMarkup(createElement(HomePage));
+    const mobileNav = html.slice(html.indexOf('bottom-nav'));
+
+    expect(mobileNav).toContain('href="/torneos"');
+  });
+
   it('muestra un solo torneo a la vez con selector para los demás', () => {
     const html = renderToStaticMarkup(createElement(HomePage));
     // Solo un article.competition debe aparecer.

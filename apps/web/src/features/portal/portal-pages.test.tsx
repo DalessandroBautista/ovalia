@@ -32,6 +32,7 @@ vi.mock('../tournaments/use-tournaments', () => ({
       { slug: 'ucr-top-10-intermedia', name: 'TOP 10 A - Intermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'cordoba', name: 'Unión Cordobesa' }, familySlug: 'top-10-a', tier: 'intermediate', priority: 0 },
       { slug: 'torneo-interior-a', name: 'Torneo del Interior A', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: null, familySlug: 'torneo-interior-a', tier: 'senior', priority: 70 },
       { slug: 'tests-internacionales', name: 'Tests Internacionales', category: 'national-teams', gender: 'male', countryCode: null, coverage: 'manual', organization: null, familySlug: 'tests-internacionales', tier: 'senior', priority: 60 },
+      { slug: 'top-14-france', name: 'TOP 14 France - Principal', category: 'clubs', gender: 'male', countryCode: 'FR', coverage: 'manual', organization: { slug: 'lnr', name: 'Ligue Nationale de Rugby' }, familySlug: 'top-14-france', tier: 'senior', priority: 50 },
     ],
   }),
   useTournament: (slug: string) => {
@@ -67,6 +68,18 @@ describe('public portal pages', () => {
     expect(html).toContain('Volver al inicio');
     expect(html).toContain('Día anterior');
     expect(html).toContain('Día siguiente');
+  });
+
+  it('keeps the primary portal destinations available in mobile navigation', () => {
+    const html = renderToStaticMarkup(createElement(TournamentsPage));
+    const mobileNav = html.slice(html.indexOf('portal-mobile-nav'));
+
+    expect(html).toContain('portal-mobile-nav');
+    expect(mobileNav).toContain('href="/partidos"');
+    expect(mobileNav).toContain('href="/torneos"');
+    expect(mobileNav).toContain('href="/prodes"');
+    expect(mobileNav).toContain('href="/juegos"');
+    expect(mobileNav).toContain('href="/ingresar"');
   });
 
   it('groups match center fixtures by tournament priority and time', () => {
@@ -144,6 +157,25 @@ describe('public portal pages', () => {
     expect(html).toContain('Primera');
     expect(html).toContain('Torneo del Interior A');
     expect(html).toContain('Tests Internacionales');
+  });
+
+  it('groups tournaments by country before organization and counts tournament families', () => {
+    const html = renderToStaticMarkup(createElement(TournamentsPage));
+    const argentinaIndex = html.indexOf('>Argentina<');
+    const internationalIndex = html.indexOf('>Internacional<');
+    const franceIndex = html.indexOf('>Francia<');
+
+    expect(html).toContain('tournament-country-nav');
+    expect(html).toContain('href="#pais-argentina"');
+    expect(html).toContain('5 torneos');
+    expect(html).toContain('2 torneos');
+    expect(html).toContain('1 torneo');
+    expect(argentinaIndex).toBeGreaterThan(-1);
+    expect(internationalIndex).toBeGreaterThan(argentinaIndex);
+    expect(franceIndex).toBeGreaterThan(internationalIndex);
+    expect(html.indexOf('URBA')).toBeGreaterThan(argentinaIndex);
+    expect(html.indexOf('Rugby Internacional')).toBeGreaterThan(internationalIndex);
+    expect(html.indexOf('Ligue Nationale de Rugby')).toBeGreaterThan(franceIndex);
   });
 
   it('renders the prediction experience', () => {

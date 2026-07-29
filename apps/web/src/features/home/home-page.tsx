@@ -316,6 +316,7 @@ function BottomNav() {
     <nav className="bottom-nav" aria-label="Navegación móvil">
       <a className="is-active" href="/"><HomeIcon />Inicio</a>
       <a href="/partidos"><ClockIcon />Partidos</a>
+      <a href="/torneos"><RugbyBallIcon />Torneos</a>
       <a href="/prodes"><TargetIcon />Prode</a>
       <a href="/juegos"><DiamondIcon />Juegos</a>
       <a href="/ingresar"><UserIcon />Perfil</a>

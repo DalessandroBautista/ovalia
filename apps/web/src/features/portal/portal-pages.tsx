@@ -3,7 +3,7 @@
 import { findTeamBadge } from '@ovalia/domain';
 import { useEffect, useState } from 'react';
 
-import { ArrowLeftIcon, ArrowRightIcon, RugbyBallIcon } from '../../components/icons';
+import { ArrowLeftIcon, ArrowRightIcon, ClockIcon, DiamondIcon, HomeIcon, RugbyBallIcon, TargetIcon, UserIcon } from '../../components/icons';
 import { type LiveFeedMatch, useLiveFeed } from '../../components/live-rail';
 import { TeamBadge } from '../../components/team-badge';
 import {
@@ -31,7 +31,15 @@ export function PortalHeader() {
         <a href="/partidos">Partidos</a><a href="/torneos">Torneos</a><a href="/prodes">Prodes</a><a href="/juegos">Juegos</a><a href="/noticias">Noticias</a>
       </nav>
       <a className="portal-login" href="/ingresar">Ingresar</a>
-    </header><a className="back-home" href="/"><ArrowLeftIcon />Volver al inicio</a></>
+    </header><a className="back-home" href="/"><ArrowLeftIcon />Volver al inicio</a>
+    <nav className="bottom-nav portal-mobile-nav" aria-label="Navegación móvil">
+      <a href="/"><HomeIcon />Inicio</a>
+      <a href="/partidos"><ClockIcon />Partidos</a>
+      <a href="/torneos"><RugbyBallIcon />Torneos</a>
+      <a href="/prodes"><TargetIcon />Prode</a>
+      <a href="/juegos"><DiamondIcon />Juegos</a>
+      <a href="/ingresar"><UserIcon />Perfil</a>
+    </nav></>
   );
 }
 
@@ -150,6 +158,14 @@ interface OrgGroup {
   families: TournamentFamily[];
 }
 
+interface CountryGroup {
+  key: string;
+  label: string;
+  id: string;
+  organizations: OrgGroup[];
+  tournamentCount: number;
+}
+
 interface TournamentFamily {
   key: string;
   title: string;
@@ -162,6 +178,33 @@ function organizationName(competition: ApiCompetition): string {
   if (competition.category === 'national-teams' || competition.countryCode == null) return 'Rugby Internacional';
   if (competition.countryCode === 'AR') return 'Rugby argentino';
   return 'Otros torneos';
+}
+
+const countryNames: Record<string, string> = {
+  AR: 'Argentina',
+  AU: 'Australia',
+  CL: 'Chile',
+  FR: 'Francia',
+  GB: 'Reino Unido',
+  IE: 'Irlanda',
+  IT: 'Italia',
+  NZ: 'Nueva Zelanda',
+  UY: 'Uruguay',
+  ZA: 'Sudáfrica',
+};
+
+function countryKey(competition: ApiCompetition): string {
+  if (competition.category === 'national-teams' || competition.countryCode == null) return 'international';
+  return competition.countryCode.toUpperCase();
+}
+
+function countryLabel(key: string): string {
+  if (key === 'international') return 'Internacional';
+  return countryNames[key] ?? key;
+}
+
+function countryId(label: string): string {
+  return `pais-${label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 }
 
 function splitCompetitionName(name: string): { familyTitle: string; divisionLabel: string } {
@@ -238,36 +281,94 @@ function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
     });
 }
 
+function groupByCountry(competitions: ApiCompetition[]): CountryGroup[] {
+  const groups = new Map<string, ApiCompetition[]>();
+  for (const competition of competitions) {
+    const key = countryKey(competition);
+    groups.set(key, [...(groups.get(key) ?? []), competition]);
+  }
+
+  return [...groups.entries()]
+    .map(([key, countryCompetitions]) => {
+      const label = countryLabel(key);
+      const organizations = groupByOrganization(countryCompetitions);
+      return {
+        key,
+        label,
+        id: countryId(label),
+        organizations,
+        tournamentCount: organizations.reduce((total, organization) => total + organization.families.length, 0),
+      };
+    })
+    .sort((a, b) => {
+      const rank = (key: string) => key === 'AR' ? 0 : key === 'international' ? 1 : 2;
+      const rankDiff = rank(a.key) - rank(b.key);
+      return rankDiff !== 0 ? rankDiff : a.label.localeCompare(b.label, 'es');
+    });
+}
+
+function tournamentCountLabel(count: number): string {
+  return `${count} ${count === 1 ? 'torneo' : 'torneos'}`;
+}
+
 export function TournamentsPage() {
   const { status, competitions } = useCompetitions();
-  const groups = groupByOrganization(competitions);
+  const countries = groupByCountry(competitions);
   return (
     <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
       {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
       {status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los torneos.</p> : null}
-      {groups.map((group) => (
-        <section className="tournament-group" key={group.orgName}>
-          <h2>{group.orgName}</h2>
-          {group.families.map((family) => (
-            <div className="tournament-family" key={family.key}>
-              <h3>{family.title}</h3>
-              <div className="tournament-divisions">
-                {family.divisions.map((division) => {
-                  const label = splitCompetitionName(division.name).divisionLabel;
-                  return division.coverage === 'auto' ? (
-                    <a href={`/torneos/${division.slug}`} key={division.slug}><span>{label}</span><i>→</i></a>
-                  ) : (
-                    <div className="tournament-upcoming" key={division.slug} aria-disabled="true">
-                      <span>{label}</span>
-                      <small>Cobertura en preparación</small>
+      {countries.length > 0 ? (
+        <div className="tournament-catalog">
+          <nav className="tournament-country-nav" aria-label="Países con torneos">
+            <p>Países</p>
+            {countries.map((country, index) => (
+              <a className={index === 0 ? 'is-primary' : ''} href={`#${country.id}`} key={country.key}>
+                <strong>{country.label}</strong>
+                <span>{tournamentCountLabel(country.tournamentCount)}</span>
+              </a>
+            ))}
+          </nav>
+          <div className="tournament-country-list">
+            {countries.map((country) => (
+              <section className="tournament-country" id={country.id} key={country.key}>
+                <header className="tournament-country__header">
+                  <div><small>País</small><h2>{country.label}</h2></div>
+                  <span>{tournamentCountLabel(country.tournamentCount)}</span>
+                </header>
+                {country.organizations.map((organization) => (
+                  <section className="tournament-group" key={organization.orgName}>
+                    <header className="tournament-group__header">
+                      <h3>{organization.orgName}</h3>
+                      <span>{tournamentCountLabel(organization.families.length)}</span>
+                    </header>
+                    <div className="tournament-grid">
+                      {organization.families.map((family) => (
+                        <article className="tournament-family" key={family.key}>
+                          <h4>{family.title}</h4>
+                          <div className="tournament-divisions">
+                            {family.divisions.map((division) => {
+                              const label = splitCompetitionName(division.name).divisionLabel;
+                              return division.coverage === 'auto' ? (
+                                <a href={`/torneos/${division.slug}`} key={division.slug}><span>{label}</span><i>→</i></a>
+                              ) : (
+                                <div className="tournament-upcoming" key={division.slug} aria-disabled="true">
+                                  <span>{label}</span>
+                                  <small>Cobertura en preparación</small>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </article>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </section>
-      ))}
+                  </section>
+                ))}
+              </section>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </Frame>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { sendFeedback } from '../lib/analytics';
+import { MessageSquareIcon } from './icons';
 
 type State = 'idle' | 'open' | 'sending' | 'sent' | 'error';
 
@@ -29,7 +30,7 @@ export function FeedbackWidget() {
   if (state === 'idle' || state === 'sent') {
     return (
       <button className="feedback-fab" type="button" onClick={() => setState('open')} aria-label="Enviar comentarios">
-        {state === 'sent' ? '¡Gracias!' : 'Comentarios'}
+        <MessageSquareIcon /><span>{state === 'sent' ? '¡Gracias!' : 'Comentarios'}</span>
       </button>
     );
   }

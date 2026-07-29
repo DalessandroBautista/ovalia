@@ -18,3 +18,4 @@ export function ClockIcon(props: IconProps) { return <Icon {...props}><circle cx
 export function TargetIcon(props: IconProps) { return <Icon {...props}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v2M21 12h-2M12 21v-2M3 12h2" /></Icon>; }
 export function DiamondIcon(props: IconProps) { return <Icon {...props}><path d="m12 3 8 9-8 9-8-9 8-9Z" /><path d="m8 12 4-5 4 5-4 5-4-5Z" /></Icon>; }
 export function UserIcon(props: IconProps) { return <Icon {...props}><circle cx="12" cy="8" r="4" /><path d="M4.5 21c.8-4.1 3.3-6 7.5-6s6.7 1.9 7.5 6" /></Icon>; }
+export function MessageSquareIcon(props: IconProps) { return <Icon {...props}><path d="M5 5h14v10H9l-4 4V5Z" /><path d="M8 9h8M8 12h5" /></Icon>; }
