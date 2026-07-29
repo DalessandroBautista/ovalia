@@ -23,9 +23,13 @@ vi.mock('../tournaments/use-tournaments', () => ({
     competitions: [
       { slug: 'urba-top-14', name: 'TOP 14 - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'senior', priority: 100 },
       { slug: 'top-14-intermedia', name: 'TOP 14 - Intermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
+      { slug: 'top-14-preintermedia', name: 'TOP 14 - Preintermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
+      { slug: 'top-14-m22', name: 'TOP 14 - Menores de 22', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'youth', priority: 0 },
       { slug: 'urba-primera-a', name: 'PRIMERA A - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'primera-a', tier: 'senior', priority: 90 },
       { slug: 'menores-de-19-primera-rueda-g2-nivel-1-a', name: 'Menores de 19 - Primera Rueda - G2 NIVEL 1 A', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'menores-de-19', tier: 'youth', priority: 0 },
       { slug: 'rugby-championship', name: 'Rugby Championship', category: 'national-teams', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'rugby-internacional', name: 'Rugby Internacional' }, familySlug: 'rugby-championship', tier: 'senior', priority: 80 },
+      { slug: 'ucr-top-10-primera', name: 'TOP 10 A - Primera', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'cordoba', name: 'Unión Cordobesa' }, familySlug: 'top-10-a', tier: 'senior', priority: 75 },
+      { slug: 'ucr-top-10-intermedia', name: 'TOP 10 A - Intermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'cordoba', name: 'Unión Cordobesa' }, familySlug: 'top-10-a', tier: 'intermediate', priority: 0 },
       { slug: 'torneo-interior-a', name: 'Torneo del Interior A', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: null, familySlug: 'torneo-interior-a', tier: 'senior', priority: 70 },
       { slug: 'tests-internacionales', name: 'Tests Internacionales', category: 'national-teams', gender: 'male', countryCode: null, coverage: 'manual', organization: null, familySlug: 'tests-internacionales', tier: 'senior', priority: 60 },
     ],
@@ -126,15 +130,18 @@ describe('public portal pages', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
     expect(html).toContain('Todos los torneos');
     expect(html).toContain('URBA');
-    expect(html).toContain('TOP 14 - Superior');
-    expect(html).toContain('PRIMERA A - Superior');
-    expect(html.indexOf('TOP 14 - Superior')).toBeLessThan(html.indexOf('PRIMERA A - Superior'));
-    // No debe listar Intermedia como ítem separado en el nivel 1.
-    expect(html).not.toContain('TOP 14 - Intermedia');
-    // Juveniles aparece agrupado aparte.
-    expect(html).toContain('Juveniles');
+    expect(html).toContain('TOP 14');
+    expect(html).toContain('PRIMERA A');
+    expect(html.indexOf('TOP 14')).toBeLessThan(html.indexOf('PRIMERA A'));
+    expect(html).toContain('Superior');
+    expect(html).toContain('Intermedia');
+    expect(html).toContain('Preintermedia');
+    expect(html).toContain('Menores de 22');
     expect(html).toContain('Rugby Internacional');
     expect(html).toContain('Rugby argentino');
+    expect(html).toContain('Unión Cordobesa');
+    expect(html).toContain('TOP 10 A');
+    expect(html).toContain('Primera');
     expect(html).toContain('Torneo del Interior A');
     expect(html).toContain('Tests Internacionales');
   });

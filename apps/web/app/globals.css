@@ -245,7 +245,15 @@ body::before {
 .tournament-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .tournament-group { padding: 25px; background: var(--pitch-raised); border: 1px solid var(--line); }
 .tournament-group h2 { margin: 0 0 18px; color: var(--lime); font-family: var(--display); font-size: 19px; font-weight: 500; }
-.tournament-group a { min-height: 43px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); font-size: 12px; }.tournament-group a:hover i { transform: translateX(4px); }.tournament-group i { color: var(--lime); font-style: normal; transition: transform .2s; }
+.tournament-family { padding: 13px 0; border-top: 1px solid var(--line); }
+.tournament-family:first-of-type { border-top: 0; padding-top: 0; }
+.tournament-family h3 { margin: 0 0 10px; color: var(--paper); font-family: var(--display); font-size: 19px; font-weight: 500; }
+.tournament-divisions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tournament-divisions a, .tournament-upcoming { min-height: 34px; display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 11px; border: 1px solid var(--line); color: var(--paper); background: rgba(10,20,13,.28); font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
+.tournament-divisions a:hover { color: var(--lime); border-color: #415647; background: rgba(198,255,54,.04); }
+.tournament-group i { color: var(--lime); font-style: normal; transition: transform .2s; }
+.tournament-upcoming { color: #8f9f94; }
+.tournament-upcoming small { color: #718277; font-size: 8px; font-weight: 900; }
 .prediction-panel, .table-card, .match-detail { padding: 26px; background: var(--pitch-raised); border: 1px solid var(--line); }
 .prediction-heading { display: flex; justify-content: space-between; align-items: end; padding-bottom: 22px; border-bottom: 1px solid var(--line); }.prediction-heading small { color: var(--lime); font-weight: 900; }.prediction-heading h2 { margin: 5px 0 0; font-family: var(--display); font-size: 32px; font-weight: 500; }.prediction-heading span { color: var(--mist); font-size: 10px; }
 .prediction-row { min-height: 82px; display: grid; grid-template-columns: 1fr 68px 20px 68px 1fr; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }.prediction-row > b:last-child { text-align: right; }.prediction-row label { display: grid; gap: 4px; }.prediction-row label span { color: var(--mist); font-size: 7px; text-align: center; text-transform: uppercase; }.prediction-row input { width: 58px; height: 42px; color: var(--white); background: var(--pitch); border: 1px solid var(--line); font: 20px var(--display); text-align: center; }.prediction-row em { color: var(--mist); font-style: normal; text-align: center; }

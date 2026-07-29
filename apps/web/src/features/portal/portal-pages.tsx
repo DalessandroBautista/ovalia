@@ -147,72 +147,93 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
 
 interface OrgGroup {
   orgName: string;
-  senior: ApiCompetition[];
-  youth: ApiCompetition[];
+  families: TournamentFamily[];
 }
 
-function sortCompetitions(competitions: ApiCompetition[]): ApiCompetition[] {
-  return [...competitions].sort((a, b) => {
-    const priorityDiff = b.priority - a.priority;
-    if (priorityDiff !== 0) return priorityDiff;
-    return a.name.localeCompare(b.name);
-  });
+interface TournamentFamily {
+  key: string;
+  title: string;
+  priority: number;
+  divisions: ApiCompetition[];
 }
 
-function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
-  const seniorSeen = new Set<string>();
-  const youthSeen = new Set<string>();
-  const groups = new Map<string, OrgGroup>();
-  for (const c of competitions) {
-    if (c.coverage !== 'auto') continue;
-    const orgName = c.organization?.name ?? 'Sin unión';
-    if (!groups.has(orgName)) groups.set(orgName, { orgName, senior: [], youth: [] });
-    const group = groups.get(orgName)!;
-    const familyKey = `${orgName}:${c.familySlug ?? c.slug}`;
-    if (c.tier === 'youth') {
-      if (!youthSeen.has(familyKey)) { youthSeen.add(familyKey); group.youth.push(c); }
-    } else if (c.tier === 'senior') {
-      if (!seniorSeen.has(familyKey)) { seniorSeen.add(familyKey); group.senior.push(c); }
-    }
-  }
-  return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      senior: sortCompetitions(group.senior),
-      youth: sortCompetitions(group.youth),
-    }))
-    .sort((a, b) => {
-      const priorityA = a.senior[0]?.priority ?? a.youth[0]?.priority ?? 0;
-      const priorityB = b.senior[0]?.priority ?? b.youth[0]?.priority ?? 0;
-      return priorityB - priorityA;
-    });
-}
-
-function preparationGroupName(competition: ApiCompetition): string {
+function organizationName(competition: ApiCompetition): string {
   if (competition.organization?.name) return competition.organization.name;
   if (competition.category === 'national-teams' || competition.countryCode == null) return 'Rugby Internacional';
   if (competition.countryCode === 'AR') return 'Rugby argentino';
   return 'Otros torneos';
 }
 
-function groupUpcomingCompetitions(competitions: ApiCompetition[]): OrgGroup[] {
-  const groups = new Map<string, OrgGroup>();
+function splitCompetitionName(name: string): { familyTitle: string; divisionLabel: string } {
+  const parts = name.split(' - ');
+  if (parts.length >= 2) {
+    return {
+      familyTitle: parts[0]!,
+      divisionLabel: parts.slice(1).join(' - '),
+    };
+  }
+  return { familyTitle: name, divisionLabel: 'Principal' };
+}
+
+function divisionRank(competition: ApiCompetition): number {
+  const label = splitCompetitionName(competition.name).divisionLabel.toLowerCase();
+  if (/^(superior|primera\b|primera divisi[oó]n)/.test(label)) return 0;
+  if (/^intermedia/.test(label)) return 1;
+  if (/^pre[\s-]?intermedia/.test(label)) return 2;
+  if (/menores de 22|^m22/.test(label)) return 3;
+  if (/^m19|menores de 19/.test(label)) return 10;
+  if (/^m17|menores de 17/.test(label)) return 11;
+  if (/^m16|menores de 16/.test(label)) return 12;
+  if (/^m15|menores de 15/.test(label)) return 13;
+  if (competition.tier === 'women') return 20;
+  if (competition.tier === 'youth') return 30;
+  return 50;
+}
+
+function sortDivisions(competitions: ApiCompetition[]): ApiCompetition[] {
+  return [...competitions].sort((a, b) => {
+    const rankDiff = divisionRank(a) - divisionRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    const priorityDiff = b.priority - a.priority;
+    if (priorityDiff !== 0) return priorityDiff;
+    return splitCompetitionName(a.name).divisionLabel.localeCompare(splitCompetitionName(b.name).divisionLabel);
+  });
+}
+
+function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
+  const groups = new Map<string, { orgName: string; families: Map<string, TournamentFamily> }>();
   for (const competition of competitions) {
-    const orgName = preparationGroupName(competition);
-    if (!groups.has(orgName)) groups.set(orgName, { orgName, senior: [], youth: [] });
+    const orgName = organizationName(competition);
+    if (!groups.has(orgName)) groups.set(orgName, { orgName, families: new Map() });
     const group = groups.get(orgName)!;
-    if (competition.tier === 'youth') group.youth.push(competition);
-    else group.senior.push(competition);
+    const familyKey = competition.familySlug ?? competition.slug;
+    const family = group.families.get(familyKey) ?? {
+      key: familyKey,
+      title: splitCompetitionName(competition.name).familyTitle,
+      priority: competition.priority,
+      divisions: [],
+    };
+    family.priority = Math.max(family.priority, competition.priority);
+    if (competition.priority >= family.priority) {
+      family.title = splitCompetitionName(competition.name).familyTitle;
+    }
+    family.divisions.push(competition);
+    group.families.set(familyKey, family);
   }
   return [...groups.values()]
     .map((group) => ({
-      ...group,
-      senior: sortCompetitions(group.senior),
-      youth: sortCompetitions(group.youth),
+      orgName: group.orgName,
+      families: [...group.families.values()]
+        .map((family) => ({ ...family, divisions: sortDivisions(family.divisions) }))
+        .sort((a, b) => {
+          const priorityDiff = b.priority - a.priority;
+          if (priorityDiff !== 0) return priorityDiff;
+          return a.title.localeCompare(b.title);
+        }),
     }))
     .sort((a, b) => {
-      const priorityA = a.senior[0]?.priority ?? a.youth[0]?.priority ?? 0;
-      const priorityB = b.senior[0]?.priority ?? b.youth[0]?.priority ?? 0;
+      const priorityA = a.families[0]?.priority ?? 0;
+      const priorityB = b.families[0]?.priority ?? 0;
       return priorityB - priorityA;
     });
 }
@@ -220,7 +241,6 @@ function groupUpcomingCompetitions(competitions: ApiCompetition[]): OrgGroup[] {
 export function TournamentsPage() {
   const { status, competitions } = useCompetitions();
   const groups = groupByOrganization(competitions);
-  const upcomingGroups = groupUpcomingCompetitions(competitions.filter((c) => c.coverage !== 'auto'));
   return (
     <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
       {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
@@ -228,26 +248,22 @@ export function TournamentsPage() {
       {groups.map((group) => (
         <section className="tournament-group" key={group.orgName}>
           <h2>{group.orgName}</h2>
-          {group.senior.map((c) => (
-            <a href={`/torneos/${c.slug}`} key={c.slug}><span>{c.name}</span><i>→</i></a>
-          ))}
-          {group.youth.length > 0 ? (
-            <>
-              <h3>Juveniles</h3>
-              {group.youth.map((c) => (
-                <a href={`/torneos/${c.slug}`} key={c.slug}><span>{c.name}</span><i>→</i></a>
-              ))}
-            </>
-          ) : null}
-        </section>
-      ))}
-      {upcomingGroups.map((group) => (
-        <section className="tournament-group" key={`upcoming-${group.orgName}`}>
-          <h2>{group.orgName}</h2>
-          {[...group.senior, ...group.youth].map((c) => (
-            <div className="tournament-upcoming" key={c.slug} aria-disabled="true">
-              <span>{c.name}</span>
-              <small>Cobertura en preparación</small>
+          {group.families.map((family) => (
+            <div className="tournament-family" key={family.key}>
+              <h3>{family.title}</h3>
+              <div className="tournament-divisions">
+                {family.divisions.map((division) => {
+                  const label = splitCompetitionName(division.name).divisionLabel;
+                  return division.coverage === 'auto' ? (
+                    <a href={`/torneos/${division.slug}`} key={division.slug}><span>{label}</span><i>→</i></a>
+                  ) : (
+                    <div className="tournament-upcoming" key={division.slug} aria-disabled="true">
+                      <span>{label}</span>
+                      <small>Cobertura en preparación</small>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </section>
