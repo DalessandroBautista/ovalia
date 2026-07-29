@@ -1,0 +1,6 @@
+# Plantilla de importación manual de partidos (Ovalia).
+# Cabecera obligatoria exacta. starts_at en ISO 8601 con offset (ej: 2026-08-01T15:00:00-03:00).
+# status: scheduled|live|halftime|final|postponed|cancelled. Los equipos se resuelven por alias/slug.
+competition_slug,season_year,round,starts_at,home_team,away_team,status,home_score,away_score
+top-14-superior,2026,Fecha 20,2026-08-09T15:30:00-03:00,SIC,CASI,scheduled,,
+top-14-superior,2026,Fecha 20,2026-08-09T15:30:00-03:00,Hindú,Newman,final,24,21

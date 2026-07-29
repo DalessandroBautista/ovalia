@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { TEAM_BADGES } from '@ovalia/domain';
-import { createNodeBadgeFileStore, findHighlightlyTeam, syncTeamBadgeAsset } from './team-badge-sync';
+import { createNodeBadgeFileStore, findHighlightlyTeam, syncTeamBadgeAsset } from './team-badge-sync.js';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 try {

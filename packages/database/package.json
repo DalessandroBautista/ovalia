@@ -4,7 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./test-support": {
+      "types": "./src/test-support/index.ts",
+      "default": "./dist/test-support/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

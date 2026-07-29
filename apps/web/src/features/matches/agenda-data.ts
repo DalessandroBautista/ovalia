@@ -1,15 +1,51 @@
+import type { ApiMatch, Freshness } from '../../lib/api/types';
+
 export const ARGENTINA_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+const ARGENTINA_OFFSET = '-03:00';
 
 export interface AgendaMatch {
   id: string;
   competition: string;
+  competitionSlug?: string;
   round: string;
   startsAt: string;
-  status: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled';
+  status: 'scheduled' | 'live' | 'halftime' | 'final' | 'postponed' | 'cancelled';
   homeTeam: string;
   awayTeam: string;
+  homeBadgeUrl: string | null;
+  awayBadgeUrl: string | null;
   homeScore: number | null;
   awayScore: number | null;
+  source?: string | null;
+  freshness?: Freshness;
+}
+
+/** Rango UTC (con offset AR) que cubre un día calendario argentino. */
+export function argentinaDayRange(dateKey: string): { from: string; to: string } {
+  return {
+    from: `${dateKey}T00:00:00${ARGENTINA_OFFSET}`,
+    to: `${dateKey}T23:59:59${ARGENTINA_OFFSET}`,
+  };
+}
+
+/** Mapea el DTO de la API al modelo plano de agenda. */
+export function mapApiMatch(api: ApiMatch): AgendaMatch {
+  return {
+    id: api.id,
+    competition: api.competition.name,
+    competitionSlug: api.competition.slug,
+    round: api.round,
+    startsAt: api.startsAt,
+    status: api.status,
+    homeTeam: api.home.name,
+    awayTeam: api.away.name,
+    homeBadgeUrl: api.home.badgeUrl,
+    awayBadgeUrl: api.away.badgeUrl,
+    homeScore: api.homeScore,
+    awayScore: api.awayScore,
+    source: api.source,
+    freshness: api.freshness,
+  };
 }
 
 export interface AgendaGroup {
@@ -93,6 +129,21 @@ export function groupMatchesByCompetition(matches: AgendaMatch[]): AgendaGroup[]
     groups.set(key, group);
   }
   return [...groups.values()];
+}
+
+export function sortAgendaGroups(groups: AgendaGroup[], priorityBySlug: Map<string, number>): AgendaGroup[] {
+  return [...groups]
+    .map((group) => ({
+      ...group,
+      matches: [...group.matches].sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
+    }))
+    .sort((left, right) => {
+      const leftSlug = left.matches[0]?.competitionSlug ?? '';
+      const rightSlug = right.matches[0]?.competitionSlug ?? '';
+      const priorityDiff = (priorityBySlug.get(rightSlug) ?? 0) - (priorityBySlug.get(leftSlug) ?? 0);
+      if (priorityDiff !== 0) return priorityDiff;
+      return (left.matches[0]?.startsAt ?? '').localeCompare(right.matches[0]?.startsAt ?? '');
+    });
 }
 
 export function matchScore(match: AgendaMatch): string {

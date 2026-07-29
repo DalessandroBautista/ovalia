@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   argentinaDateKey,
+  argentinaDayRange,
   buildCalendarDays,
   filterMatchesByDate,
   formatAgendaDateLabel,
   groupMatchesByCompetition,
+  mapApiMatch,
+  sortAgendaGroups,
   shiftDateKey,
   type AgendaMatch,
 } from './agenda-data';
+import type { ApiMatch } from '../../lib/api/types';
 
 const matches: AgendaMatch[] = [
   {
@@ -19,6 +23,8 @@ const matches: AgendaMatch[] = [
     status: 'final',
     homeTeam: 'Argentina',
     awayTeam: 'Sudáfrica',
+    homeBadgeUrl: null,
+    awayBadgeUrl: null,
     homeScore: 24,
     awayScore: 21,
   },
@@ -30,6 +36,8 @@ const matches: AgendaMatch[] = [
     status: 'scheduled',
     homeTeam: 'SIC',
     awayTeam: 'Hindú',
+    homeBadgeUrl: null,
+    awayBadgeUrl: null,
     homeScore: null,
     awayScore: null,
   },
@@ -41,6 +49,8 @@ const matches: AgendaMatch[] = [
     status: 'scheduled',
     homeTeam: 'Nueva Zelanda',
     awayTeam: 'Australia',
+    homeBadgeUrl: null,
+    awayBadgeUrl: null,
     homeScore: null,
     awayScore: null,
   },
@@ -92,5 +102,99 @@ describe('shared agenda fixtures', () => {
       ['Rugby Championship', 1],
       ['URBA Top 14', 1],
     ]);
+  });
+
+  it('orders groups by competition priority and matches inside each group by time', () => {
+    const unordered: AgendaMatch[] = [
+      {
+        id: 'primera-a-early',
+        competition: 'PRIMERA A - Superior',
+        competitionSlug: 'urba-primera-a',
+        round: 'Fecha 1',
+        startsAt: '2026-07-25T18:00:00.000Z',
+        status: 'scheduled',
+        homeTeam: 'Los Matreros',
+        awayTeam: 'San Cirano',
+        homeBadgeUrl: null,
+        awayBadgeUrl: null,
+        homeScore: null,
+        awayScore: null,
+      },
+      {
+        id: 'top-14-late',
+        competition: 'TOP 14 - Superior',
+        competitionSlug: 'urba-top-14',
+        round: 'Fecha 1',
+        startsAt: '2026-07-25T20:00:00.000Z',
+        status: 'scheduled',
+        homeTeam: 'SIC',
+        awayTeam: 'Hindú',
+        homeBadgeUrl: null,
+        awayBadgeUrl: null,
+        homeScore: null,
+        awayScore: null,
+      },
+      {
+        id: 'top-14-early',
+        competition: 'TOP 14 - Superior',
+        competitionSlug: 'urba-top-14',
+        round: 'Fecha 1',
+        startsAt: '2026-07-25T17:00:00.000Z',
+        status: 'scheduled',
+        homeTeam: 'Newman',
+        awayTeam: 'CUBA',
+        homeBadgeUrl: null,
+        awayBadgeUrl: null,
+        homeScore: null,
+        awayScore: null,
+      },
+    ];
+
+    const groups = sortAgendaGroups(groupMatchesByCompetition(unordered), new Map([
+      ['urba-top-14', 100],
+      ['urba-primera-a', 90],
+    ]));
+
+    expect(groups.map((group) => group.competition)).toEqual(['TOP 14 - Superior', 'PRIMERA A - Superior']);
+    expect(groups[0]?.matches.map((match) => match.id)).toEqual(['top-14-early', 'top-14-late']);
+  });
+});
+
+describe('API mapping', () => {
+  it('argentinaDayRange cubre el día argentino con offset -03:00', () => {
+    expect(argentinaDayRange('2026-08-01')).toEqual({
+      from: '2026-08-01T00:00:00-03:00',
+      to: '2026-08-01T23:59:59-03:00',
+    });
+  });
+
+  it('mapApiMatch aplana el DTO y conserva fuente/frescura', () => {
+    const api: ApiMatch = {
+      id: 'm1',
+      competition: { slug: 'top-14-superior', name: 'TOP 14 - Superior' },
+      season: 2026,
+      round: 'Fecha 1',
+      startsAt: '2026-08-01T18:00:00.000Z',
+      venue: 'SIC',
+      status: 'final',
+      home: { slug: 'sic', name: 'SIC', shortName: 'SIC', badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png' },
+      away: { slug: 'hindu', name: 'Hindú', shortName: 'HIN', badgeUrl: null },
+      homeScore: 24,
+      awayScore: 21,
+      source: 'urba',
+      freshness: 'fresh',
+    };
+    expect(mapApiMatch(api)).toMatchObject({
+      id: 'm1',
+      competition: 'TOP 14 - Superior',
+      competitionSlug: 'top-14-superior',
+      homeTeam: 'SIC',
+      awayTeam: 'Hindú',
+      homeBadgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+      awayBadgeUrl: null,
+      homeScore: 24,
+      source: 'urba',
+      freshness: 'fresh',
+    });
   });
 });

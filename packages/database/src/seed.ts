@@ -1,19 +1,23 @@
 import { extname } from 'node:path';
 import { TEAM_BADGES } from '@ovalia/domain';
-import { createDatabase } from './client';
-import { competitions, teams } from './schema';
+import { createDatabase } from './client.js';
+import { upsertSource } from './repositories/ingestion-repository.js';
+import { upsertCompetition, upsertSeason } from './repositories/competitions-repository.js';
+import { upsertOrganization } from './repositories/organizations-repository.js';
+import { createUser } from './repositories/users-repository.js';
+import { competitions, teams, users } from './schema.js';
+import { eq } from 'drizzle-orm';
+
+// Seed honesto (Hito 1.4): solo configuración de fuentes, catálogo verificado y
+// bootstrap estructural. NO crea partidos/resultados que puedan parecer reales.
+// Contenido de desarrollo únicamente con SEED_DEMO=true.
+const SEED_DEMO = process.env.SEED_DEMO === 'true';
 
 const connectionString =
   process.env.DATABASE_URL ?? 'postgres://ovalia:ovalia@localhost:54329/ovalia';
 const { db, pool } = createDatabase(connectionString);
 
 const metadata: Record<string, { countryCode: string; union: string; shortName: string }> = {
-      sic: { countryCode: 'AR', union: 'URBA', shortName: 'SIC' },
-      hindu: { countryCode: 'AR', union: 'URBA', shortName: 'Hindú' },
-      casi: { countryCode: 'AR', union: 'URBA', shortName: 'CASI' },
-      newman: { countryCode: 'AR', union: 'URBA', shortName: 'Newman' },
-      alumni: { countryCode: 'AR', union: 'URBA', shortName: 'Alumni' },
-      cuba: { countryCode: 'AR', union: 'URBA', shortName: 'CUBA' },
       argentina: { countryCode: 'AR', union: 'UAR', shortName: 'Los Pumas' },
       sudafrica: { countryCode: 'ZA', union: 'SARU', shortName: 'Springboks' },
       'nueva-zelanda': { countryCode: 'NZ', union: 'NZR', shortName: 'All Blacks' },
@@ -54,6 +58,17 @@ for (const team of TEAM_BADGES) {
     });
 }
 
+// Organizaciones (uniones, ligas, torneos internacionales).
+const ORGANIZATIONS: Array<{ slug: string; name: string; kind: string; countryCode: string | null }> = [
+  { slug: 'urba', name: 'Unión de Rugby de Buenos Aires', kind: 'union', countryCode: 'AR' },
+  { slug: 'super-rugby', name: 'Súper Rugby', kind: 'league', countryCode: null },
+  { slug: 'rugby-internacional', name: 'Rugby Internacional', kind: 'international', countryCode: null },
+  { slug: 'rugby-seven', name: 'Rugby Seven', kind: 'sevens', countryCode: null },
+];
+for (const org of ORGANIZATIONS) {
+  await upsertOrganization(db, org);
+}
+
 await db
   .insert(competitions)
   .values([
@@ -91,5 +106,113 @@ await db
     },
   ])
   .onConflictDoNothing();
+
+// Configuración de fuentes externas (inactivas hasta validar términos/automatización).
+await upsertSource(db, {
+  slug: 'urba',
+  name: 'Unión de Rugby de Buenos Aires',
+  priority: 90,
+  baseUrl: 'https://fixture.urba.org.ar',
+  capabilities: ['catalog', 'fixtures', 'results', 'standings'],
+  automationAllowed: false,
+  active: false,
+  attribution: 'URBA — urba.org.ar',
+});
+await upsertSource(db, {
+  slug: 'uar',
+  name: 'Unión Argentina de Rugby',
+  priority: 85,
+  baseUrl: 'https://uar.com.ar',
+  capabilities: ['catalog', 'fixtures', 'results'],
+  automationAllowed: false,
+  active: false,
+  attribution: 'UAR — uar.com.ar',
+});
+await upsertSource(db, {
+  slug: 'world-rugby',
+  name: 'World Rugby',
+  priority: 80,
+  baseUrl: 'https://www.world.rugby',
+  capabilities: ['fixtures', 'results'],
+  automationAllowed: false,
+  active: false,
+  attribution: 'World Rugby — world.rugby',
+});
+await upsertSource(db, {
+  slug: 'highlightly',
+  name: 'Highlightly (live)',
+  priority: 40,
+  capabilities: ['live'],
+  automationAllowed: true,
+  active: false,
+  attribution: 'Highlightly',
+});
+await upsertSource(db, {
+  slug: 'highlightly-ingest',
+  name: 'Highlightly (Súper Rugby, internacionales, seven)',
+  priority: 70,
+  capabilities: ['catalog', 'fixtures', 'results', 'standings'],
+  automationAllowed: true,
+  active: true,
+  attribution: 'Highlightly — highlightly.net',
+});
+
+// Prioridad curada de las divisiones Superior/Primera de URBA (Hito: home fallback).
+// La ingesta (persistCatalog) nunca vuelve a pisar esto porque upsertCompetition
+// preserva priority si no viene explícito.
+const URBA_TOP_FLIGHT_PRIORITY: Record<string, number> = {
+  'urba-top-14': 100,
+  'urba-primera-a': 90,
+  'urba-primera-b': 80,
+  'urba-primera-c': 70,
+  'urba-segunda': 60,
+  'urba-tercera': 50,
+  'urba-desarrollo': 40,
+  'urba-femenino-top-9': 30,
+};
+for (const [slug, priority] of Object.entries(URBA_TOP_FLIGHT_PRIORITY)) {
+  const existing = await db.select().from(competitions).where(eq(competitions.slug, slug)).limit(1);
+  const row = existing[0];
+  if (row) {
+    await upsertCompetition(db, {
+      slug: row.slug,
+      name: row.name,
+      category: row.category,
+      gender: row.gender,
+      countryCode: row.countryCode,
+      format: row.format,
+      priority,
+      coverage: row.coverage,
+    });
+  }
+}
+
+// Temporada estructural de bootstrap para la competencia con cobertura prioritaria.
+const [urba] = await db
+  .select()
+  .from(competitions)
+  .where(eq(competitions.slug, 'urba-top-14'))
+  .limit(1);
+if (urba) {
+  const year = new Date().getFullYear();
+  await upsertSeason(db, {
+    competitionId: urba.id,
+    name: String(year),
+    year,
+  });
+}
+
+// Usuario admin de desarrollo: solo bajo SEED_DEMO explícito.
+if (SEED_DEMO) {
+  const email = 'admin@ovalia.dev';
+  const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  if (existing.length === 0) {
+    await createUser(db, {
+      email,
+      displayName: 'Admin de desarrollo',
+      role: 'admin',
+    });
+  }
+}
 
 await pool.end();

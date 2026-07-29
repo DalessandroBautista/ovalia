@@ -15,6 +15,41 @@
       "when": 1784947116400,
       "tag": "0001_breezy_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784953515985,
+      "tag": "0002_strange_the_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784953758371,
+      "tag": "0003_gifted_red_wolf",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785099962921,
+      "tag": "0004_normalize_match_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785157716460,
+      "tag": "0005_mature_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785265424642,
+      "tag": "0006_normal_leopardon",
+      "breakpoints": true
     }
   ]
 }

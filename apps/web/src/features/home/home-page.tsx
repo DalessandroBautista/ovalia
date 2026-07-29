@@ -1,10 +1,10 @@
 'use client';
 
 import { findTeamBadge } from '@ovalia/domain';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { DiamondIcon, HomeIcon, RugbyBallIcon, SearchIcon, TargetIcon, UserIcon, ClockIcon } from '../../components/icons';
-import { LiveRailView, type LiveFeedPayload, useLiveFeed } from '../../components/live-rail';
+import { LiveRailView, type LiveFeedPayload, type UpcomingRailMatch, useLiveFeed, formatUpcomingTime } from '../../components/live-rail';
 import { TeamBadge } from '../../components/team-badge';
 import {
   argentinaDateKey,
@@ -14,9 +14,14 @@ import {
   groupMatchesByCompetition,
   matchScore,
   shiftDateKey,
+  sortAgendaGroups,
   type AgendaMatch,
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
+import { useUpcomingMatches } from '../matches/use-upcoming';
+import { useCompetitions } from '../tournaments/use-tournaments';
+import { useCountdown, useHome } from './use-home';
+import type { ApiHomeResponse, ApiMatch } from '../../lib/api/types';
 
 export function BallMark() {
   return (
@@ -48,9 +53,42 @@ function Header() {
   );
 }
 
-function FeaturedMatch({ feed }: { feed: LiveFeedPayload }) {
+function toUpcomingRailMatches(matches: ApiMatch[]): UpcomingRailMatch[] {
+  return matches.map((m) => ({
+    id: m.id,
+    competition: m.competition.name,
+    startsAt: m.startsAt,
+    home: { name: m.home.name, shortCode: m.home.shortName, badgeUrl: m.home.badgeUrl ?? undefined },
+    away: { name: m.away.name, shortCode: m.away.shortName, badgeUrl: m.away.badgeUrl ?? undefined },
+  }));
+}
+
+export function FeaturedMatch({ feed, upcoming = [] }: { feed: LiveFeedPayload; upcoming?: UpcomingRailMatch[] }) {
   const match = feed.matches[0];
   if (!match) {
+    const next = upcoming[0];
+    if (next) {
+      return (
+        <article className="featured-match">
+          <div className="featured-match__topline">
+            <span>PRÓXIMO PARTIDO IMPORTANTE</span>
+            <span>{next.competition}</span>
+          </div>
+          <div className="featured-match__score">
+            <div className="featured-team">
+              <TeamBadge name={next.home.name} shortCode={next.home.shortCode} badgeUrl={next.home.badgeUrl} size="large" />
+              <div><small>{next.home.shortCode}</small><h2>{next.home.name}</h2></div>
+            </div>
+            <div className="scoreboard"><b>{formatUpcomingTime(next.startsAt)}</b></div>
+            <div className="featured-team featured-team--away">
+              <div><small>{next.away.shortCode}</small><h2>{next.away.name}</h2></div>
+              <TeamBadge name={next.away.name} shortCode={next.away.shortCode} badgeUrl={next.away.badgeUrl} size="large" />
+            </div>
+          </div>
+          <a className="match-link" href={`/partidos/${next.id}`}>Ver detalle <span>↗</span></a>
+        </article>
+      );
+    }
     const message = feed.status === 'loading'
       ? 'Consultando partidos en vivo'
       : feed.status === 'error'
@@ -90,7 +128,7 @@ function FeaturedMatch({ feed }: { feed: LiveFeedPayload }) {
   );
 }
 
-function Hero({ feed }: { feed: LiveFeedPayload }) {
+function Hero({ feed, home, upcoming = [] }: { feed: LiveFeedPayload; home: ApiHomeResponse | null; upcoming?: UpcomingRailMatch[] }) {
   return (
     <section className="hero" id="inicio">
       <div className="hero__copy">
@@ -98,12 +136,12 @@ function Hero({ feed }: { feed: LiveFeedPayload }) {
         <h1>Donde el rugby pasa, <em>Ovalia lo cuenta.</em></h1>
         <p className="hero__intro">Resultados, historias y comunidad. Desde tu club hasta el escenario mundial.</p>
         <div className="hero__stats" aria-label="Cobertura de Ovalia">
-          <div><strong>26</strong><span>torneos</span></div>
-          <div><strong>184</strong><span>clubes</span></div>
-          <div><strong>{feed.matches.length}</strong><span>en vivo</span></div>
+          <div><strong>{home?.stats.competitions ?? '—'}</strong><span>torneos</span></div>
+          <div><strong>{home?.stats.clubs ?? '—'}</strong><span>clubes</span></div>
+          <div><strong>{home?.stats.live ?? feed.matches.length}</strong><span>en vivo</span></div>
         </div>
       </div>
-      <FeaturedMatch feed={feed} />
+      <FeaturedMatch feed={feed} upcoming={upcoming} />
     </section>
   );
 }
@@ -138,19 +176,44 @@ function MatchRow({ match }: { match: AgendaMatch }) {
   const isScored = match.status === 'final' || match.status === 'live';
   return (
     <a className="match-row" href={`/partidos/${match.id}`}>
-      <div className="match-row__team"><TeamBadge name={match.homeTeam} shortCode={teamCode(match.homeTeam)} /><b>{match.homeTeam}</b></div>
+      <div className="match-row__team"><TeamBadge name={match.homeTeam} shortCode={teamCode(match.homeTeam)} badgeUrl={match.homeBadgeUrl ?? undefined} /><b>{match.homeTeam}</b></div>
       <time dateTime={match.startsAt}>{isScored ? matchScore(match) : formatMatchTime(match.startsAt)}</time>
-      <div className="match-row__team match-row__team--away"><b>{match.awayTeam}</b><TeamBadge name={match.awayTeam} shortCode={teamCode(match.awayTeam)} /></div>
+      <div className="match-row__team match-row__team--away"><b>{match.awayTeam}</b><TeamBadge name={match.awayTeam} shortCode={teamCode(match.awayTeam)} badgeUrl={match.awayBadgeUrl ?? undefined} /></div>
       <span className="row-arrow">›</span>
     </a>
   );
 }
 
+function PillScroller({ children }: { children: React.ReactNode }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const scrollBy = (amount: number) => trackRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
+  return (
+    <div className="pill-scroller">
+      <button type="button" className="pill-scroller__arrow" aria-label="Ver anteriores" onClick={() => scrollBy(-220)}>←</button>
+      <div className="pill-scroller__track" ref={trackRef}>{children}</div>
+      <button type="button" className="pill-scroller__arrow" aria-label="Ver siguientes" onClick={() => scrollBy(220)}>→</button>
+    </div>
+  );
+}
+
 function Agenda() {
   const [selectedDate, setSelectedDate] = useState(() => argentinaDateKey());
-  const agenda = useAgendaMatches();
-  const groups = groupMatchesByCompetition(filterMatchesByDate(agenda.matches, selectedDate));
+  const agenda = useAgendaMatches(selectedDate);
+  const { competitions } = useCompetitions();
+  const flagshipSlugs = new Set(competitions.filter((c) => c.tier === 'senior').map((c) => c.slug));
+  const priorityBySlug = new Map(competitions.map((c) => [c.slug, c.priority]));
+  const allGroups = groupMatchesByCompetition(filterMatchesByDate(agenda.matches, selectedDate));
+  // Solo se listan los torneos insignia (Superior/Primera); Intermedia, Preintermedia
+  // y juveniles se ven entrando al torneo específico en /torneos, no acá.
+  const groups = sortAgendaGroups(allGroups
+    .filter((g) => {
+      const slug = g.matches[0]?.competitionSlug;
+      return !slug || flagshipSlugs.size === 0 || flagshipSlugs.has(slug);
+    }), priorityBySlug);
+  const [selectedCompetition, setSelectedCompetition] = useState<string | undefined>(undefined);
   const today = argentinaDateKey();
+  const activeGroup = groups.find((g) => g.competition === selectedCompetition) ?? groups[0];
+
   return (
     <section className="agenda" id="partidos">
       <div className="section-heading">
@@ -161,40 +224,89 @@ function Agenda() {
       {agenda.status === 'loading' ? <p className="agenda-status">Cargando la agenda…</p> : null}
       {agenda.status === 'error' ? <p className="agenda-status agenda-status--error">No pudimos cargar la agenda. Intentá nuevamente en unos minutos.</p> : null}
       {agenda.status === 'ready' && groups.length === 0 ? <p className="agenda-status">No hay partidos programados para esta fecha.</p> : null}
-      {groups.map((group) => (
-        <article className="competition" key={`${group.competition}-${group.round}`}>
+      {groups.length > 1 ? (
+        <PillScroller>
+          <nav className="agenda-competition-selector" aria-label="Elegir torneo">
+            {groups.map((group) => (
+              <button
+                type="button"
+                key={group.competition}
+                className={group.competition === activeGroup?.competition ? 'active' : ''}
+                onClick={() => setSelectedCompetition(group.competition)}
+              >
+                {group.competition}
+              </button>
+            ))}
+          </nav>
+        </PillScroller>
+      ) : null}
+      {activeGroup ? (
+        <article className="competition" key={`${activeGroup.competition}-${activeGroup.round}`}>
           <header>
-            <div className="competition__identity"><span className="competition__mark">XV</span><div><h3>{group.competition}</h3><p>{group.round}</p></div></div>
+            <div className="competition__identity"><span className="competition__mark">XV</span><div><h3>{activeGroup.competition}</h3><p>{activeGroup.round}</p></div></div>
             <a href="/torneos">Ver torneo <span>↗</span></a>
           </header>
-          <div>{group.matches.map((match) => <MatchRow match={match} key={match.id} />)}</div>
+          <div>{activeGroup.matches.map((match) => <MatchRow match={match} key={match.id} />)}</div>
         </article>
-      ))}
+      ) : null}
     </section>
   );
 }
 
-function Sidebar() {
-  return (
-    <aside className="sidebar">
+function ProdeCard({ home }: { home: ApiHomeResponse | null }) {
+  const contest = home?.contest ?? null;
+  const countdown = useCountdown(contest?.closesAt);
+  if (!contest) {
+    return (
       <section className="prode-card" id="prodes">
-        <div className="prode-card__art"><span>?</span><span>5</span><span>3</span></div>
-        <p className="eyebrow">PRODE · FECHA 17</p>
-        <h2>Tu lectura del partido también juega.</h2>
-        <p>Pronosticá la fecha del URBA Top 14 y medite con toda la comunidad.</p>
-        <div className="prode-card__meta"><span>Cierra en</span><b>01:42:18</b></div>
-        <a href="/prodes">Hacer mis pronósticos <span>→</span></a>
+        <p className="eyebrow">PRODE</p>
+        <h2>Pronto vas a poder jugar la fecha.</h2>
+        <p>Todavía no hay un concurso abierto. Cuando se abra, aparece acá.</p>
       </section>
+    );
+  }
+  return (
+    <section className="prode-card" id="prodes">
+      <p className="eyebrow">PRODE{contest.round ? ` · ${contest.round}` : ''}</p>
+      <h2>Tu lectura del partido también juega.</h2>
+      <p>{contest.name}</p>
+      {countdown ? <div className="prode-card__meta"><span>Cierra en</span><b>{countdown}</b></div> : null}
+      <a href="/prodes">Hacer mis pronósticos <span>→</span></a>
+    </section>
+  );
+}
+
+function NewsCard({ home }: { home: ApiHomeResponse | null }) {
+  const article = home?.featuredArticle ?? null;
+  if (!article) {
+    return (
       <section className="news-card" id="noticias">
-        <div className="news-card__label">ANÁLISIS</div>
-        <div className="news-card__field" aria-hidden="true"><i /><i /><i /></div>
         <div className="news-card__body">
-          <p className="eyebrow">LA PIZARRA</p>
-          <h3>El maul argentino encontró una nueva marcha</h3>
-          <p>Las claves del ajuste que cambió el partido en Mendoza.</p>
-          <span>Por Equipo Ovalia · 6 min</span>
+          <p className="eyebrow">NOTICIAS</p>
+          <h3>Sin notas publicadas todavía</h3>
+          <p>El equipo editorial está preparando las primeras historias.</p>
         </div>
       </section>
+    );
+  }
+  return (
+    <section className="news-card" id="noticias">
+      <div className="news-card__label">ANÁLISIS</div>
+      <div className="news-card__body">
+        <p className="eyebrow">LA PIZARRA</p>
+        <h3>{article.title}</h3>
+        <p>{article.summary}</p>
+        <a href={`/noticias/${article.slug}`}>Leer nota →</a>
+      </div>
+    </section>
+  );
+}
+
+function Sidebar({ home }: { home: ApiHomeResponse | null }) {
+  return (
+    <aside className="sidebar">
+      <ProdeCard home={home} />
+      <NewsCard home={home} />
     </aside>
   );
 }
@@ -213,19 +325,22 @@ function BottomNav() {
 
 export function HomePage() {
   const liveFeed = useLiveFeed();
+  const home = useHome();
+  const upcoming = useUpcomingMatches(5);
+  const upcomingRail = toUpcomingRailMatches(upcoming.matches);
   return (
     <>
-      <LiveRailView feed={liveFeed} />
+      <LiveRailView feed={liveFeed} upcoming={upcomingRail} />
       <div className="page-shell">
         <Header />
         <main>
-          <Hero feed={liveFeed} />
+          <Hero feed={liveFeed} home={home.data} upcoming={upcomingRail} />
           <div className="content-grid">
             <Agenda />
-            <Sidebar />
+            <Sidebar home={home.data} />
           </div>
         </main>
-        <footer className="site-footer"><span><BallMark /> OVALIA</span><p>El rugby entero, en un solo pulso.</p><small>© 2026 Ovalia</small></footer>
+        <footer className="site-footer"><span><BallMark /> OVALIA</span><p>El rugby entero, en un solo pulso.</p><small>© {new Date().getFullYear()} Ovalia</small></footer>
       </div>
       <BottomNav />
     </>
