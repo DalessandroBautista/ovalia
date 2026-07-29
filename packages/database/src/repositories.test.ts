@@ -147,6 +147,28 @@ describe.skipIf(!available)('repositories', () => {
     expect(explicitlyZero.priority).toBe(0);
   });
 
+  it('upsertCompetition preserva organizationId si un upsert posterior no lo trae', async () => {
+    const { db } = handle;
+    const org = await upsertOrganization(db, { slug: 'urba-test-org', name: 'URBA', kind: 'union' });
+    const created = await upsertCompetition(db, {
+      slug: 'urba-top-14-org-test',
+      name: 'TOP 14 - Superior',
+      category: 'clubs',
+      gender: 'male',
+      organizationId: org.id,
+    });
+    expect(created.organizationId).toBe(org.id);
+
+    const updated = await upsertCompetition(db, {
+      slug: 'urba-top-14-org-test',
+      name: 'TOP 14 - Superior',
+      category: 'clubs',
+      gender: 'male',
+      // sin organizationId: no debe resetear a null
+    });
+    expect(updated.organizationId).toBe(org.id);
+  });
+
   it('upsertCompetition persiste familySlug y tier', async () => {
     const { db } = handle;
     const row = await upsertCompetition(db, {
