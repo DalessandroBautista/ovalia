@@ -96,5 +96,7 @@ describe('Agenda en HomePage', () => {
     // El selector debe mostrar ambos torneos.
     expect(html).toContain('TOP 14 - Superior');
     expect(html).toContain('Rugby Championship');
+    expect(html).toContain('agenda-match-layout');
+    expect(html).toContain('agenda-competition-selector');
   });
 });

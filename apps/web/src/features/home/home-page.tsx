@@ -225,22 +225,34 @@ function Agenda() {
       {agenda.status === 'error' ? <p className="agenda-status agenda-status--error">No pudimos cargar la agenda. Intentá nuevamente en unos minutos.</p> : null}
       {agenda.status === 'ready' && groups.length === 0 ? <p className="agenda-status">No hay partidos programados para esta fecha.</p> : null}
       {groups.length > 1 ? (
-        <PillScroller>
-          <nav className="agenda-competition-selector" aria-label="Elegir torneo">
-            {groups.map((group) => (
-              <button
-                type="button"
-                key={group.competition}
-                className={group.competition === activeGroup?.competition ? 'active' : ''}
-                onClick={() => setSelectedCompetition(group.competition)}
-              >
-                {group.competition}
-              </button>
-            ))}
-          </nav>
-        </PillScroller>
-      ) : null}
-      {activeGroup ? (
+        <div className="agenda-match-layout">
+          <PillScroller>
+            <nav className="agenda-competition-selector" aria-label="Elegir torneo">
+              {groups.map((group) => (
+                <button
+                  type="button"
+                  key={group.competition}
+                  className={group.competition === activeGroup?.competition ? 'active' : ''}
+                  onClick={() => setSelectedCompetition(group.competition)}
+                >
+                  {group.competition}
+                </button>
+              ))}
+            </nav>
+          </PillScroller>
+          <div className="agenda-match-content">
+            {activeGroup ? (
+              <article className="competition" key={`${activeGroup.competition}-${activeGroup.round}`}>
+                <header>
+                  <div className="competition__identity"><span className="competition__mark">XV</span><div><h3>{activeGroup.competition}</h3><p>{activeGroup.round}</p></div></div>
+                  <a href="/torneos">Ver torneo <span>↗</span></a>
+                </header>
+                <div>{activeGroup.matches.map((match) => <MatchRow match={match} key={match.id} />)}</div>
+              </article>
+            ) : null}
+          </div>
+        </div>
+      ) : activeGroup ? (
         <article className="competition" key={`${activeGroup.competition}-${activeGroup.round}`}>
           <header>
             <div className="competition__identity"><span className="competition__mark">XV</span><div><h3>{activeGroup.competition}</h3><p>{activeGroup.round}</p></div></div>
