@@ -97,11 +97,17 @@ body::before {
 .date-picker small { position: absolute; bottom: 4px; color: var(--lime); font-size: 7px; font-weight: 900; letter-spacing: .1em; }
 .date-picker button.is-selected { color: var(--ink); background: var(--lime); }
 .date-picker button.is-selected span, .date-picker button.is-selected small { color: #25361c; }
-.agenda-competition-selector, .family-selector { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 18px; scrollbar-width: none; }
-.agenda-competition-selector::-webkit-scrollbar, .family-selector::-webkit-scrollbar { display: none; }
+.pill-scroller { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.pill-scroller__track { display: flex; gap: 8px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; }
+.pill-scroller__track::-webkit-scrollbar { display: none; }
+.pill-scroller__arrow { flex: 0 0 auto; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: rgba(24,39,30,.72); color: var(--mist); cursor: pointer; }
+.pill-scroller__arrow:hover { border-color: #415647; color: #dfe8e1; }
+.agenda-competition-selector, .family-selector { display: flex; gap: 8px; }
 .agenda-competition-selector button, .family-selector a { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(24,39,30,.72); color: var(--mist); font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
 .agenda-competition-selector button:hover, .family-selector a:hover { border-color: #415647; color: #dfe8e1; }
 .agenda-competition-selector button.active, .family-selector a.active { background: var(--lime); border-color: var(--lime); color: #25361c; }
+.family-selector { overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.family-selector::-webkit-scrollbar { display: none; }
 .competition { margin-bottom: 18px; background: rgba(24,39,30,.72); border: 1px solid var(--line); }
 .competition > header { min-height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 12px 17px; border-bottom: 1px solid var(--line); }
 .competition__identity { display: flex; align-items: center; gap: 11px; }

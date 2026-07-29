@@ -179,6 +179,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         organization: c.organization ? { slug: c.organization.slug, name: c.organization.name } : null,
         familySlug: c.familySlug,
         tier: c.tier,
+        priority: c.priority,
       })),
     };
   });

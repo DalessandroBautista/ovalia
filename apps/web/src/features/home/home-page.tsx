@@ -1,7 +1,7 @@
 'use client';
 
 import { findTeamBadge } from '@ovalia/domain';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { DiamondIcon, HomeIcon, RugbyBallIcon, SearchIcon, TargetIcon, UserIcon, ClockIcon } from '../../components/icons';
 import { LiveRailView, type LiveFeedPayload, type UpcomingRailMatch, useLiveFeed, formatUpcomingTime } from '../../components/live-rail';
@@ -183,18 +183,37 @@ function MatchRow({ match }: { match: AgendaMatch }) {
   );
 }
 
+function PillScroller({ children }: { children: React.ReactNode }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const scrollBy = (amount: number) => trackRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
+  return (
+    <div className="pill-scroller">
+      <button type="button" className="pill-scroller__arrow" aria-label="Ver anteriores" onClick={() => scrollBy(-220)}>←</button>
+      <div className="pill-scroller__track" ref={trackRef}>{children}</div>
+      <button type="button" className="pill-scroller__arrow" aria-label="Ver siguientes" onClick={() => scrollBy(220)}>→</button>
+    </div>
+  );
+}
+
 function Agenda() {
   const [selectedDate, setSelectedDate] = useState(() => argentinaDateKey());
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
   const flagshipSlugs = new Set(competitions.filter((c) => c.tier === 'senior').map((c) => c.slug));
+  const priorityBySlug = new Map(competitions.map((c) => [c.slug, c.priority]));
   const allGroups = groupMatchesByCompetition(filterMatchesByDate(agenda.matches, selectedDate));
   // Solo se listan los torneos insignia (Superior/Primera); Intermedia, Preintermedia
   // y juveniles se ven entrando al torneo específico en /torneos, no acá.
-  const groups = allGroups.filter((g) => {
-    const slug = g.matches[0]?.competitionSlug;
-    return !slug || flagshipSlugs.size === 0 || flagshipSlugs.has(slug);
-  });
+  const groups = allGroups
+    .filter((g) => {
+      const slug = g.matches[0]?.competitionSlug;
+      return !slug || flagshipSlugs.size === 0 || flagshipSlugs.has(slug);
+    })
+    .sort((a, b) => {
+      const priorityA = priorityBySlug.get(a.matches[0]?.competitionSlug ?? '') ?? 0;
+      const priorityB = priorityBySlug.get(b.matches[0]?.competitionSlug ?? '') ?? 0;
+      return priorityB - priorityA;
+    });
   const [selectedCompetition, setSelectedCompetition] = useState<string | undefined>(undefined);
   const today = argentinaDateKey();
   const activeGroup = groups.find((g) => g.competition === selectedCompetition) ?? groups[0];
@@ -210,18 +229,20 @@ function Agenda() {
       {agenda.status === 'error' ? <p className="agenda-status agenda-status--error">No pudimos cargar la agenda. Intentá nuevamente en unos minutos.</p> : null}
       {agenda.status === 'ready' && groups.length === 0 ? <p className="agenda-status">No hay partidos programados para esta fecha.</p> : null}
       {groups.length > 1 ? (
-        <nav className="agenda-competition-selector" aria-label="Elegir torneo">
-          {groups.map((group) => (
-            <button
-              type="button"
-              key={group.competition}
-              className={group.competition === activeGroup?.competition ? 'active' : ''}
-              onClick={() => setSelectedCompetition(group.competition)}
-            >
-              {group.competition}
-            </button>
-          ))}
-        </nav>
+        <PillScroller>
+          <nav className="agenda-competition-selector" aria-label="Elegir torneo">
+            {groups.map((group) => (
+              <button
+                type="button"
+                key={group.competition}
+                className={group.competition === activeGroup?.competition ? 'active' : ''}
+                onClick={() => setSelectedCompetition(group.competition)}
+              >
+                {group.competition}
+              </button>
+            ))}
+          </nav>
+        </PillScroller>
       ) : null}
       {activeGroup ? (
         <article className="competition" key={`${activeGroup.competition}-${activeGroup.round}`}>

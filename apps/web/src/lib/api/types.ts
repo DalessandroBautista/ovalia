@@ -68,6 +68,7 @@ export interface ApiCompetition {
   organization: { slug: string; name: string } | null;
   familySlug: string | null;
   tier: string;
+  priority: number;
 }
 
 export interface ApiCompetitionsResponse {
