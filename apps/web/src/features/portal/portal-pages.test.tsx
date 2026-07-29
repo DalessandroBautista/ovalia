@@ -21,11 +21,11 @@ vi.mock('../tournaments/use-tournaments', () => ({
   useCompetitions: () => ({
     status: 'ready',
     competitions: [
-      { slug: 'urba-top-14', name: 'TOP 14 - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'senior', priority: 100 },
+      { slug: 'urba-top-14', name: 'TOP 14 - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: null, tier: 'senior', priority: 100 },
       { slug: 'top-14-intermedia', name: 'TOP 14 - Intermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
       { slug: 'top-14-preintermedia', name: 'TOP 14 - Preintermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
       { slug: 'top-14-m22', name: 'TOP 14 - Menores de 22', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'youth', priority: 0 },
-      { slug: 'urba-primera-a', name: 'PRIMERA A - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'primera-a', tier: 'senior', priority: 90 },
+      { slug: 'urba-primera-a', name: 'PRIMERA A - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: null, tier: 'senior', priority: 90 },
       { slug: 'menores-de-19-primera-rueda-g2-nivel-1-a', name: 'Menores de 19 - Primera Rueda - G2 NIVEL 1 A', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'menores-de-19', tier: 'youth', priority: 0 },
       { slug: 'rugby-championship', name: 'Rugby Championship', category: 'national-teams', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'rugby-internacional', name: 'Rugby Internacional' }, familySlug: 'rugby-championship', tier: 'senior', priority: 80 },
       { slug: 'ucr-top-10-primera', name: 'TOP 10 A - Primera', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'cordoba', name: 'Unión Cordobesa' }, familySlug: 'top-10-a', tier: 'senior', priority: 75 },
@@ -162,15 +162,12 @@ describe('public portal pages', () => {
     expect(html).toContain('TOP 14');
     expect(html).toContain('PRIMERA A');
     expect(html.indexOf('TOP 14')).toBeLessThan(html.indexOf('PRIMERA A'));
-    expect(html).toContain('Superior');
-    expect(html).toContain('Intermedia');
-    expect(html).toContain('Preintermedia');
-    expect(html).toContain('Menores de 22');
-    expect(html).toContain('Rugby argentino');
+    expect(html).toContain('Plantel superior');
+    expect(html).toContain('tournament-segment-selector');
+    expect(html).not.toContain('Preintermedia');
+    expect((html.match(/<h4>TOP 14<\/h4>/g) || []).length).toBe(1);
+    expect(html).toContain('tournament-organization-nav');
     expect(html).toContain('Unión Cordobesa');
-    expect(html).toContain('TOP 10 A');
-    expect(html).toContain('Primera');
-    expect(html).toContain('Torneo del Interior A');
   });
 
   it('groups tournaments by country before organization and counts tournament families', () => {
@@ -183,12 +180,11 @@ describe('public portal pages', () => {
     expect(html).toContain('aria-label="Países con torneos"');
     expect(html).toContain('tournament-country-filter');
     expect(html).toContain('5 torneos');
-    expect(html).toContain('>Internacional<');
-    expect(html).toContain('>Francia<');
     expect(argentinaIndex).toBeGreaterThan(-1);
     expect(internationalIndex).toBe(-1);
     expect(franceIndex).toBe(-1);
     expect(html.indexOf('URBA')).toBeGreaterThan(argentinaIndex);
+    expect(html).not.toContain('Internacional');
     expect(html).not.toContain('<section class="tournament-country" id="pais-internacional"');
     expect(html).not.toContain('<section class="tournament-country" id="pais-francia"');
   });

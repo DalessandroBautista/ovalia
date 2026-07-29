@@ -155,6 +155,7 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
 
 interface OrgGroup {
   orgName: string;
+  orgKey: string;
   families: TournamentFamily[];
 }
 
@@ -169,9 +170,19 @@ interface CountryGroup {
 interface TournamentFamily {
   key: string;
   title: string;
+  segment: TournamentSegment;
   priority: number;
   divisions: ApiCompetition[];
 }
+
+type TournamentSegment = 'senior' | 'women' | 'youth' | 'university';
+
+const segmentLabels: Record<TournamentSegment, string> = {
+  senior: 'Plantel superior',
+  women: 'Femenino',
+  youth: 'Juveniles',
+  university: 'Universitario',
+};
 
 function organizationName(competition: ApiCompetition): string {
   if (competition.organization?.name) return competition.organization.name;
@@ -218,6 +229,22 @@ function splitCompetitionName(name: string): { familyTitle: string; divisionLabe
   return { familyTitle: name, divisionLabel: 'Principal' };
 }
 
+function normalizedFamilyKey(competition: ApiCompetition): string {
+  if (competition.familySlug) return competition.familySlug;
+  return splitCompetitionName(competition.name).familyTitle
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+}
+
+function tournamentSegment(competition: ApiCompetition): TournamentSegment {
+  if (competition.gender === 'female' || competition.tier === 'women') return 'women';
+  if (competition.tier === 'youth' || /^menores de/i.test(competition.name)) return 'youth';
+  if (competition.tier === 'university') return 'university';
+  return 'senior';
+}
+
 interface MatchRound {
   label: string;
   matches: AgendaMatch[];
@@ -261,12 +288,14 @@ function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
   const groups = new Map<string, { orgName: string; families: Map<string, TournamentFamily> }>();
   for (const competition of competitions) {
     const orgName = organizationName(competition);
-    if (!groups.has(orgName)) groups.set(orgName, { orgName, families: new Map() });
-    const group = groups.get(orgName)!;
-    const familyKey = competition.familySlug ?? competition.slug;
+    const orgKey = competition.organization?.slug ?? organizationName(competition).toLowerCase();
+    if (!groups.has(orgKey)) groups.set(orgKey, { orgName, families: new Map() });
+    const group = groups.get(orgKey)!;
+    const familyKey = normalizedFamilyKey(competition);
     const family = group.families.get(familyKey) ?? {
       key: familyKey,
       title: splitCompetitionName(competition.name).familyTitle,
+      segment: tournamentSegment(competition),
       priority: competition.priority,
       divisions: [],
     };
@@ -280,6 +309,7 @@ function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
   return [...groups.values()]
     .map((group) => ({
       orgName: group.orgName,
+      orgKey: group.families.values().next().value?.divisions[0]?.organization?.slug ?? group.orgName.toLowerCase(),
       families: [...group.families.values()]
         .map((family) => ({ ...family, divisions: sortDivisions(family.divisions) }))
         .sort((a, b) => {
@@ -327,8 +357,11 @@ function tournamentCountLabel(count: number): string {
 
 export function TournamentsPage() {
   const { status, competitions } = useCompetitions();
-  const countries = groupByCountry(competitions);
+  const countries = groupByCountry(competitions.filter((competition) => competition.countryCode === 'AR' && competition.organization?.slug !== 'rugby-internacional'));
   const [selectedCountryKey, setSelectedCountryKey] = useState('');
+  const [selectedOrganizationKey, setSelectedOrganizationKey] = useState('');
+  const [selectedSegment, setSelectedSegment] = useState<TournamentSegment>('senior');
+  const [selectedFamilyKey, setSelectedFamilyKey] = useState('');
 
   useEffect(() => {
     if (countries.length > 0 && !countries.some((country) => country.key === selectedCountryKey)) {
@@ -337,6 +370,25 @@ export function TournamentsPage() {
   }, [countries, selectedCountryKey]);
 
   const selectedCountry = countries.find((country) => country.key === selectedCountryKey) ?? countries[0];
+  const selectedOrganization = selectedCountry?.organizations.find((organization) => organization.orgKey === selectedOrganizationKey) ?? selectedCountry?.organizations[0];
+  const segments = selectedOrganization ? [...new Set(selectedOrganization.families.map((family) => family.segment))] : [];
+
+  useEffect(() => {
+    if (selectedCountry && !selectedCountry.organizations.some((organization) => organization.orgKey === selectedOrganizationKey)) {
+      setSelectedOrganizationKey(selectedCountry.organizations[0]?.orgKey ?? '');
+    }
+  }, [selectedCountry, selectedOrganizationKey]);
+
+  useEffect(() => {
+    if (segments.length > 0 && !segments.includes(selectedSegment)) setSelectedSegment(segments[0]!);
+  }, [segments, selectedSegment]);
+
+  const activeFamilies = selectedOrganization?.families.filter((family) => family.segment === selectedSegment) ?? [];
+  const selectedFamily = activeFamilies.find((family) => family.key === selectedFamilyKey);
+
+  useEffect(() => {
+    if (!selectedFamily) setSelectedFamilyKey('');
+  }, [selectedFamily]);
   return (
     <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
       {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
@@ -359,34 +411,57 @@ export function TournamentsPage() {
                   <div><small>País</small><h2>{selectedCountry.label}</h2></div>
                   <span>{tournamentCountLabel(selectedCountry.tournamentCount)}</span>
                 </header>
-                {selectedCountry.organizations.map((organization) => (
-                  <section className="tournament-group" key={organization.orgName}>
+                <nav className="tournament-organization-nav" aria-label="Uniones de rugby">
+                  {selectedCountry.organizations.map((organization) => (
+                    <button type="button" className={organization.orgKey === selectedOrganization?.orgKey ? 'is-active' : ''} onClick={() => setSelectedOrganizationKey(organization.orgKey)} key={organization.orgKey}>
+                      {organization.orgName}
+                    </button>
+                  ))}
+                </nav>
+                {selectedOrganization ? (
+                  <section className="tournament-group">
                     <header className="tournament-group__header">
-                      <h3>{organization.orgName}</h3>
-                      <span>{tournamentCountLabel(organization.families.length)}</span>
+                      <div><small>Unión</small><h3>{selectedOrganization.orgName}</h3></div>
+                      <span>{tournamentCountLabel(selectedOrganization.families.length)}</span>
                     </header>
-                    <div className="tournament-grid">
-                      {organization.families.map((family) => (
-                        <article className="tournament-family" key={family.key}>
-                          <h4>{family.title}</h4>
-                          <div className="tournament-divisions">
-                            {family.divisions.map((division) => {
-                              const label = splitCompetitionName(division.name).divisionLabel;
-                              return division.coverage === 'auto' ? (
-                                <a href={`/torneos/${division.slug}`} key={division.slug}><span>{label}</span><i>→</i></a>
-                              ) : (
-                                <div className="tournament-upcoming" key={division.slug} aria-disabled="true">
-                                  <span>{label}</span>
-                                  <small>Cobertura en preparación</small>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </article>
+                    <nav className="tournament-segment-selector" aria-label="Segmentos de competencia">
+                      {segments.map((segment) => (
+                        <button type="button" className={segment === selectedSegment ? 'is-active' : ''} onClick={() => setSelectedSegment(segment)} key={segment}>
+                          <strong>{segmentLabels[segment]}</strong>
+                          <span>{tournamentCountLabel(selectedOrganization.families.filter((family) => family.segment === segment).length)}</span>
+                        </button>
                       ))}
-                    </div>
+                    </nav>
+                    {selectedFamily ? (
+                      <section className="tournament-family-detail">
+                        <button type="button" className="tournament-back-button" onClick={() => setSelectedFamilyKey('')}>← Volver a {segmentLabels[selectedSegment]}</button>
+                        <header><h4>{selectedFamily.title}</h4><span>{selectedFamily.divisions.length} categorías</span></header>
+                        <div className="tournament-divisions">
+                          {selectedFamily.divisions.map((division) => {
+                            const label = splitCompetitionName(division.name).divisionLabel;
+                            return division.coverage === 'auto' ? (
+                              <a href={`/torneos/${division.slug}`} key={division.slug}><span>{label}</span><i>→</i></a>
+                            ) : (
+                              <div className="tournament-upcoming" key={division.slug} aria-disabled="true">
+                                <span>{label}</span>
+                                <small>Cobertura en preparación</small>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    ) : (
+                      <div className="tournament-grid tournament-grid--active">
+                        {activeFamilies.map((family) => (
+                          <button type="button" className="tournament-family tournament-family--choice" onClick={() => setSelectedFamilyKey(family.key)} key={family.key}>
+                            <h4>{family.title}</h4>
+                            <span>{family.divisions.length} categorías <i>→</i></span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </section>
-                ))}
+                ) : null}
               </section>
             ) : null}
           </div>
