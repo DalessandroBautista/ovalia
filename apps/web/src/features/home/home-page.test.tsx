@@ -3,6 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { FeaturedMatch, HomePage } from './home-page';
 
+// Usa la fecha real de "hoy" en vez de una fija, para que el filtro de "partidos de
+// hoy" de la Agenda no descarte estos partidos mockeados al pasar los días.
+const todayAt = (hour: string) => `${new Date().toISOString().slice(0, 10)}T${hour}:00Z`;
+
 vi.mock('../matches/use-agenda', () => ({
   useAgendaMatches: () => ({
     status: 'ready' as const,
@@ -11,7 +15,7 @@ vi.mock('../matches/use-agenda', () => ({
         id: 'm1',
         competition: 'TOP 14 - Superior',
         round: 'Fecha 1',
-        startsAt: '2026-07-28T18:00:00Z',
+        startsAt: todayAt('18:00'),
         homeTeam: 'SIC',
         awayTeam: 'Hindú',
         status: 'scheduled' as const,
@@ -24,7 +28,7 @@ vi.mock('../matches/use-agenda', () => ({
         id: 'm2',
         competition: 'Rugby Championship',
         round: 'Jornada 3',
-        startsAt: '2026-07-28T20:00:00Z',
+        startsAt: todayAt('20:00'),
         homeTeam: 'Argentina',
         awayTeam: 'Sudáfrica',
         status: 'scheduled' as const,

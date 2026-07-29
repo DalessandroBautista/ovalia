@@ -166,6 +166,7 @@ export function TournamentPage({ slug }: { slug: string }) {
   const [season, setSeason] = useState<number | undefined>(undefined);
   const [tab, setTab] = useState<TournamentTab>('posiciones');
   const { status, competition, standings, matches } = useTournament(slug, season);
+  const { competitions } = useCompetitions();
 
   useEffect(() => {
     track('view_tournament', { slug });
@@ -182,7 +183,6 @@ export function TournamentPage({ slug }: { slug: string }) {
   const upcoming = matches.filter((m) => m.status !== 'final');
   const activeSeason = season ?? competition.seasons[0]?.year;
 
-  const { competitions } = useCompetitions();
   const siblings = competitions.filter((c) => c.familySlug && c.familySlug === competition.familySlug);
 
   return (
