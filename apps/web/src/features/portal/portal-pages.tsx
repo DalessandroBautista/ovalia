@@ -43,8 +43,8 @@ export function PortalHeader() {
   );
 }
 
-function Frame({ eyebrow, title, intro, children }: { eyebrow: string; title: string; intro: string; children: React.ReactNode }) {
-  return <div className="portal-shell"><PortalHeader /><main className="portal-main"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="portal-intro">{intro}</p>{children}</main></div>;
+function Frame({ eyebrow, title, intro, className, children }: { eyebrow: string; title: string; intro: string; className?: string; children: React.ReactNode }) {
+  return <div className="portal-shell"><PortalHeader /><main className={`portal-main${className ? ` ${className}` : ''}`}><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="portal-intro">{intro}</p>{children}</main></div>;
 }
 
 function DataProvenance({ source, freshness }: { source: string | null; freshness?: string }) {
@@ -218,6 +218,20 @@ function splitCompetitionName(name: string): { familyTitle: string; divisionLabe
   return { familyTitle: name, divisionLabel: 'Principal' };
 }
 
+interface MatchRound {
+  label: string;
+  matches: AgendaMatch[];
+}
+
+function groupMatchesByRound(matches: AgendaMatch[]): MatchRound[] {
+  const groups = new Map<string, AgendaMatch[]>();
+  for (const match of [...matches].sort((a, b) => a.startsAt.localeCompare(b.startsAt))) {
+    const key = match.round || argentinaDateKey(match.startsAt);
+    groups.set(key, [...(groups.get(key) ?? []), match]);
+  }
+  return [...groups.entries()].map(([label, roundMatches]) => ({ label, matches: roundMatches }));
+}
+
 function divisionRank(competition: ApiCompetition): number {
   const label = splitCompetitionName(competition.name).divisionLabel.toLowerCase();
   if (/^(superior|primera\b|primera divisi[oó]n)/.test(label)) return 0;
@@ -314,29 +328,38 @@ function tournamentCountLabel(count: number): string {
 export function TournamentsPage() {
   const { status, competitions } = useCompetitions();
   const countries = groupByCountry(competitions);
+  const [selectedCountryKey, setSelectedCountryKey] = useState('');
+
+  useEffect(() => {
+    if (countries.length > 0 && !countries.some((country) => country.key === selectedCountryKey)) {
+      setSelectedCountryKey(countries[0]!.key);
+    }
+  }, [countries, selectedCountryKey]);
+
+  const selectedCountry = countries.find((country) => country.key === selectedCountryKey) ?? countries[0];
   return (
     <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
       {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
       {status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los torneos.</p> : null}
       {countries.length > 0 ? (
         <div className="tournament-catalog">
-          <nav className="tournament-country-nav" aria-label="Países con torneos">
+          <nav className="tournament-country-nav tournament-country-filter" aria-label="Países con torneos">
             <p>Países</p>
             {countries.map((country, index) => (
-              <a className={index === 0 ? 'is-primary' : ''} href={`#${country.id}`} key={country.key}>
+              <button type="button" className={country.key === selectedCountry?.key || (!selectedCountry && index === 0) ? 'is-primary' : ''} aria-pressed={country.key === selectedCountry?.key} onClick={() => setSelectedCountryKey(country.key)} key={country.key}>
                 <strong>{country.label}</strong>
                 <span>{tournamentCountLabel(country.tournamentCount)}</span>
-              </a>
+              </button>
             ))}
           </nav>
           <div className="tournament-country-list">
-            {countries.map((country) => (
-              <section className="tournament-country" id={country.id} key={country.key}>
+            {selectedCountry ? (
+              <section className="tournament-country" id={selectedCountry.id} key={selectedCountry.key}>
                 <header className="tournament-country__header">
-                  <div><small>País</small><h2>{country.label}</h2></div>
-                  <span>{tournamentCountLabel(country.tournamentCount)}</span>
+                  <div><small>País</small><h2>{selectedCountry.label}</h2></div>
+                  <span>{tournamentCountLabel(selectedCountry.tournamentCount)}</span>
                 </header>
-                {country.organizations.map((organization) => (
+                {selectedCountry.organizations.map((organization) => (
                   <section className="tournament-group" key={organization.orgName}>
                     <header className="tournament-group__header">
                       <h3>{organization.orgName}</h3>
@@ -365,7 +388,7 @@ export function TournamentsPage() {
                   </section>
                 ))}
               </section>
-            ))}
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -383,11 +406,16 @@ export function PredictionPage() {
 
 type TournamentTab = 'posiciones' | 'resultados' | 'calendario';
 
-export function TournamentPage({ slug }: { slug: string }) {
+export function TournamentPage({ slug, initialTab = 'posiciones' }: { slug: string; initialTab?: TournamentTab }) {
   const [season, setSeason] = useState<number | undefined>(undefined);
-  const [tab, setTab] = useState<TournamentTab>('posiciones');
+  const [tab, setTab] = useState<TournamentTab>(initialTab);
+  const [roundIndex, setRoundIndex] = useState(0);
   const { status, competition, standings, matches } = useTournament(slug, season);
   const { competitions } = useCompetitions();
+
+  useEffect(() => {
+    setRoundIndex(0);
+  }, [tab, slug, season]);
 
   useEffect(() => {
     track('view_tournament', { slug });
@@ -404,10 +432,17 @@ export function TournamentPage({ slug }: { slug: string }) {
   const upcoming = matches.filter((m) => m.status !== 'final');
   const activeSeason = season ?? competition.seasons[0]?.year;
 
-  const siblings = competitions.filter((c) => c.familySlug && c.familySlug === competition.familySlug);
+  const familyTitle = splitCompetitionName(competition.name).familyTitle.toLowerCase();
+  const siblings = competitions.filter((c) => {
+    if (competition.familySlug && c.familySlug) return c.familySlug === competition.familySlug;
+    return splitCompetitionName(c.name).familyTitle.toLowerCase() === familyTitle;
+  });
+  const rounds = groupMatchesByRound(tab === 'resultados' ? results : upcoming);
+  const activeRoundIndex = Math.min(roundIndex, Math.max(rounds.length - 1, 0));
+  const activeRound = rounds[activeRoundIndex];
 
   return (
-    <Frame eyebrow="ARGENTINA · BUENOS AIRES" title={competition.name} intro={`Temporada ${activeSeason ?? ''} · posiciones, resultados y calendario reales.`}>
+    <Frame className="tournament-detail" eyebrow="ARGENTINA · BUENOS AIRES" title={competition.name} intro={`Temporada ${activeSeason ?? ''} · posiciones, resultados y calendario reales.`}>
       {competition.seasons.length > 1 ? (
         <label className="season-picker">Temporada
           <select value={activeSeason} onChange={(e) => setSeason(Number(e.target.value))}>
@@ -461,23 +496,31 @@ export function TournamentPage({ slug }: { slug: string }) {
       ) : null}
 
       {tab === 'resultados' ? (
-        <section className="portal-list">
+        <section className="tournament-round-panel">
           {results.length === 0 ? <p className="portal-live-status">Sin resultados todavía.</p> : null}
-          {results.map((m) => (
-            <a className="portal-match" href={`/partidos/${m.id}`} key={m.id}><small>{m.round}</small><span>FINAL</span><div><b>{m.homeTeam}</b><strong>{matchScore(m)}</strong><b>{m.awayTeam}</b></div></a>
-          ))}
+          {activeRound ? <RoundNavigation index={activeRoundIndex} total={rounds.length} label={activeRound.label} onChange={setRoundIndex} /> : null}
+          {activeRound ? <section className="portal-list tournament-results">{activeRound.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}</section> : null}
         </section>
       ) : null}
 
       {tab === 'calendario' ? (
-        <section className="portal-list">
+        <section className="tournament-round-panel">
           {upcoming.length === 0 ? <p className="portal-live-status">Sin próximos partidos programados.</p> : null}
-          {upcoming.map((m) => (
-            <a className="portal-match" href={`/partidos/${m.id}`} key={m.id}><small>{m.round}</small><span>{formatMatchTime(m.startsAt)}</span><div><b>{m.homeTeam}</b><em>vs</em><b>{m.awayTeam}</b></div></a>
-          ))}
+          {activeRound ? <RoundNavigation index={activeRoundIndex} total={rounds.length} label={activeRound.label} onChange={setRoundIndex} /> : null}
+          {activeRound ? <section className="portal-list tournament-results">{activeRound.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}</section> : null}
         </section>
       ) : null}
     </Frame>
+  );
+}
+
+function RoundNavigation({ index, total, label, onChange }: { index: number; total: number; label: string; onChange: (index: number) => void }) {
+  return (
+    <div className="round-toolbar" aria-label="Navegación de fechas">
+      <button type="button" aria-label="Fecha anterior" disabled={index === 0} onClick={() => onChange(index - 1)}><ArrowLeftIcon /></button>
+      <span><small>JORNADA</small><strong>{label}</strong><em>{index + 1} / {total}</em></span>
+      <button type="button" aria-label="Siguiente fecha" disabled={index === total - 1} onClick={() => onChange(index + 1)}><ArrowRightIcon /></button>
+    </div>
   );
 }
 

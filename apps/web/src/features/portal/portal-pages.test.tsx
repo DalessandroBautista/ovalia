@@ -39,13 +39,29 @@ vi.mock('../tournaments/use-tournaments', () => ({
     const competitions = [
       { slug: 'urba-top-14', name: 'TOP 14 - Superior', familySlug: 'top-14' },
       { slug: 'top-14-intermedia', name: 'TOP 14 - Intermedia', familySlug: 'top-14' },
+      { slug: 'top-14-preintermedia', name: 'TOP 14 - Preintermedia', familySlug: 'top-14' },
+      { slug: 'top-14-m22', name: 'TOP 14 - Menores de 22', familySlug: 'top-14' },
     ];
     const comp = competitions.find((c) => c.slug === slug);
+    const matches: AgendaMatch[] = Array.from({ length: 8 }, (_, index) => ({
+      id: `top-14-${index + 1}`,
+      competition: 'TOP 14 - Superior',
+      competitionSlug: 'urba-top-14',
+      round: index === 7 ? 'Fecha 2' : 'Fecha 1',
+      startsAt: `2026-07-${25 + Math.floor(index / 7)}T${String(12 + index).padStart(2, '0')}:00:00.000Z`,
+      status: 'final',
+      homeTeam: `Local ${index + 1}`,
+      awayTeam: `Visitante ${index + 1}`,
+      homeBadgeUrl: '/badges/home.svg',
+      awayBadgeUrl: '/badges/away.svg',
+      homeScore: 20 + index,
+      awayScore: 10 + index,
+    }));
     return {
       status: 'ready' as const,
       competition: comp ? { slug: comp.slug, name: comp.name, familySlug: comp.familySlug, seasons: [{ year: 2026, name: '2026' }] } : null,
       standings: null,
-      matches: [],
+      matches: slug === 'urba-top-14' ? matches : [],
     };
   },
 }));
@@ -150,32 +166,31 @@ describe('public portal pages', () => {
     expect(html).toContain('Intermedia');
     expect(html).toContain('Preintermedia');
     expect(html).toContain('Menores de 22');
-    expect(html).toContain('Rugby Internacional');
     expect(html).toContain('Rugby argentino');
     expect(html).toContain('Unión Cordobesa');
     expect(html).toContain('TOP 10 A');
     expect(html).toContain('Primera');
     expect(html).toContain('Torneo del Interior A');
-    expect(html).toContain('Tests Internacionales');
   });
 
   it('groups tournaments by country before organization and counts tournament families', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
     const argentinaIndex = html.indexOf('>Argentina<');
-    const internationalIndex = html.indexOf('>Internacional<');
-    const franceIndex = html.indexOf('>Francia<');
+    const internationalIndex = html.indexOf('id="pais-internacional"');
+    const franceIndex = html.indexOf('id="pais-francia"');
 
     expect(html).toContain('tournament-country-nav');
-    expect(html).toContain('href="#pais-argentina"');
+    expect(html).toContain('aria-label="Países con torneos"');
+    expect(html).toContain('tournament-country-filter');
     expect(html).toContain('5 torneos');
-    expect(html).toContain('2 torneos');
-    expect(html).toContain('1 torneo');
+    expect(html).toContain('>Internacional<');
+    expect(html).toContain('>Francia<');
     expect(argentinaIndex).toBeGreaterThan(-1);
-    expect(internationalIndex).toBeGreaterThan(argentinaIndex);
-    expect(franceIndex).toBeGreaterThan(internationalIndex);
+    expect(internationalIndex).toBe(-1);
+    expect(franceIndex).toBe(-1);
     expect(html.indexOf('URBA')).toBeGreaterThan(argentinaIndex);
-    expect(html.indexOf('Rugby Internacional')).toBeGreaterThan(internationalIndex);
-    expect(html.indexOf('Ligue Nationale de Rugby')).toBeGreaterThan(franceIndex);
+    expect(html).not.toContain('<section class="tournament-country" id="pais-internacional"');
+    expect(html).not.toContain('<section class="tournament-country" id="pais-francia"');
   });
 
   it('renders the prediction experience', () => {
@@ -185,9 +200,21 @@ describe('public portal pages', () => {
 
 describe('TournamentPage family selector', () => {
   it('muestra un selector con las competencias de la misma familia', () => {
-    const html = renderToStaticMarkup(createElement(TournamentPage, { slug: 'urba-top-14' }));
+    const html = renderToStaticMarkup(createElement(TournamentPage, { slug: 'urba-top-14', initialTab: 'resultados' }));
     expect(html).toContain('family-selector');
     expect(html).toContain('Intermedia');
     expect(html).toContain('Superior');
+    expect(html).toContain('Preintermedia');
+    expect(html).toContain('Menores de 22');
+    expect(html).toContain('round-toolbar');
+    expect(html).toContain('team-badge');
+  });
+
+  it('muestra una sola fecha de resultados y permite navegar a la siguiente', () => {
+    const html = renderToStaticMarkup(createElement(TournamentPage, { slug: 'urba-top-14', initialTab: 'resultados' }));
+    expect(html).toContain('round-toolbar');
+    expect(html).toContain('Fecha 1');
+    expect(html).not.toContain('Fecha 2');
+    expect(html).toContain('aria-label="Siguiente fecha"');
   });
 });
