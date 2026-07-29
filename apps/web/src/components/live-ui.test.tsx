@@ -35,6 +35,8 @@ describe('live rugby UI', () => {
 
     expect(html).toContain('SIC');
     expect(html).toContain('Hindú');
+    expect(html).toContain('PRÓXIMOS');
+    expect(html).not.toContain('EN VIVO');
     expect(html).not.toContain('No hay partidos en vivo ahora');
   });
 

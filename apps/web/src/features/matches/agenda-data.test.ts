@@ -8,6 +8,7 @@ import {
   formatAgendaDateLabel,
   groupMatchesByCompetition,
   mapApiMatch,
+  sortAgendaGroups,
   shiftDateKey,
   type AgendaMatch,
 } from './agenda-data';
@@ -101,6 +102,61 @@ describe('shared agenda fixtures', () => {
       ['Rugby Championship', 1],
       ['URBA Top 14', 1],
     ]);
+  });
+
+  it('orders groups by competition priority and matches inside each group by time', () => {
+    const unordered: AgendaMatch[] = [
+      {
+        id: 'primera-a-early',
+        competition: 'PRIMERA A - Superior',
+        competitionSlug: 'urba-primera-a',
+        round: 'Fecha 1',
+        startsAt: '2026-07-25T18:00:00.000Z',
+        status: 'scheduled',
+        homeTeam: 'Los Matreros',
+        awayTeam: 'San Cirano',
+        homeBadgeUrl: null,
+        awayBadgeUrl: null,
+        homeScore: null,
+        awayScore: null,
+      },
+      {
+        id: 'top-14-late',
+        competition: 'TOP 14 - Superior',
+        competitionSlug: 'urba-top-14',
+        round: 'Fecha 1',
+        startsAt: '2026-07-25T20:00:00.000Z',
+        status: 'scheduled',
+        homeTeam: 'SIC',
+        awayTeam: 'Hindú',
+        homeBadgeUrl: null,
+        awayBadgeUrl: null,
+        homeScore: null,
+        awayScore: null,
+      },
+      {
+        id: 'top-14-early',
+        competition: 'TOP 14 - Superior',
+        competitionSlug: 'urba-top-14',
+        round: 'Fecha 1',
+        startsAt: '2026-07-25T17:00:00.000Z',
+        status: 'scheduled',
+        homeTeam: 'Newman',
+        awayTeam: 'CUBA',
+        homeBadgeUrl: null,
+        awayBadgeUrl: null,
+        homeScore: null,
+        awayScore: null,
+      },
+    ];
+
+    const groups = sortAgendaGroups(groupMatchesByCompetition(unordered), new Map([
+      ['urba-top-14', 100],
+      ['urba-primera-a', 90],
+    ]));
+
+    expect(groups.map((group) => group.competition)).toEqual(['TOP 14 - Superior', 'PRIMERA A - Superior']);
+    expect(groups[0]?.matches.map((match) => match.id)).toEqual(['top-14-early', 'top-14-late']);
   });
 });
 

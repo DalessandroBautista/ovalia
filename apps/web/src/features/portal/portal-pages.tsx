@@ -4,15 +4,18 @@ import { findTeamBadge } from '@ovalia/domain';
 import { useEffect, useState } from 'react';
 
 import { ArrowLeftIcon, ArrowRightIcon, RugbyBallIcon } from '../../components/icons';
-import { useLiveFeed } from '../../components/live-rail';
+import { type LiveFeedMatch, useLiveFeed } from '../../components/live-rail';
 import { TeamBadge } from '../../components/team-badge';
 import {
   argentinaDateKey,
   filterMatchesByDate,
   formatAgendaDateLabel,
   formatMatchTime,
+  groupMatchesByCompetition,
   matchScore,
   shiftDateKey,
+  sortAgendaGroups,
+  type AgendaMatch,
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
@@ -47,10 +50,53 @@ function DataProvenance({ source, freshness }: { source: string | null; freshnes
   );
 }
 
+function teamCode(team: string): string {
+  return findTeamBadge({ name: team })?.shortCode ?? team.slice(0, 3).toUpperCase();
+}
+
+function liveToAgendaMatch(match: LiveFeedMatch, competitionSlug?: string): AgendaMatch {
+  return {
+    id: match.id,
+    competition: match.competition,
+    competitionSlug,
+    round: match.phase,
+    startsAt: match.startsAt,
+    status: 'live',
+    homeTeam: match.home.name,
+    awayTeam: match.away.name,
+    homeBadgeUrl: match.home.badgeUrl ?? null,
+    awayBadgeUrl: match.away.badgeUrl ?? null,
+    homeScore: match.homeScore,
+    awayScore: match.awayScore,
+  };
+}
+
+function PortalMatchRow({ match }: { match: AgendaMatch }) {
+  const homeCode = teamCode(match.homeTeam);
+  const awayCode = teamCode(match.awayTeam);
+  const status = match.status === 'live'
+    ? 'EN VIVO'
+    : match.status === 'final'
+      ? 'FINAL'
+      : formatMatchTime(match.startsAt);
+  return (
+    <a className="portal-match" href={`/partidos/${match.id}`}>
+      <small>{match.round}</small>
+      <span className={match.status === 'live' ? 'live-text' : ''}>{status}</span>
+      <div>
+        <b><TeamBadge name={match.homeTeam} shortCode={homeCode} badgeUrl={match.homeBadgeUrl ?? undefined} />{match.homeTeam}</b>
+        <strong>{match.status === 'scheduled' ? 'vs' : matchScore(match)}</strong>
+        <b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} badgeUrl={match.awayBadgeUrl ?? undefined} /></b>
+      </div>
+    </a>
+  );
+}
+
 export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
   const feed = useLiveFeed();
   const [selectedDate, setSelectedDate] = useState(() => initialDate ?? argentinaDateKey());
   const agenda = useAgendaMatches(selectedDate);
+  const { competitions } = useCompetitions();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -60,9 +106,18 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
     track('view_date', { date: selectedDate });
   }, [selectedDate]);
 
+  const slugByName = new Map(competitions.map((competition) => [competition.name, competition.slug]));
+  const priorityBySlug = new Map(competitions.map((competition) => [competition.slug, competition.priority]));
   const liveMatches = feed.matches.filter((match) => argentinaDateKey(match.startsAt) === selectedDate);
   const liveIds = new Set(liveMatches.map((match) => match.id));
   const scheduledMatches = filterMatchesByDate(agenda.matches, selectedDate).filter((match) => !liveIds.has(match.id));
+  const matchGroups = sortAgendaGroups(
+    groupMatchesByCompetition([
+      ...liveMatches.map((match) => liveToAgendaMatch(match, slugByName.get(match.competition))),
+      ...scheduledMatches,
+    ]),
+    priorityBySlug,
+  );
   return (
     <Frame eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="La agenda del rugby argentino, con datos verificados y actualización en vivo.">
       <div className="portal-toolbar">
@@ -70,18 +125,20 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
         <strong aria-live="polite">{formatAgendaDateLabel(selectedDate)}</strong>
         <button type="button" aria-label="Día siguiente" onClick={() => setSelectedDate((date) => shiftDateKey(date, 1))}><ArrowRightIcon /></button>
       </div>
-      <div className="portal-list">
-        {liveMatches.map((match) => <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition}</small><span className="live-text">EN VIVO · {match.minute ? `${match.minute}'` : match.phase}</span><div><b><TeamBadge {...match.home} />{match.home.name}</b><strong>{match.homeScore} — {match.awayScore}</strong><b>{match.away.name}<TeamBadge {...match.away} /></b></div></a>)}
+      <div className="portal-list portal-list--grouped">
         {feed.status === 'loading' ? <p className="portal-live-status">Consultando partidos en vivo…</p> : null}
         {agenda.status === 'loading' ? <p className="portal-live-status">Cargando la agenda…</p> : null}
         {agenda.status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los partidos de esta fecha.</p> : null}
         {agenda.status === 'ready' && liveMatches.length === 0 && scheduledMatches.length === 0 ? <p className="portal-live-status">No hay partidos programados para esta fecha.</p> : null}
-        {scheduledMatches.map((match) => {
-          const homeCode = findTeamBadge({ name: match.homeTeam })?.shortCode ?? match.homeTeam.slice(0, 3).toUpperCase();
-          const awayCode = findTeamBadge({ name: match.awayTeam })?.shortCode ?? match.awayTeam.slice(0, 3).toUpperCase();
-          const status = match.status === 'final' ? 'FINAL' : formatMatchTime(match.startsAt);
-          return <a className="portal-match" href={`/partidos/${match.id}`} key={match.id}><small>{match.competition} · {match.round}</small><span>{status}</span><div><b><TeamBadge name={match.homeTeam} shortCode={homeCode} badgeUrl={match.homeBadgeUrl ?? undefined} />{match.homeTeam}</b><strong>{matchScore(match)}</strong><b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} badgeUrl={match.awayBadgeUrl ?? undefined} /></b></div></a>;
-        })}
+        {matchGroups.map((group) => (
+          <section className="portal-competition-group" key={`${group.competition}-${group.round}`}>
+            <header>
+              <div><small>{group.round}</small><h2>{group.competition}</h2></div>
+              <span>{group.matches.length} partidos</span>
+            </header>
+            {group.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}
+          </section>
+        ))}
       </div>
       {agenda.status === 'ready' && scheduledMatches.length > 0 ? <DataProvenance source={agenda.source} freshness={agenda.freshness} /> : null}
     </Frame>
@@ -92,6 +149,14 @@ interface OrgGroup {
   orgName: string;
   senior: ApiCompetition[];
   youth: ApiCompetition[];
+}
+
+function sortCompetitions(competitions: ApiCompetition[]): ApiCompetition[] {
+  return [...competitions].sort((a, b) => {
+    const priorityDiff = b.priority - a.priority;
+    if (priorityDiff !== 0) return priorityDiff;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
@@ -110,13 +175,52 @@ function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
       if (!seniorSeen.has(familyKey)) { seniorSeen.add(familyKey); group.senior.push(c); }
     }
   }
-  return [...groups.values()];
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      senior: sortCompetitions(group.senior),
+      youth: sortCompetitions(group.youth),
+    }))
+    .sort((a, b) => {
+      const priorityA = a.senior[0]?.priority ?? a.youth[0]?.priority ?? 0;
+      const priorityB = b.senior[0]?.priority ?? b.youth[0]?.priority ?? 0;
+      return priorityB - priorityA;
+    });
+}
+
+function preparationGroupName(competition: ApiCompetition): string {
+  if (competition.organization?.name) return competition.organization.name;
+  if (competition.category === 'national-teams' || competition.countryCode == null) return 'Rugby Internacional';
+  if (competition.countryCode === 'AR') return 'Rugby argentino';
+  return 'Otros torneos';
+}
+
+function groupUpcomingCompetitions(competitions: ApiCompetition[]): OrgGroup[] {
+  const groups = new Map<string, OrgGroup>();
+  for (const competition of competitions) {
+    const orgName = preparationGroupName(competition);
+    if (!groups.has(orgName)) groups.set(orgName, { orgName, senior: [], youth: [] });
+    const group = groups.get(orgName)!;
+    if (competition.tier === 'youth') group.youth.push(competition);
+    else group.senior.push(competition);
+  }
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      senior: sortCompetitions(group.senior),
+      youth: sortCompetitions(group.youth),
+    }))
+    .sort((a, b) => {
+      const priorityA = a.senior[0]?.priority ?? a.youth[0]?.priority ?? 0;
+      const priorityB = b.senior[0]?.priority ?? b.youth[0]?.priority ?? 0;
+      return priorityB - priorityA;
+    });
 }
 
 export function TournamentsPage() {
   const { status, competitions } = useCompetitions();
   const groups = groupByOrganization(competitions);
-  const upcoming = competitions.filter((c) => c.coverage !== 'auto');
+  const upcomingGroups = groupUpcomingCompetitions(competitions.filter((c) => c.coverage !== 'auto'));
   return (
     <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
       {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
@@ -137,17 +241,17 @@ export function TournamentsPage() {
           ) : null}
         </section>
       ))}
-      {upcoming.length > 0 ? (
-        <section className="tournament-group">
-          <h2>En preparación</h2>
-          {upcoming.map((c) => (
+      {upcomingGroups.map((group) => (
+        <section className="tournament-group" key={`upcoming-${group.orgName}`}>
+          <h2>{group.orgName}</h2>
+          {[...group.senior, ...group.youth].map((c) => (
             <div className="tournament-upcoming" key={c.slug} aria-disabled="true">
               <span>{c.name}</span>
               <small>Cobertura en preparación</small>
             </div>
           ))}
         </section>
-      ) : null}
+      ))}
     </Frame>
   );
 }

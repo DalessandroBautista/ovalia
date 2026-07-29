@@ -131,6 +131,21 @@ export function groupMatchesByCompetition(matches: AgendaMatch[]): AgendaGroup[]
   return [...groups.values()];
 }
 
+export function sortAgendaGroups(groups: AgendaGroup[], priorityBySlug: Map<string, number>): AgendaGroup[] {
+  return [...groups]
+    .map((group) => ({
+      ...group,
+      matches: [...group.matches].sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
+    }))
+    .sort((left, right) => {
+      const leftSlug = left.matches[0]?.competitionSlug ?? '';
+      const rightSlug = right.matches[0]?.competitionSlug ?? '';
+      const priorityDiff = (priorityBySlug.get(rightSlug) ?? 0) - (priorityBySlug.get(leftSlug) ?? 0);
+      if (priorityDiff !== 0) return priorityDiff;
+      return (left.matches[0]?.startsAt ?? '').localeCompare(right.matches[0]?.startsAt ?? '');
+    });
+}
+
 export function matchScore(match: AgendaMatch): string {
   if (match.status === 'final' || match.status === 'live') {
     return `${match.homeScore ?? 0} — ${match.awayScore ?? 0}`;

@@ -83,10 +83,11 @@ export function formatUpcomingTime(startsAt: string): string {
 
 export function LiveRailView({ feed, upcoming = [] }: { feed: LiveFeedPayload; upcoming?: UpcomingRailMatch[] }) {
   const showUpcoming = feed.matches.length === 0 && feed.status !== 'loading' && upcoming.length > 0;
+  const label = feed.matches.length > 0 ? 'EN VIVO' : showUpcoming ? 'PRÓXIMOS' : 'EN VIVO';
   return (
     <section className="live-rail" aria-label="Partidos en vivo" aria-live="polite">
       <div className="live-rail__inner">
-        <div className="live-rail__label"><i /> EN VIVO</div>
+        <div className="live-rail__label"><i /> {label}</div>
         <div className="live-rail__track">
           {feed.matches.length ? feed.matches.map((match) => (
             <a className="rail-match" href={`/partidos/${match.id}`} key={match.id}>

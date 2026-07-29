@@ -185,6 +185,16 @@ body::before {
   .sidebar { grid-template-columns: 1fr; }.site-footer { display: none; }
   .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 10; height: 68px; display: grid; grid-template-columns: repeat(5, 1fr); background: rgba(7,16,10,.96); border-top: 1px solid var(--line); backdrop-filter: blur(16px); }
   .bottom-nav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #829287; font-size: 8px; font-weight: 800; }.bottom-nav a svg { width: 19px; height: 19px; }.bottom-nav a.is-active { color: var(--lime); }
+  .portal-shell { width: min(100% - 28px, 600px); }
+  .portal-main { padding-top: 48px; }
+  .portal-list--grouped { padding: 10px; gap: 10px; }
+  .portal-competition-group > header { align-items: flex-start; flex-direction: column; gap: 6px; padding: 12px; }
+  .portal-competition-group h2 { font-size: 18px; }
+  .portal-match { min-height: 82px; padding: 12px; }
+  .portal-match div { grid-template-columns: minmax(0,1fr) 52px minmax(0,1fr); gap: 6px; font-size: 12px; }
+  .portal-match div strong { font-size: 14px; }
+  .portal-match div b { min-width: 0; gap: 5px; }
+  .portal-match div b:first-child, .portal-match div b:last-child { overflow-wrap: anywhere; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
@@ -219,6 +229,12 @@ body::before {
 .portal-toolbar button { width: 34px; height: 34px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
 .portal-toolbar button svg { width: 16px; height: 16px; margin: auto; }
 .portal-list { border: 1px solid var(--line); border-top: 0; }
+.portal-list--grouped { display: grid; gap: 16px; padding: 16px; background: rgba(9,18,12,.5); }
+.portal-competition-group { overflow: hidden; border: 1px solid var(--line); background: rgba(24,39,30,.72); }
+.portal-competition-group > header { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 18px; border-bottom: 1px solid var(--line); }
+.portal-competition-group h2 { margin: 2px 0 0; font-family: var(--display); font-size: 22px; font-weight: 500; line-height: 1.1; }
+.portal-competition-group small { color: #87998d; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.portal-competition-group > header > span { flex: 0 0 auto; color: var(--lime); font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
 .portal-match { min-height: 94px; display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 15px 22px; border-bottom: 1px solid var(--line); }
 .portal-match:last-child { border-bottom: 0; }.portal-match:hover { background: var(--pitch-raised); }
 .portal-match small { color: var(--mist); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }

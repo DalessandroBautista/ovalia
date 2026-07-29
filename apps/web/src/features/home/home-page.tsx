@@ -14,6 +14,7 @@ import {
   groupMatchesByCompetition,
   matchScore,
   shiftDateKey,
+  sortAgendaGroups,
   type AgendaMatch,
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
@@ -204,16 +205,11 @@ function Agenda() {
   const allGroups = groupMatchesByCompetition(filterMatchesByDate(agenda.matches, selectedDate));
   // Solo se listan los torneos insignia (Superior/Primera); Intermedia, Preintermedia
   // y juveniles se ven entrando al torneo específico en /torneos, no acá.
-  const groups = allGroups
+  const groups = sortAgendaGroups(allGroups
     .filter((g) => {
       const slug = g.matches[0]?.competitionSlug;
       return !slug || flagshipSlugs.size === 0 || flagshipSlugs.has(slug);
-    })
-    .sort((a, b) => {
-      const priorityA = priorityBySlug.get(a.matches[0]?.competitionSlug ?? '') ?? 0;
-      const priorityB = priorityBySlug.get(b.matches[0]?.competitionSlug ?? '') ?? 0;
-      return priorityB - priorityA;
-    });
+    }), priorityBySlug);
   const [selectedCompetition, setSelectedCompetition] = useState<string | undefined>(undefined);
   const today = argentinaDateKey();
   const activeGroup = groups.find((g) => g.competition === selectedCompetition) ?? groups[0];
