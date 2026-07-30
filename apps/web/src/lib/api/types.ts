@@ -37,6 +37,35 @@ export interface ApiMatchListResponse {
   nextCursor: string | null;
 }
 
+export type ApiFormResult = 'win' | 'draw' | 'loss';
+
+export interface ApiHeadToHeadMatch {
+  id: string;
+  startsAt: string;
+  homeTeamSlug: string;
+  awayTeamSlug: string;
+  homeScore: number;
+  awayScore: number;
+}
+
+export interface ApiTeamPosition {
+  position: number;
+  points: number;
+  played: number;
+}
+
+export interface ApiMatchContext {
+  headToHead: {
+    played: number;
+    homeWins: number;
+    awayWins: number;
+    draws: number;
+    recent: ApiHeadToHeadMatch[];
+  };
+  form: { home: ApiFormResult[]; away: ApiFormResult[] };
+  standings: { home: ApiTeamPosition | null; away: ApiTeamPosition | null };
+}
+
 export interface ApiStandingRow {
   position: number;
   team: { slug: string; name: string; badgeUrl: string | null };

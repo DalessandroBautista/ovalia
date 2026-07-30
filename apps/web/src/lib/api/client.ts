@@ -5,6 +5,7 @@ import type {
   ApiCompetitionsResponse,
   ApiHomeResponse,
   ApiMatch,
+  ApiMatchContext,
   ApiMatchListResponse,
   ApiOrganizationsResponse,
   ApiStandingsResponse,
@@ -98,6 +99,10 @@ export function fetchMatches(query: MatchesQuery, options?: ApiFetchOptions) {
 
 export function fetchMatchById(id: string, options?: ApiFetchOptions) {
   return apiFetch<{ match: ApiMatch }>(`/v1/matches/${encodeURIComponent(id)}`, options);
+}
+
+export function fetchMatchContext(id: string, options?: ApiFetchOptions) {
+  return apiFetch<ApiMatchContext>(`/v1/matches/${encodeURIComponent(id)}/context`, options);
 }
 
 export function fetchUpcomingMatches(limit: number, options?: ApiFetchOptions) {

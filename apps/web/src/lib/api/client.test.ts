@@ -21,6 +21,28 @@ function mockFetch(response: { ok: boolean; status?: number; json?: unknown }) {
 }
 
 describe('api client', () => {
+  it('pide el contexto del partido con el identificador escapado', async () => {
+    const fetchMatchContext = (apiClient as typeof apiClient & {
+      fetchMatchContext?: (id: string) => Promise<unknown>;
+    }).fetchMatchContext;
+    expect(fetchMatchContext).toBeTypeOf('function');
+    if (!fetchMatchContext) return;
+    const spy = mockFetch({
+      ok: true,
+      json: {
+        headToHead: { played: 0, homeWins: 0, awayWins: 0, draws: 0, recent: [] },
+        form: { home: [], away: [] },
+        standings: { home: null, away: null },
+      },
+    });
+
+    await fetchMatchContext('abc def');
+
+    expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toContain(
+      '/v1/matches/abc%20def/context',
+    );
+  });
+
   it('consulta el catálogo de uniones argentinas', async () => {
     const fetchOrganizations = (apiClient as typeof apiClient & {
       fetchOrganizations?: () => Promise<{ organizations: unknown[] }>;
