@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Database } from '../client.js';
 import { competitions, matches, seasons, teams } from '../schema.js';
@@ -148,6 +148,25 @@ export async function findMatchesByCompetition(db: Database, params: Competition
     matches: page,
     nextCursor: hasMore && last ? { startsAt: last.startsAt, id: last.id } : null,
   };
+}
+
+export type PastMatchesParams = {
+  teamIds: readonly [string, string];
+  before: Date;
+  limit?: number;
+};
+
+/** Partidos finalizados de cualquiera de los equipos, anteriores al partido consultado. */
+export async function findPastMatchesForTeams(db: Database, params: PastMatchesParams) {
+  const teamIds = [...params.teamIds];
+  return baseSelect(db)
+    .where(and(
+      eq(matches.status, 'final'),
+      lt(matches.startsAt, params.before),
+      or(inArray(matches.homeTeamId, teamIds), inArray(matches.awayTeamId, teamIds)),
+    ))
+    .orderBy(desc(matches.startsAt))
+    .limit(Math.min(params.limit ?? 200, 500));
 }
 
 /** Identidad natural: temporada + ronda + local + visitante. */

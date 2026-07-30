@@ -8,6 +8,7 @@ import {
   featuredPublishedArticle,
   findMatchById,
   findMatchesInRange,
+  findPastMatchesForTeams,
   findTeamByExternalId,
   findUpcomingMatches,
   findUserByEmail,
@@ -311,6 +312,51 @@ describe.skipIf(!available)('repositories', () => {
     expect(detail?.home.name).toBe('SIC');
     expect(detail?.away.name).toBe('CASI');
     expect(detail?.competitionName).toBe('URBA Top 14');
+  });
+
+  it('trae solo partidos finalizados anteriores de los equipos pedidos', async () => {
+    const { db } = handle;
+    const competition = await makeCompetition(db, { slug: 'context-history' });
+    const season = await makeSeason(db, competition.id);
+    const hindu = await makeTeam(db, { slug: 'hindu', name: 'Hindú' });
+    const sic = await makeTeam(db, { slug: 'sic', name: 'SIC' });
+
+    await makeMatch(db, {
+      seasonId: season.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-05-01T18:00:00.000Z'),
+      homeTeamId: hindu.id,
+      awayTeamId: sic.id,
+      status: 'final',
+      homeScore: 30,
+      awayScore: 10,
+    });
+    await makeMatch(db, {
+      seasonId: season.id,
+      round: 'Fecha 2',
+      startsAt: new Date('2026-07-01T18:00:00.000Z'),
+      homeTeamId: hindu.id,
+      awayTeamId: sic.id,
+      status: 'final',
+      homeScore: 25,
+      awayScore: 24,
+    });
+    await makeMatch(db, {
+      seasonId: season.id,
+      round: 'Fecha 3',
+      startsAt: new Date('2026-05-15T18:00:00.000Z'),
+      homeTeamId: hindu.id,
+      awayTeamId: sic.id,
+      status: 'scheduled',
+    });
+
+    const rows = await findPastMatchesForTeams(db, {
+      teamIds: [hindu.id, sic.id],
+      before: new Date('2026-06-01T00:00:00.000Z'),
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.homeScore).toBe(30);
   });
 
   it('findUpcomingMatches trae solo partidos de competencias con priority > 0, ordenados por prioridad y fecha', async () => {
