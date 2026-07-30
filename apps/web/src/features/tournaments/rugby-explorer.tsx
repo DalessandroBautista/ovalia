@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusTrap } from '../../hooks/use-focus-trap';
 import type { RugbyExplorerFamily, RugbyExplorerUnion } from './rugby-explorer-data';
 
 interface RugbyExplorerProps {
@@ -86,34 +87,8 @@ export function RugbyExplorer(props: RugbyExplorerProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    drawerRef.current?.querySelector<HTMLElement>('button, a')?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDrawerOpen(false);
-      if (event.key !== 'Tab' || !drawerRef.current) return;
-      const focusable = [...drawerRef.current.querySelectorAll<HTMLElement>('button, a')];
-      if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable.at(-1)!;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      triggerRef.current?.focus();
-    };
-  }, [drawerOpen]);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  useFocusTrap({ active: drawerOpen, containerRef: drawerRef, onEscape: closeDrawer });
 
   return (
     <>
@@ -138,8 +113,8 @@ export function RugbyExplorer(props: RugbyExplorerProps) {
           aria-label={props.mode === 'matches' ? 'Uniones y partidos' : 'Uniones y torneos'}
           ref={drawerRef}
         >
-          <header><strong>Uniones y torneos</strong><button type="button" aria-label="Cerrar explorador" onClick={() => setDrawerOpen(false)}>×</button></header>
-          <ExplorerNavigation {...props} closeDrawer={() => setDrawerOpen(false)} />
+          <header><strong>Uniones y torneos</strong><button type="button" aria-label="Cerrar explorador" onClick={closeDrawer}>×</button></header>
+          <ExplorerNavigation {...props} closeDrawer={closeDrawer} />
         </div>
       ) : null}
     </>
