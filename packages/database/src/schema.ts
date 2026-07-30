@@ -180,6 +180,14 @@ export const organizations = pgTable('organizations', {
   active: boolean('active').notNull().default(true)
 }, (table) => [uniqueIndex('organizations_slug_unique').on(table.slug)]);
 
+export const competitionOrganizations = pgTable('competition_organizations', {
+  competitionId: uuid('competition_id').notNull().references(() => competitions.id),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id),
+}, (table) => [
+  primaryKey({ columns: [table.competitionId, table.organizationId] }),
+  index('competition_organizations_organization_idx').on(table.organizationId),
+]);
+
 export const competitionPhases = pgTable('competition_phases', {
   id: uuid('id').primaryKey().defaultRandom(),
   seasonId: uuid('season_id').notNull().references(() => seasons.id),
@@ -416,6 +424,17 @@ export const feedback = pgTable('feedback', {
 
 // --- Relations ---
 
-export const competitionsRelations = relations(competitions, ({ one }) => ({
+export const competitionsRelations = relations(competitions, ({ one, many }) => ({
   organization: one(organizations, { fields: [competitions.organizationId], references: [organizations.id] }),
+  organizationMemberships: many(competitionOrganizations),
+}));
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  primaryCompetitions: many(competitions),
+  competitionMemberships: many(competitionOrganizations),
+}));
+
+export const competitionOrganizationsRelations = relations(competitionOrganizations, ({ one }) => ({
+  competition: one(competitions, { fields: [competitionOrganizations.competitionId], references: [competitions.id] }),
+  organization: one(organizations, { fields: [competitionOrganizations.organizationId], references: [organizations.id] }),
 }));

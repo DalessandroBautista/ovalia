@@ -6,12 +6,14 @@ import {
   fetchCompetition,
   fetchCompetitionMatches,
   fetchCompetitions,
+  fetchOrganizations,
   fetchStandings,
 } from '../../lib/api/client';
 import { mapApiMatch, type AgendaMatch } from '../matches/agenda-data';
 import type {
   ApiCompetition,
   ApiCompetitionDetail,
+  ApiOrganization,
   ApiStandingsResponse,
 } from '../../lib/api/types';
 
@@ -29,6 +31,25 @@ export function useCompetitions(): { status: Status; competitions: ApiCompetitio
       .catch((error) => {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           setState({ status: 'error', competitions: [] });
+        }
+      });
+    return () => controller.abort();
+  }, []);
+  return state;
+}
+
+export function useOrganizations(): { status: Status; organizations: ApiOrganization[] } {
+  const [state, setState] = useState<{ status: Status; organizations: ApiOrganization[] }>({
+    status: 'loading',
+    organizations: [],
+  });
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchOrganizations({ signal: controller.signal })
+      .then((response) => setState({ status: 'ready', organizations: response.organizations }))
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setState({ status: 'error', organizations: [] });
         }
       });
     return () => controller.abort();

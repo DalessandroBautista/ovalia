@@ -75,6 +75,19 @@ export interface ApiCompetitionsResponse {
   competitions: ApiCompetition[];
 }
 
+export interface ApiOrganization {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  countryCode: string | null;
+  competitionSlugs: string[];
+}
+
+export interface ApiOrganizationsResponse {
+  organizations: ApiOrganization[];
+}
+
 export interface ApiArticleSummary {
   slug: string;
   title: string;

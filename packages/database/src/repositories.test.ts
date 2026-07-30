@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseHandle } from './client';
+import * as repositoryExports from './repositories';
 import {
   ContestClosedError,
   createDraft,
@@ -81,6 +82,53 @@ describe.skipIf(!available)('repositories', () => {
     expect(org?.name).toBe('URBA');
     const all = await db.query.organizations.findMany();
     expect(all).toHaveLength(1);
+  });
+
+  it('lista una competencia regional bajo todas sus uniones sin ocultar las uniones vacías', async () => {
+    type OrganizationCatalogRow = {
+      slug: string;
+      competitionSlugs: string[];
+    };
+    type LinkCompetitionOrganization = (
+      db: DatabaseHandle['db'],
+      input: { competitionId: string; organizationId: string },
+    ) => Promise<unknown>;
+    type ListOrganizations = (
+      db: DatabaseHandle['db'],
+      filters: { countryCode: string; kind: string },
+    ) => Promise<OrganizationCatalogRow[]>;
+    const exports = repositoryExports as typeof repositoryExports & {
+      linkCompetitionOrganization?: LinkCompetitionOrganization;
+      listOrganizationsWithCompetitionSlugs?: ListOrganizations;
+    };
+
+    expect(exports.linkCompetitionOrganization).toBeTypeOf('function');
+    expect(exports.listOrganizationsWithCompetitionSlugs).toBeTypeOf('function');
+    if (!exports.linkCompetitionOrganization || !exports.listOrganizationsWithCompetitionSlugs) return;
+
+    const { db } = handle;
+    const rosario = await upsertOrganization(db, { slug: 'rosario', name: 'Unión de Rugby de Rosario', kind: 'union', countryCode: 'AR' });
+    const santaFe = await upsertOrganization(db, { slug: 'santa-fe', name: 'Unión Santafesina de Rugby', kind: 'union', countryCode: 'AR' });
+    const entrerriana = await upsertOrganization(db, { slug: 'entrerriana', name: 'Unión Entrerriana de Rugby', kind: 'union', countryCode: 'AR' });
+    await upsertOrganization(db, { slug: 'andina', name: 'Unión Andina de Rugby', kind: 'union', countryCode: 'AR' });
+    const litoral = await upsertCompetition(db, {
+      slug: 'regional-del-litoral',
+      name: 'Torneo Regional del Litoral',
+      category: 'clubs',
+      gender: 'male',
+      countryCode: 'AR',
+      familySlug: 'regional-del-litoral',
+      organizationId: rosario.id,
+    });
+    await exports.linkCompetitionOrganization(db, { competitionId: litoral.id, organizationId: santaFe.id });
+    await exports.linkCompetitionOrganization(db, { competitionId: litoral.id, organizationId: entrerriana.id });
+
+    const catalog = await exports.listOrganizationsWithCompetitionSlugs(db, { countryCode: 'AR', kind: 'union' });
+    const bySlug = new Map(catalog.map((organization) => [organization.slug, organization.competitionSlugs]));
+    expect(bySlug.get('rosario')).toEqual(['regional-del-litoral']);
+    expect(bySlug.get('santa-fe')).toEqual(['regional-del-litoral']);
+    expect(bySlug.get('entrerriana')).toEqual(['regional-del-litoral']);
+    expect(bySlug.get('andina')).toEqual([]);
   });
 
   it('upsertTeams actualiza y verifica el badge cuando llega uno nuevo', async () => {

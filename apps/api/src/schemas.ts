@@ -24,6 +24,11 @@ export const standingsQuerySchema = z.object({
   season: z.coerce.number().int().optional(),
 });
 
+export const organizationsQuerySchema = z.object({
+  countryCode: z.string().regex(/^[A-Z]{2}$/).default('AR'),
+  kind: z.enum(['union', 'league', 'international', 'sevens']).default('union'),
+});
+
 /** Evento de analytics anónimo (sin PII). */
 export const analyticsEventSchema = z.object({
   name: z.string().min(1).max(64),

@@ -235,6 +235,59 @@ body::before {
 .portal-main { min-height: calc(100vh - 76px); padding: 74px 0 100px; }
 .portal-main > h1 { max-width: 800px; margin: 0; font-family: var(--display); font-size: clamp(44px, 6vw, 78px); font-weight: 500; letter-spacing: -.055em; line-height: 1; }
 .portal-intro { max-width: 650px; margin: 20px 0 44px; color: var(--mist); font-family: var(--display); font-size: 18px; line-height: 1.55; }
+.portal-main--compact { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 410px); column-gap: 48px; align-items: end; padding-top: 34px; }
+.portal-main--compact > .eyebrow { grid-column: 1; margin-bottom: 9px; }
+.portal-main--compact > h1 { grid-column: 1; font-size: clamp(38px, 4.4vw, 56px); }
+.portal-main--compact > .portal-intro { grid-column: 2; grid-row: 1 / span 2; margin: 0 0 4px; font-family: var(--body); font-size: 14px; line-height: 1.55; }
+.portal-main--compact > :not(.eyebrow):not(h1):not(.portal-intro) { grid-column: 1 / -1; width: 100%; }
+.rugby-catalog-layout, .rugby-matches-layout { display: grid; grid-template-columns: 238px minmax(0, 1fr); gap: 30px; align-items: start; margin-top: 30px; }
+.rugby-explorer { position: sticky; top: 16px; min-width: 0; }
+.rugby-explorer__nav { overflow: hidden; border: 1px solid var(--line); background: rgba(12, 24, 16, .94); box-shadow: 8px 9px 0 rgba(4, 11, 7, .2); }
+.rugby-explorer__nav > header { min-height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; color: var(--mist); border-bottom: 1px solid var(--line); font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.rugby-explorer__nav > header strong { min-width: 24px; padding: 4px 6px; color: var(--ink); background: var(--lime); text-align: center; }
+.rugby-explorer__list { max-height: calc(100vh - 162px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.rugby-explorer__item { border-bottom: 1px solid var(--line); }
+.rugby-explorer__item:last-child { border-bottom: 0; }
+.rugby-explorer__union { position: relative; width: 100%; min-height: 58px; display: grid; gap: 3px; padding: 10px 34px 10px 13px; color: var(--paper); background: transparent; border: 0; text-align: left; cursor: pointer; transition: background .15s, color .15s; }
+.rugby-explorer__union:hover { color: var(--lime); background: rgba(216, 255, 67, .045); }
+.rugby-explorer__union:focus-visible, .rugby-explorer__families a:focus-visible, .rugby-explorer__families button:focus-visible, .rugby-explorer__clear:focus-visible, .rugby-explorer-trigger:focus-visible { outline: 2px solid var(--lime); outline-offset: -2px; }
+.rugby-explorer__union > span { overflow: hidden; font-size: 11px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.rugby-explorer__union small { color: #718277; font-size: 8px; line-height: 1.3; }
+.rugby-explorer__union > i { position: absolute; top: 19px; right: 13px; color: #788b7e; font-size: 16px; font-style: normal; font-weight: 400; }
+.rugby-explorer__item.is-expanded > .rugby-explorer__union { color: var(--ink); background: var(--lime); }
+.rugby-explorer__item.is-expanded > .rugby-explorer__union small, .rugby-explorer__item.is-expanded > .rugby-explorer__union i { color: #3d4a2a; }
+.rugby-explorer__families { padding: 6px; background: rgba(5, 13, 8, .55); }
+.rugby-explorer__families a, .rugby-explorer__families button { width: 100%; min-height: 39px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 9px; color: var(--mist); background: transparent; border: 0; border-bottom: 1px solid rgba(49, 70, 58, .55); font-size: 9px; font-weight: 850; text-align: left; cursor: pointer; }
+.rugby-explorer__families a:last-child, .rugby-explorer__families button:last-child { border-bottom: 0; }
+.rugby-explorer__families a:hover, .rugby-explorer__families button:hover, .rugby-explorer__families button.is-active { color: var(--lime); background: rgba(216, 255, 67, .045); }
+.rugby-explorer__families i { color: var(--lime); font-style: normal; }
+.rugby-explorer__families p { margin: 0; padding: 10px 9px; color: #76887c; font-size: 9px; line-height: 1.45; }
+.rugby-explorer__clear { width: calc(100% - 12px); min-height: 38px; margin: 6px; padding: 7px 10px; color: var(--lime); background: rgba(216, 255, 67, .05); border: 1px solid rgba(216, 255, 67, .25); font-size: 9px; font-weight: 900; cursor: pointer; }
+.rugby-explorer-trigger, .rugby-explorer-drawer { display: none; }
+.rugby-union-overview { min-width: 0; }
+.rugby-union-overview > header { min-height: 76px; display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line-strong); }
+.rugby-union-overview > header small { color: var(--lime); font-size: 8px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.rugby-union-overview > header h2 { margin: 5px 0 0; font: 500 clamp(29px, 3.2vw, 42px)/1 var(--display); letter-spacing: -.025em; }
+.rugby-union-overview > header > span { flex: 0 0 auto; color: #839489; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.rugby-family-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rugby-family-grid > a { min-height: 124px; display: flex; flex-direction: column; justify-content: space-between; padding: 17px; border: 1px solid var(--line); background: rgba(24, 39, 30, .72); transition: border-color .15s, transform .15s, background .15s; }
+.rugby-family-grid > a:hover { border-color: var(--lime); background: rgba(216, 255, 67, .045); transform: translateY(-2px); }
+.rugby-family-grid h3 { margin: 0; overflow-wrap: anywhere; font: 500 21px/1.08 var(--display); }
+.rugby-family-grid span { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--mist); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+.rugby-family-grid i { color: var(--lime); font-size: 15px; font-style: normal; }
+.rugby-catalog-empty { min-height: 230px; display: grid; place-content: center start; padding: 30px; border: 1px dashed var(--line-strong); background: rgba(24, 39, 30, .34); }
+.rugby-catalog-empty small { color: var(--lime); font-size: 8px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.rugby-catalog-empty h3 { margin: 8px 0; font: 500 28px var(--display); }
+.rugby-catalog-empty p { max-width: 520px; margin: 0; color: var(--mist); font-size: 12px; line-height: 1.55; }
+.rugby-match-center { min-width: 0; }
+.rugby-match-filter { min-height: 72px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 0 0 13px; border-bottom: 1px solid var(--line-strong); }
+.rugby-match-filter small { color: var(--lime); font-size: 8px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.rugby-match-filter h2 { margin: 4px 0 0; font: 500 29px/1.05 var(--display); }
+.rugby-match-filter > a { flex: 0 0 auto; min-height: 38px; display: inline-flex; align-items: center; gap: 10px; padding: 0 12px; color: var(--lime); border: 1px solid var(--line-strong); font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.rugby-match-filter > a:hover { color: var(--ink); background: var(--lime); border-color: var(--lime); }
+.rugby-match-filter > a span { font-size: 14px; }
+.rugby-match-center > .portal-toolbar { margin-top: 14px; }
+.rugby-match-center > .data-provenance { margin-bottom: 0; }
 .portal-toolbar { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; background: var(--pitch-raised); border: 1px solid var(--line); color: var(--lime); font-size: 11px; letter-spacing: .08em; }
 .portal-toolbar button { width: 34px; height: 34px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
 .portal-toolbar button svg { width: 16px; height: 16px; margin: auto; }
@@ -327,6 +380,8 @@ body::before {
 
 @media (max-width: 760px) {
   .portal-header { grid-template-columns: 1fr auto; }.portal-header > nav { display: none; }.portal-main { padding: 44px 0 108px; }.portal-main > h1 { font-size: 48px; letter-spacing: 0; }.portal-intro { margin: 16px 0 32px; font-size: 16px; }
+  .portal-main--compact { display: block; padding-top: 28px; }.portal-main--compact > h1 { font-size: 42px; }.portal-main--compact > .portal-intro { margin: 12px 0 22px; font-size: 13px; }
+  .rugby-catalog-layout, .rugby-matches-layout { display: block; margin-top: 22px; }.rugby-explorer { display: none; }.rugby-explorer-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 0 14px; color: var(--paper); background: var(--pitch-raised); border: 1px solid var(--line-strong); font-size: 10px; font-weight: 900; text-transform: uppercase; cursor: pointer; }.rugby-explorer-trigger i { color: var(--lime); font-size: 18px; font-style: normal; }.rugby-explorer-drawer { position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: 58px minmax(0, 1fr); width: 100%; color: var(--paper); background: var(--pitch); }.rugby-explorer-drawer > header { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; }.rugby-explorer-drawer > header button { width: 44px; height: 44px; color: var(--paper); background: transparent; border: 1px solid var(--line); font-size: 24px; cursor: pointer; }.rugby-explorer-drawer .rugby-explorer__nav { height: 100%; border: 0; box-shadow: none; }.rugby-explorer-drawer .rugby-explorer__list { max-height: calc(100vh - 105px); }.rugby-explorer__union { min-height: 62px; padding-inline: 17px 42px; }.rugby-explorer__union > i { right: 17px; }.rugby-explorer__families a, .rugby-explorer__families button { min-height: 46px; padding-inline: 13px; }.rugby-union-overview > header { min-height: 62px; align-items: flex-end; }.rugby-family-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.rugby-family-grid > a { min-height: 112px; }.rugby-match-filter { min-height: 64px; }.rugby-match-filter h2 { font-size: 25px; }
   .tournament-catalog { display: block; }.tournament-country-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; margin: 0 -1px 28px; padding: 8px 0; overflow-x: auto; border: 0; background: rgba(16,27,21,.96); scrollbar-width: none; backdrop-filter: blur(14px); }.tournament-country-nav::-webkit-scrollbar { display: none; }.tournament-country-nav > p { display: none; }.tournament-country-nav button { flex: 0 0 auto; min-width: 128px; padding: 10px 12px; border: 1px solid var(--line); }.tournament-country { scroll-margin-top: 70px; padding-bottom: 40px; }.tournament-country + .tournament-country { padding-top: 34px; }.tournament-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.tournament-country__header h2 { font-size: 31px; }
   .tournament-segment-selector { grid-template-columns: repeat(2, minmax(0, 1fr)); }.tournament-organization-nav { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }.tournament-organization-nav::-webkit-scrollbar { display: none; }.tournament-organization-nav button { flex: 0 0 auto; }
   .portal-match div { grid-template-columns: minmax(0,1fr) 70px minmax(0,1fr); font-size: 13px; }.prediction-panel,.table-card,.match-detail { padding: 18px; }.prediction-row { grid-template-columns: minmax(0,1fr) 48px 12px 48px minmax(0,1fr); gap: 5px; font-size: 11px; }.prediction-row input { width: 44px; }.tab-bar,.family-selector { overflow-x: auto; scrollbar-width: none; }.tab-bar button { flex: 0 0 auto; }.standing-row { min-width: 440px; }.table-card { overflow-x: auto; }.timeline-event { grid-template-columns: 34px 65px 1fr; font-size: 10px; }.timeline-event small { display: none; }.live-detail-teams { flex-wrap: wrap; gap: 16px; }.tournament-detail > h1 { font-size: 42px; }.round-toolbar > span { gap: 8px; }.round-toolbar strong { font-size: 17px; }.tournament-results .portal-match { min-height: 64px; padding-inline: 10px; }
@@ -340,6 +395,7 @@ body::before {
 @media (max-width: 760px) { .game-grid,.article-grid,.admin-grid { grid-template-columns: 1fr; }.game-grid > button { min-height: 230px; padding: 22px; }.game-grid h2 { margin-top: 42px; }.game-stage { padding: 20px; }.game-stage > div:not(.game-result) { grid-template-columns: 1fr; }.article-grid article { min-height: 220px; }.auth-card { padding: 24px; }.review-queue article { align-items: stretch; flex-direction: column; } }
 
 @media (max-width: 520px) {
+  .rugby-family-grid { grid-template-columns: 1fr; }.rugby-family-grid > a { min-height: 98px; }.rugby-union-overview > header { align-items: flex-start; flex-direction: column; gap: 9px; }.rugby-union-overview > header h2 { font-size: 31px; }.rugby-match-filter { align-items: flex-start; flex-direction: column; gap: 11px; }.rugby-match-filter > a { width: 100%; justify-content: space-between; }
   .tournament-grid { grid-template-columns: 1fr; }
   .tournament-segment-selector { grid-template-columns: 1fr; }
   .tournament-country__header { min-height: 60px; margin-bottom: 20px; }.tournament-country__header h2 { font-size: 29px; }.tournament-country__header > span { font-size: 8px; }

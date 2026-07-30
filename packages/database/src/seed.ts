@@ -3,8 +3,9 @@ import { TEAM_BADGES } from '@ovalia/domain';
 import { createDatabase } from './client.js';
 import { upsertSource } from './repositories/ingestion-repository.js';
 import { upsertCompetition, upsertSeason } from './repositories/competitions-repository.js';
-import { upsertOrganization } from './repositories/organizations-repository.js';
+import { linkCompetitionOrganization, upsertOrganization } from './repositories/organizations-repository.js';
 import { createUser } from './repositories/users-repository.js';
+import { FEDERAL_SEED_CATALOG, unionSlugForCompetition } from './seed-catalog.js';
 import { competitions, teams, users } from './schema.js';
 import { eq } from 'drizzle-orm';
 
@@ -60,13 +61,37 @@ for (const team of TEAM_BADGES) {
 
 // Organizaciones (uniones, ligas, torneos internacionales).
 const ORGANIZATIONS: Array<{ slug: string; name: string; kind: string; countryCode: string | null }> = [
-  { slug: 'urba', name: 'Unión de Rugby de Buenos Aires', kind: 'union', countryCode: 'AR' },
+  ...FEDERAL_SEED_CATALOG.unionOrganizations,
   { slug: 'super-rugby', name: 'Súper Rugby', kind: 'league', countryCode: null },
   { slug: 'rugby-internacional', name: 'Rugby Internacional', kind: 'international', countryCode: null },
   { slug: 'rugby-seven', name: 'Rugby Seven', kind: 'sevens', countryCode: null },
 ];
+const organizationIds = new Map<string, string>();
 for (const org of ORGANIZATIONS) {
-  await upsertOrganization(db, org);
+  const organization = await upsertOrganization(db, org);
+  organizationIds.set(organization.slug, organization.id);
+}
+
+for (const competition of FEDERAL_SEED_CATALOG.manualCompetitions) {
+  const organizationId = organizationIds.get(competition.organizationSlug);
+  if (!organizationId) throw new Error(`Organización federal inexistente: ${competition.organizationSlug}`);
+  const row = await upsertCompetition(db, {
+    slug: competition.slug,
+    name: competition.name,
+    familySlug: competition.familySlug,
+    tier: competition.tier,
+    category: competition.category,
+    gender: competition.gender,
+    countryCode: competition.countryCode,
+    coverage: competition.coverage,
+    priority: competition.priority,
+    organizationId,
+  });
+  for (const additionalOrganizationSlug of competition.additionalOrganizationSlugs) {
+    const additionalOrganizationId = organizationIds.get(additionalOrganizationSlug);
+    if (!additionalOrganizationId) throw new Error(`Organización federal inexistente: ${additionalOrganizationSlug}`);
+    await linkCompetitionOrganization(db, { competitionId: row.id, organizationId: additionalOrganizationId });
+  }
 }
 
 await db
@@ -106,6 +131,28 @@ await db
     },
   ])
   .onConflictDoNothing();
+
+// Vincula catálogos importados antes de que existieran organizaciones federales.
+// La regla vive en seed-catalog para que sea explícita, testeable e idempotente.
+for (const competition of await db.select().from(competitions)) {
+  const unionSlug = unionSlugForCompetition(competition.slug);
+  if (!unionSlug) continue;
+  const organizationId = organizationIds.get(unionSlug);
+  if (!organizationId) throw new Error(`Organización federal inexistente: ${unionSlug}`);
+  await upsertCompetition(db, {
+    slug: competition.slug,
+    name: competition.name,
+    category: competition.category,
+    gender: competition.gender,
+    countryCode: competition.countryCode,
+    format: competition.format,
+    priority: competition.priority,
+    coverage: competition.coverage,
+    organizationId,
+    familySlug: competition.familySlug,
+    tier: competition.tier,
+  });
+}
 
 // Configuración de fuentes externas (inactivas hasta validar términos/automatización).
 await upsertSource(db, {

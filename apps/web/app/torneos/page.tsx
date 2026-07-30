@@ -1,2 +1,10 @@
 import { TournamentsPage } from '../../src/features/portal/portal-pages';
-export default TournamentsPage;
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ union?: string }>;
+}) {
+  const { union } = await searchParams;
+  return <TournamentsPage initialUnion={union} />;
+}

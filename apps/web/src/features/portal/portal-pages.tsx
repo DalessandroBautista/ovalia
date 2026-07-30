@@ -19,9 +19,10 @@ import {
 } from '../matches/agenda-data';
 import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
-import { useCompetitions, useTournament } from '../tournaments/use-tournaments';
+import { useCompetitions, useOrganizations, useTournament } from '../tournaments/use-tournaments';
+import { RugbyExplorer } from '../tournaments/rugby-explorer';
+import { buildRugbyExplorer, filterMatchesByFamily, splitCompetitionName } from '../tournaments/rugby-explorer-data';
 import { track } from '../../lib/analytics';
-import type { ApiCompetition } from '../../lib/api/types';
 
 export function PortalHeader() {
   return (
@@ -100,17 +101,34 @@ function PortalMatchRow({ match }: { match: AgendaMatch }) {
   );
 }
 
-export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
+export function MatchesPage({ initialDate, initialFamily }: { initialDate?: string; initialFamily?: string } = {}) {
   const feed = useLiveFeed();
   const [selectedDate, setSelectedDate] = useState(() => initialDate ?? argentinaDateKey());
+  const [selectedFamilyKey, setSelectedFamilyKey] = useState(initialFamily ?? '');
+  const [expandedUnionKey, setExpandedUnionKey] = useState('');
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
+  const { organizations } = useOrganizations();
+  const explorer = buildRugbyExplorer(organizations, competitions);
+  const selectedFamily = explorer.flatMap((union) => union.families).find((family) => family.key === selectedFamilyKey);
+  const activeFamilyKey = selectedFamily?.key ?? '';
+  const defaultExpandedUnionKey = explorer.find((union) => union.families.some((family) => family.key === activeFamilyKey))?.key
+    ?? explorer[0]?.key
+    ?? '';
+  const activeExpandedUnionKey = explorer.some((union) => union.key === expandedUnionKey)
+    ? expandedUnionKey
+    : defaultExpandedUnionKey;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     url.searchParams.set('fecha', selectedDate);
+    if (activeFamilyKey) url.searchParams.set('torneo', activeFamilyKey);
+    else url.searchParams.delete('torneo');
     window.history.replaceState(null, '', url.toString());
+  }, [selectedDate, activeFamilyKey]);
+
+  useEffect(() => {
     track('view_date', { date: selectedDate });
   }, [selectedDate]);
 
@@ -119,130 +137,67 @@ export function MatchesPage({ initialDate }: { initialDate?: string } = {}) {
   const liveMatches = feed.matches.filter((match) => argentinaDateKey(match.startsAt) === selectedDate);
   const liveIds = new Set(liveMatches.map((match) => match.id));
   const scheduledMatches = filterMatchesByDate(agenda.matches, selectedDate).filter((match) => !liveIds.has(match.id));
+  const combinedMatches = [
+    ...liveMatches.map((match) => liveToAgendaMatch(match, slugByName.get(match.competition))),
+    ...scheduledMatches,
+  ];
+  const visibleMatches = filterMatchesByFamily(combinedMatches, activeFamilyKey, competitions);
+  const visibleScheduledMatches = filterMatchesByFamily(scheduledMatches, activeFamilyKey, competitions);
   const matchGroups = sortAgendaGroups(
-    groupMatchesByCompetition([
-      ...liveMatches.map((match) => liveToAgendaMatch(match, slugByName.get(match.competition))),
-      ...scheduledMatches,
-    ]),
+    groupMatchesByCompetition(visibleMatches),
     priorityBySlug,
   );
   return (
-    <Frame eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="La agenda del rugby argentino, con datos verificados y actualización en vivo.">
-      <div className="portal-toolbar">
-        <button type="button" aria-label="Día anterior" onClick={() => setSelectedDate((date) => shiftDateKey(date, -1))}><ArrowLeftIcon /></button>
-        <strong aria-live="polite">{formatAgendaDateLabel(selectedDate)}</strong>
-        <button type="button" aria-label="Día siguiente" onClick={() => setSelectedDate((date) => shiftDateKey(date, 1))}><ArrowRightIcon /></button>
-      </div>
-      <div className="portal-list portal-list--grouped">
-        {feed.status === 'loading' ? <p className="portal-live-status">Consultando partidos en vivo…</p> : null}
-        {agenda.status === 'loading' ? <p className="portal-live-status">Cargando la agenda…</p> : null}
-        {agenda.status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los partidos de esta fecha.</p> : null}
-        {agenda.status === 'ready' && liveMatches.length === 0 && scheduledMatches.length === 0 ? <p className="portal-live-status">No hay partidos programados para esta fecha.</p> : null}
-        {matchGroups.map((group) => (
-          <section className="portal-competition-group" key={`${group.competition}-${group.round}`}>
-            <header>
-              <div><small>{group.round}</small><h2>{group.competition}</h2></div>
-              <span>{group.matches.length} partidos</span>
+    <Frame className="portal-main--compact" eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="Elegí un torneo y consultá sus partidos por fecha.">
+      <div className="rugby-matches-layout">
+        <RugbyExplorer
+          unions={explorer}
+          expandedUnionKey={activeExpandedUnionKey}
+          selectedFamilyKey={activeFamilyKey}
+          mode="matches"
+          onUnionSelect={setExpandedUnionKey}
+          onFamilySelect={(family, unionKey) => {
+            setSelectedFamilyKey(family.key);
+            setExpandedUnionKey(unionKey);
+          }}
+          onClearFamily={() => setSelectedFamilyKey('')}
+        />
+        <section className="rugby-match-center">
+          {selectedFamily ? (
+            <header className="rugby-match-filter">
+              <div><small>Torneo seleccionado</small><h2>Partidos de {selectedFamily.title}</h2></div>
+              <a href={`/torneos/${selectedFamily.canonicalSlug}`}>Ver torneo <span aria-hidden="true">→</span></a>
             </header>
-            {group.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}
-          </section>
-        ))}
+          ) : (
+            <header className="rugby-match-filter rugby-match-filter--all">
+              <div><small>Agenda completa</small><h2>Todos los partidos</h2></div>
+            </header>
+          )}
+          <div className="portal-toolbar">
+            <button type="button" aria-label="Día anterior" onClick={() => setSelectedDate((date) => shiftDateKey(date, -1))}><ArrowLeftIcon /></button>
+            <strong aria-live="polite">{formatAgendaDateLabel(selectedDate)}</strong>
+            <button type="button" aria-label="Día siguiente" onClick={() => setSelectedDate((date) => shiftDateKey(date, 1))}><ArrowRightIcon /></button>
+          </div>
+          <div className="portal-list portal-list--grouped">
+            {feed.status === 'loading' ? <p className="portal-live-status">Consultando partidos en vivo…</p> : null}
+            {agenda.status === 'loading' ? <p className="portal-live-status">Cargando la agenda…</p> : null}
+            {agenda.status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los partidos de esta fecha.</p> : null}
+            {agenda.status === 'ready' && visibleMatches.length === 0 ? <p className="portal-live-status">No hay partidos programados para esta fecha{selectedFamily ? ' en este torneo' : ''}.</p> : null}
+            {matchGroups.map((group) => (
+              <section className="portal-competition-group" key={`${group.competition}-${group.round}`}>
+                <header>
+                  <div><small>{group.round}</small><h2>{group.competition}</h2></div>
+                  <span>{group.matches.length} {group.matches.length === 1 ? 'partido' : 'partidos'}</span>
+                </header>
+                {group.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}
+              </section>
+            ))}
+          </div>
+          {agenda.status === 'ready' && visibleScheduledMatches.length > 0 ? <DataProvenance source={agenda.source} freshness={agenda.freshness} /> : null}
+        </section>
       </div>
-      {agenda.status === 'ready' && scheduledMatches.length > 0 ? <DataProvenance source={agenda.source} freshness={agenda.freshness} /> : null}
     </Frame>
   );
-}
-
-interface OrgGroup {
-  orgName: string;
-  orgKey: string;
-  families: TournamentFamily[];
-}
-
-interface CountryGroup {
-  key: string;
-  label: string;
-  id: string;
-  organizations: OrgGroup[];
-  tournamentCount: number;
-}
-
-interface TournamentFamily {
-  key: string;
-  title: string;
-  segment: TournamentSegment;
-  priority: number;
-  divisions: ApiCompetition[];
-}
-
-type TournamentSegment = 'senior' | 'women' | 'youth' | 'university';
-
-const segmentLabels: Record<TournamentSegment, string> = {
-  senior: 'Plantel superior',
-  women: 'Femenino',
-  youth: 'Juveniles',
-  university: 'Universitario',
-};
-
-function organizationName(competition: ApiCompetition): string {
-  if (competition.organization?.name) return competition.organization.name;
-  if (competition.category === 'national-teams' || competition.countryCode == null) return 'Rugby Internacional';
-  if (competition.countryCode === 'AR') return 'Rugby argentino';
-  return 'Otros torneos';
-}
-
-const countryNames: Record<string, string> = {
-  AR: 'Argentina',
-  AU: 'Australia',
-  CL: 'Chile',
-  FR: 'Francia',
-  GB: 'Reino Unido',
-  IE: 'Irlanda',
-  IT: 'Italia',
-  NZ: 'Nueva Zelanda',
-  UY: 'Uruguay',
-  ZA: 'Sudáfrica',
-};
-
-function countryKey(competition: ApiCompetition): string {
-  if (competition.category === 'national-teams' || competition.countryCode == null) return 'international';
-  return competition.countryCode.toUpperCase();
-}
-
-function countryLabel(key: string): string {
-  if (key === 'international') return 'Internacional';
-  return countryNames[key] ?? key;
-}
-
-function countryId(label: string): string {
-  return `pais-${label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-}
-
-function splitCompetitionName(name: string): { familyTitle: string; divisionLabel: string } {
-  const parts = name.split(' - ');
-  if (parts.length >= 2) {
-    return {
-      familyTitle: parts[0]!,
-      divisionLabel: parts.slice(1).join(' - '),
-    };
-  }
-  return { familyTitle: name, divisionLabel: 'Principal' };
-}
-
-function normalizedFamilyKey(competition: ApiCompetition): string {
-  if (competition.familySlug) return competition.familySlug;
-  return splitCompetitionName(competition.name).familyTitle
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-');
-}
-
-function tournamentSegment(competition: ApiCompetition): TournamentSegment {
-  if (competition.gender === 'female' || competition.tier === 'women') return 'women';
-  if (competition.tier === 'youth' || /^menores de/i.test(competition.name)) return 'youth';
-  if (competition.tier === 'university') return 'university';
-  return 'senior';
 }
 
 interface MatchRound {
@@ -259,212 +214,64 @@ function groupMatchesByRound(matches: AgendaMatch[]): MatchRound[] {
   return [...groups.entries()].map(([label, roundMatches]) => ({ label, matches: roundMatches }));
 }
 
-function divisionRank(competition: ApiCompetition): number {
-  const label = splitCompetitionName(competition.name).divisionLabel.toLowerCase();
-  if (/^(superior|primera\b|primera divisi[oó]n)/.test(label)) return 0;
-  if (/^intermedia/.test(label)) return 1;
-  if (/^pre[\s-]?intermedia/.test(label)) return 2;
-  if (/menores de 22|^m22/.test(label)) return 3;
-  if (/^m19|menores de 19/.test(label)) return 10;
-  if (/^m17|menores de 17/.test(label)) return 11;
-  if (/^m16|menores de 16/.test(label)) return 12;
-  if (/^m15|menores de 15/.test(label)) return 13;
-  if (competition.tier === 'women') return 20;
-  if (competition.tier === 'youth') return 30;
-  return 50;
-}
-
-function sortDivisions(competitions: ApiCompetition[]): ApiCompetition[] {
-  return [...competitions].sort((a, b) => {
-    const rankDiff = divisionRank(a) - divisionRank(b);
-    if (rankDiff !== 0) return rankDiff;
-    const priorityDiff = b.priority - a.priority;
-    if (priorityDiff !== 0) return priorityDiff;
-    return splitCompetitionName(a.name).divisionLabel.localeCompare(splitCompetitionName(b.name).divisionLabel);
-  });
-}
-
-function groupByOrganization(competitions: ApiCompetition[]): OrgGroup[] {
-  const groups = new Map<string, { orgName: string; families: Map<string, TournamentFamily> }>();
-  for (const competition of competitions) {
-    const orgName = organizationName(competition);
-    const orgKey = competition.organization?.slug ?? organizationName(competition).toLowerCase();
-    if (!groups.has(orgKey)) groups.set(orgKey, { orgName, families: new Map() });
-    const group = groups.get(orgKey)!;
-    const familyKey = normalizedFamilyKey(competition);
-    const family = group.families.get(familyKey) ?? {
-      key: familyKey,
-      title: splitCompetitionName(competition.name).familyTitle,
-      segment: tournamentSegment(competition),
-      priority: competition.priority,
-      divisions: [],
-    };
-    family.priority = Math.max(family.priority, competition.priority);
-    if (competition.priority >= family.priority) {
-      family.title = splitCompetitionName(competition.name).familyTitle;
-    }
-    family.divisions.push(competition);
-    group.families.set(familyKey, family);
-  }
-  return [...groups.values()]
-    .map((group) => ({
-      orgName: group.orgName,
-      orgKey: group.families.values().next().value?.divisions[0]?.organization?.slug ?? group.orgName.toLowerCase(),
-      families: [...group.families.values()]
-        .map((family) => ({ ...family, divisions: sortDivisions(family.divisions) }))
-        .sort((a, b) => {
-          const priorityDiff = b.priority - a.priority;
-          if (priorityDiff !== 0) return priorityDiff;
-          return a.title.localeCompare(b.title);
-        }),
-    }))
-    .sort((a, b) => {
-      const priorityA = a.families[0]?.priority ?? 0;
-      const priorityB = b.families[0]?.priority ?? 0;
-      return priorityB - priorityA;
-    });
-}
-
-function groupByCountry(competitions: ApiCompetition[]): CountryGroup[] {
-  const groups = new Map<string, ApiCompetition[]>();
-  for (const competition of competitions) {
-    const key = countryKey(competition);
-    groups.set(key, [...(groups.get(key) ?? []), competition]);
-  }
-
-  return [...groups.entries()]
-    .map(([key, countryCompetitions]) => {
-      const label = countryLabel(key);
-      const organizations = groupByOrganization(countryCompetitions);
-      return {
-        key,
-        label,
-        id: countryId(label),
-        organizations,
-        tournamentCount: organizations.reduce((total, organization) => total + organization.families.length, 0),
-      };
-    })
-    .sort((a, b) => {
-      const rank = (key: string) => key === 'AR' ? 0 : key === 'international' ? 1 : 2;
-      const rankDiff = rank(a.key) - rank(b.key);
-      return rankDiff !== 0 ? rankDiff : a.label.localeCompare(b.label, 'es');
-    });
-}
-
 function tournamentCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'torneo' : 'torneos'}`;
 }
 
-export function TournamentsPage() {
+export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}) {
   const { status, competitions } = useCompetitions();
-  const countries = groupByCountry(competitions.filter((competition) => competition.countryCode === 'AR' && competition.organization?.slug !== 'rugby-internacional'));
-  const [selectedCountryKey, setSelectedCountryKey] = useState('');
-  const [selectedOrganizationKey, setSelectedOrganizationKey] = useState('');
-  const [selectedSegment, setSelectedSegment] = useState<TournamentSegment>('senior');
-  const [selectedFamilyKey, setSelectedFamilyKey] = useState('');
+  const { status: organizationsStatus, organizations } = useOrganizations();
+  const explorer = buildRugbyExplorer(organizations, competitions);
+  const [selectedUnionKey, setSelectedUnionKey] = useState(initialUnion ?? '');
+  const selectedUnion = explorer.find((union) => union.key === selectedUnionKey) ?? explorer[0];
 
   useEffect(() => {
-    if (countries.length > 0 && !countries.some((country) => country.key === selectedCountryKey)) {
-      setSelectedCountryKey(countries[0]!.key);
+    if (selectedUnion && selectedUnion.key !== selectedUnionKey) {
+      setSelectedUnionKey(selectedUnion.key);
     }
-  }, [countries, selectedCountryKey]);
+  }, [selectedUnion, selectedUnionKey]);
 
-  const selectedCountry = countries.find((country) => country.key === selectedCountryKey) ?? countries[0];
-  const selectedOrganization = selectedCountry?.organizations.find((organization) => organization.orgKey === selectedOrganizationKey) ?? selectedCountry?.organizations[0];
-  const segments = selectedOrganization ? [...new Set(selectedOrganization.families.map((family) => family.segment))] : [];
-
-  useEffect(() => {
-    if (selectedCountry && !selectedCountry.organizations.some((organization) => organization.orgKey === selectedOrganizationKey)) {
-      setSelectedOrganizationKey(selectedCountry.organizations[0]?.orgKey ?? '');
-    }
-  }, [selectedCountry, selectedOrganizationKey]);
-
-  useEffect(() => {
-    if (segments.length > 0 && !segments.includes(selectedSegment)) setSelectedSegment(segments[0]!);
-  }, [segments, selectedSegment]);
-
-  const activeFamilies = selectedOrganization?.families.filter((family) => family.segment === selectedSegment) ?? [];
-  const selectedFamily = activeFamilies.find((family) => family.key === selectedFamilyKey);
-
-  useEffect(() => {
-    if (!selectedFamily) setSelectedFamilyKey('');
-  }, [selectedFamily]);
+  const selectUnion = (unionKey: string) => {
+    setSelectedUnionKey(unionKey);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('union', unionKey);
+    window.history.replaceState(null, '', url.toString());
+  };
   return (
-    <Frame eyebrow="COBERTURA" title="Todos los torneos" intro="Competencias con datos verificados y las que estamos incorporando.">
-      {status === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
-      {status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los torneos.</p> : null}
-      {countries.length > 0 ? (
-        <div className="tournament-catalog">
-          <nav className="tournament-country-nav tournament-country-filter" aria-label="Países con torneos">
-            <p>Países</p>
-            {countries.map((country, index) => (
-              <button type="button" className={country.key === selectedCountry?.key || (!selectedCountry && index === 0) ? 'is-primary' : ''} aria-pressed={country.key === selectedCountry?.key} onClick={() => setSelectedCountryKey(country.key)} key={country.key}>
-                <strong>{country.label}</strong>
-                <span>{tournamentCountLabel(country.tournamentCount)}</span>
-              </button>
-            ))}
-          </nav>
-          <div className="tournament-country-list">
-            {selectedCountry ? (
-              <section className="tournament-country" id={selectedCountry.id} key={selectedCountry.key}>
-                <header className="tournament-country__header">
-                  <div><small>País</small><h2>{selectedCountry.label}</h2></div>
-                  <span>{tournamentCountLabel(selectedCountry.tournamentCount)}</span>
+    <Frame className="portal-main--compact" eyebrow="COBERTURA" title="Todos los torneos" intro="Elegí una unión y después el torneo que querés consultar.">
+      {status === 'loading' || organizationsStatus === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
+      {status === 'error' || organizationsStatus === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar todo el catálogo.</p> : null}
+      {explorer.length > 0 ? (
+        <div className="rugby-catalog-layout">
+          <RugbyExplorer
+            unions={explorer}
+            expandedUnionKey={selectedUnion?.key ?? ''}
+            mode="catalog"
+            onUnionSelect={selectUnion}
+          />
+          <section className="rugby-union-overview">
+            {selectedUnion ? (
+              <>
+                <header>
+                  <div><small>Unión</small><h2>{selectedUnion.label}</h2></div>
+                  <span>{tournamentCountLabel(selectedUnion.families.length)}</span>
                 </header>
-                <nav className="tournament-organization-nav" aria-label="Uniones de rugby">
-                  {selectedCountry.organizations.map((organization) => (
-                    <button type="button" className={organization.orgKey === selectedOrganization?.orgKey ? 'is-active' : ''} onClick={() => setSelectedOrganizationKey(organization.orgKey)} key={organization.orgKey}>
-                      {organization.orgName}
-                    </button>
-                  ))}
-                </nav>
-                {selectedOrganization ? (
-                  <section className="tournament-group">
-                    <header className="tournament-group__header">
-                      <div><small>Unión</small><h3>{selectedOrganization.orgName}</h3></div>
-                      <span>{tournamentCountLabel(selectedOrganization.families.length)}</span>
-                    </header>
-                    <nav className="tournament-segment-selector" aria-label="Segmentos de competencia">
-                      {segments.map((segment) => (
-                        <button type="button" className={segment === selectedSegment ? 'is-active' : ''} onClick={() => setSelectedSegment(segment)} key={segment}>
-                          <strong>{segmentLabels[segment]}</strong>
-                          <span>{tournamentCountLabel(selectedOrganization.families.filter((family) => family.segment === segment).length)}</span>
-                        </button>
-                      ))}
-                    </nav>
-                    {selectedFamily ? (
-                      <section className="tournament-family-detail">
-                        <button type="button" className="tournament-back-button" onClick={() => setSelectedFamilyKey('')}>← Volver a {segmentLabels[selectedSegment]}</button>
-                        <header><h4>{selectedFamily.title}</h4><span>{selectedFamily.divisions.length} categorías</span></header>
-                        <div className="tournament-divisions">
-                          {selectedFamily.divisions.map((division) => {
-                            const label = splitCompetitionName(division.name).divisionLabel;
-                            return division.coverage === 'auto' ? (
-                              <a href={`/torneos/${division.slug}`} key={division.slug}><span>{label}</span><i>→</i></a>
-                            ) : (
-                              <div className="tournament-upcoming" key={division.slug} aria-disabled="true">
-                                <span>{label}</span>
-                                <small>Cobertura en preparación</small>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    ) : (
-                      <div className="tournament-grid tournament-grid--active">
-                        {activeFamilies.map((family) => (
-                          <button type="button" className="tournament-family tournament-family--choice" onClick={() => setSelectedFamilyKey(family.key)} key={family.key}>
-                            <h4>{family.title}</h4>
-                            <span>{family.divisions.length} categorías <i>→</i></span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                ) : null}
-              </section>
+                {selectedUnion.families.length > 0 ? (
+                  <div className="rugby-family-grid">
+                    {selectedUnion.families.map((family) => (
+                      <a href={`/torneos/${family.canonicalSlug}`} key={family.key}>
+                        <h3>{family.title}</h3>
+                        <span>{family.divisions.length} {family.divisions.length === 1 ? 'categoría' : 'categorías'} <i aria-hidden="true">→</i></span>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rugby-catalog-empty"><small>Próximamente</small><h3>Cobertura en preparación</h3><p>La unión ya forma parte del catálogo. Sus torneos se publicarán cuando estén verificados.</p></div>
+                )}
+              </>
             ) : null}
-          </div>
+          </section>
         </div>
       ) : null}
     </Frame>

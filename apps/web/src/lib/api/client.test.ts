@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiFetch, fetchMatchById, fetchMatches } from './client';
+import * as apiClient from './client';
 
 const originalFetch = globalThis.fetch;
 
@@ -20,6 +21,19 @@ function mockFetch(response: { ok: boolean; status?: number; json?: unknown }) {
 }
 
 describe('api client', () => {
+  it('consulta el catálogo de uniones argentinas', async () => {
+    const fetchOrganizations = (apiClient as typeof apiClient & {
+      fetchOrganizations?: () => Promise<{ organizations: unknown[] }>;
+    }).fetchOrganizations;
+    expect(fetchOrganizations).toBeTypeOf('function');
+    if (!fetchOrganizations) return;
+    const spy = mockFetch({ ok: true, json: { organizations: [] } });
+    await fetchOrganizations();
+    expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toBe(
+      'http://localhost:4000/v1/organizations?countryCode=AR&kind=union',
+    );
+  });
+
   it('construye la query de partidos y devuelve el payload tipado', async () => {
     const spy = mockFetch({ ok: true, json: { generatedAt: 'x', matches: [], nextCursor: null } });
     const result = await fetchMatches({ from: '2026-08-01T00:00:00-03:00', competition: 'top-14-superior', limit: 50 });

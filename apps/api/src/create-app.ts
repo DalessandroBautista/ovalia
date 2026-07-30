@@ -32,6 +32,7 @@ import {
   getLatestSeason,
   getStandingsForSeason,
   listCompetitions,
+  listOrganizationsWithCompetitionSlugs,
   listSeasons,
   pingDatabase,
   type Database,
@@ -51,6 +52,7 @@ import {
   feedbackSchema,
   freshness,
   matchesQuerySchema,
+  organizationsQuerySchema,
   standingsQuerySchema,
 } from './schemas.js';
 
@@ -166,6 +168,13 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   });
 
   // --- Competencias ---
+  app.get('/v1/organizations', async (request, reply) => {
+    const parsed = organizationsQuerySchema.safeParse(request.query);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_query', issues: parsed.error.issues });
+    const organizations = await listOrganizationsWithCompetitionSlugs(db, parsed.data);
+    return { organizations };
+  });
+
   app.get('/v1/competitions', async () => {
     const competitions = await listCompetitions(db);
     return {

@@ -17,7 +17,24 @@ let agendaState: {
   freshness: 'unknown' as const,
 };
 
-vi.mock('../tournaments/use-tournaments', () => ({
+vi.mock('../tournaments/use-tournaments', async () => {
+  const { ARGENTINA_RUGBY_UNIONS } = await import('@ovalia/domain');
+  const competitionSlugsByUnion: Record<string, string[]> = {
+    urba: ['urba-top-14', 'top-14-intermedia', 'top-14-preintermedia', 'top-14-m22', 'urba-primera-a', 'menores-de-19-primera-rueda-g2-nivel-1-a'],
+    cordoba: ['ucr-top-10-primera', 'ucr-top-10-intermedia'],
+    rosario: ['regional-del-litoral-primera'],
+    'santa-fe': ['regional-del-litoral-primera'],
+    entrerriana: ['regional-del-litoral-primera'],
+  };
+  return {
+  useOrganizations: () => ({
+    status: 'ready',
+    organizations: ARGENTINA_RUGBY_UNIONS.map((organization, index) => ({
+      ...organization,
+      id: String(index + 1),
+      competitionSlugs: competitionSlugsByUnion[organization.slug] ?? [],
+    })),
+  }),
   useCompetitions: () => ({
     status: 'ready',
     competitions: [
@@ -30,6 +47,7 @@ vi.mock('../tournaments/use-tournaments', () => ({
       { slug: 'rugby-championship', name: 'Rugby Championship', category: 'national-teams', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'rugby-internacional', name: 'Rugby Internacional' }, familySlug: 'rugby-championship', tier: 'senior', priority: 80 },
       { slug: 'ucr-top-10-primera', name: 'TOP 10 A - Primera', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'cordoba', name: 'Unión Cordobesa' }, familySlug: 'top-10-a', tier: 'senior', priority: 75 },
       { slug: 'ucr-top-10-intermedia', name: 'TOP 10 A - Intermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'cordoba', name: 'Unión Cordobesa' }, familySlug: 'top-10-a', tier: 'intermediate', priority: 0 },
+      { slug: 'regional-del-litoral-primera', name: 'Torneo Regional del Litoral - Primera', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: { slug: 'rosario', name: 'Unión de Rugby de Rosario' }, familySlug: 'regional-del-litoral', tier: 'senior', priority: 70 },
       { slug: 'torneo-interior-a', name: 'Torneo del Interior A', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'manual', organization: null, familySlug: 'torneo-interior-a', tier: 'senior', priority: 70 },
       { slug: 'tests-internacionales', name: 'Tests Internacionales', category: 'national-teams', gender: 'male', countryCode: null, coverage: 'manual', organization: null, familySlug: 'tests-internacionales', tier: 'senior', priority: 60 },
       { slug: 'top-14-france', name: 'TOP 14 France - Principal', category: 'clubs', gender: 'male', countryCode: 'FR', coverage: 'manual', organization: { slug: 'lnr', name: 'Ligue Nationale de Rugby' }, familySlug: 'top-14-france', tier: 'senior', priority: 50 },
@@ -64,7 +82,8 @@ vi.mock('../tournaments/use-tournaments', () => ({
       matches: slug === 'urba-top-14' ? matches : [],
     };
   },
-}));
+  };
+});
 
 vi.mock('../matches/use-agenda', () => ({
   useAgendaMatches: () => agendaState,
@@ -155,38 +174,78 @@ describe('public portal pages', () => {
     expect(html).toContain('portal-competition-group');
   });
 
-  it('renders the tournament catalog with hierarchical grouping', () => {
+  it('filters the match center by tournament family before opening its detail', () => {
+    agendaState = {
+      status: 'ready',
+      source: 'urba',
+      freshness: 'fresh',
+      matches: [
+        {
+          id: 'top-14-superior', competition: 'TOP 14 - Superior', competitionSlug: 'urba-top-14', round: 'Fecha 1',
+          startsAt: '2026-07-25T17:00:00.000Z', status: 'scheduled', homeTeam: 'Newman', awayTeam: 'CUBA',
+          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
+        },
+        {
+          id: 'top-14-intermedia', competition: 'TOP 14 - Intermedia', competitionSlug: 'top-14-intermedia', round: 'Fecha 1',
+          startsAt: '2026-07-25T15:00:00.000Z', status: 'scheduled', homeTeam: 'Newman I', awayTeam: 'CUBA I',
+          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
+        },
+        {
+          id: 'primera-a', competition: 'PRIMERA A - Superior', competitionSlug: 'urba-primera-a', round: 'Fecha 1',
+          startsAt: '2026-07-25T18:00:00.000Z', status: 'scheduled', homeTeam: 'Los Matreros', awayTeam: 'San Cirano',
+          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(createElement(
+      MatchesPage as ComponentType<{ initialDate?: string; initialFamily?: string }>,
+      { initialDate: '2026-07-25', initialFamily: 'top-14' },
+    ));
+
+    expect(html).toContain('Partidos de TOP 14');
+    expect(html).toContain('TOP 14 - Superior');
+    expect(html).toContain('TOP 14 - Intermedia');
+    expect(html).not.toContain('PRIMERA A - Superior');
+    expect(html).toContain('href="/torneos/urba-top-14"');
+    expect(html).toContain('Ver torneo');
+    expect(html).toContain('aria-pressed="true"');
+  });
+
+  it('renders the tournament catalog with union and family hierarchy', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
     expect(html).toContain('Todos los torneos');
     expect(html).toContain('URBA');
     expect(html).toContain('TOP 14');
     expect(html).toContain('PRIMERA A');
     expect(html.indexOf('TOP 14')).toBeLessThan(html.indexOf('PRIMERA A'));
-    expect(html).toContain('Plantel superior');
-    expect(html).toContain('tournament-segment-selector');
-    expect(html).not.toContain('Preintermedia');
-    expect((html.match(/<h4>TOP 14<\/h4>/g) || []).length).toBe(1);
-    expect(html).toContain('tournament-organization-nav');
-    expect(html).toContain('Unión Cordobesa');
+    expect(html).toContain('href="/torneos/urba-top-14"');
+    expect(html).toContain('href="/torneos/urba-primera-a"');
+    expect(html).toContain('Córdoba');
   });
 
-  it('groups tournaments by country before organization and counts tournament families', () => {
+  it('renders the shared rugby explorer with all unions and canonical tournament links', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
-    const argentinaIndex = html.indexOf('>Argentina<');
-    const internationalIndex = html.indexOf('id="pais-internacional"');
-    const franceIndex = html.indexOf('id="pais-francia"');
+    expect(html).toContain('portal-main--compact');
+    expect(html).toContain('aria-label="Uniones y torneos"');
+    expect((html.match(/rugby-explorer__union/g) || []).length).toBe(25);
+    expect(html).toContain('Unión Andina de Rugby');
+    expect(html).toContain('Cobertura en preparación');
+    expect(html).toContain('href="/torneos/urba-top-14"');
+  });
 
-    expect(html).toContain('tournament-country-nav');
-    expect(html).toContain('aria-label="Países con torneos"');
-    expect(html).toContain('tournament-country-filter');
-    expect(html).toContain('5 torneos');
-    expect(argentinaIndex).toBeGreaterThan(-1);
-    expect(internationalIndex).toBe(-1);
-    expect(franceIndex).toBe(-1);
-    expect(html.indexOf('URBA')).toBeGreaterThan(argentinaIndex);
-    expect(html).not.toContain('Internacional');
-    expect(html).not.toContain('<section class="tournament-country" id="pais-internacional"');
-    expect(html).not.toContain('<section class="tournament-country" id="pais-francia"');
+  it('shows a shared regional competition from each associated union', () => {
+    const html = renderToStaticMarkup(createElement(
+      TournamentsPage as ComponentType<{ initialUnion?: string }>,
+      { initialUnion: 'rosario' },
+    ));
+
+    expect(html).toContain('Unión de Rugby de Rosario');
+    expect(html).toContain('Torneo Regional del Litoral');
+    expect(html).toContain('href="/torneos/regional-del-litoral-primera"');
+    expect(html).toContain('Santa Fe');
+    expect(html).toContain('Entre Ríos');
+    expect(html).not.toContain('TOP 14 France');
   });
 
   it('renders the prediction experience', () => {

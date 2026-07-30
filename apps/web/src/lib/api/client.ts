@@ -6,6 +6,7 @@ import type {
   ApiHomeResponse,
   ApiMatch,
   ApiMatchListResponse,
+  ApiOrganizationsResponse,
   ApiStandingsResponse,
 } from './types';
 
@@ -108,6 +109,10 @@ export function fetchUpcomingMatches(limit: number, options?: ApiFetchOptions) {
 
 export function fetchCompetitions(options?: ApiFetchOptions) {
   return apiFetch<ApiCompetitionsResponse>('/v1/competitions', options);
+}
+
+export function fetchOrganizations(options?: ApiFetchOptions) {
+  return apiFetch<ApiOrganizationsResponse>('/v1/organizations?countryCode=AR&kind=union', options);
 }
 
 export function fetchHome(options?: ApiFetchOptions) {

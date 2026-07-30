@@ -3,6 +3,7 @@ import type { DatabaseHandle } from '@ovalia/database';
 import {
   createConflict,
   createDraft,
+  linkCompetitionOrganization,
   replaceStandings,
   setArticleStatus,
   upsertCompetition,
@@ -196,6 +197,40 @@ describe.skipIf(!available)('API real', () => {
       familySlug: 'top-14',
       tier: 'senior',
     });
+  });
+
+  it('/v1/organizations devuelve uniones vacías y asociaciones regionales', async () => {
+    const { db } = handle;
+    const rosario = await upsertOrganization(db, { slug: 'rosario', name: 'Unión de Rugby de Rosario', kind: 'union', countryCode: 'AR' });
+    const santaFe = await upsertOrganization(db, { slug: 'santa-fe', name: 'Unión Santafesina de Rugby', kind: 'union', countryCode: 'AR' });
+    const entrerriana = await upsertOrganization(db, { slug: 'entrerriana', name: 'Unión Entrerriana de Rugby', kind: 'union', countryCode: 'AR' });
+    await upsertOrganization(db, { slug: 'andina', name: 'Unión Andina de Rugby', kind: 'union', countryCode: 'AR' });
+    const litoral = await upsertCompetition(db, {
+      slug: 'regional-del-litoral-primera',
+      name: 'Torneo Regional del Litoral - Primera',
+      category: 'clubs',
+      gender: 'male',
+      countryCode: 'AR',
+      familySlug: 'regional-del-litoral',
+      organizationId: rosario.id,
+    });
+    await linkCompetitionOrganization(db, { competitionId: litoral.id, organizationId: santaFe.id });
+    await linkCompetitionOrganization(db, { competitionId: litoral.id, organizationId: entrerriana.id });
+
+    const app = makeAppFor();
+    const response = await app.inject({ method: 'GET', url: '/v1/organizations?countryCode=AR&kind=union' });
+    expect(response.statusCode).toBe(200);
+    const bySlug = new Map(response.json().organizations.map((organization: { slug: string; competitionSlugs: string[] }) => [organization.slug, organization.competitionSlugs]));
+    expect(bySlug.get('rosario')).toEqual(['regional-del-litoral-primera']);
+    expect(bySlug.get('santa-fe')).toEqual(['regional-del-litoral-primera']);
+    expect(bySlug.get('entrerriana')).toEqual(['regional-del-litoral-primera']);
+    expect(bySlug.get('andina')).toEqual([]);
+  });
+
+  it('/v1/organizations valida los filtros en el límite', async () => {
+    const app = makeAppFor();
+    const response = await app.inject({ method: 'GET', url: '/v1/organizations?countryCode=ARG&kind=union' });
+    expect(response.statusCode).toBe(400);
   });
 
   it('404 para competencia inexistente', async () => {

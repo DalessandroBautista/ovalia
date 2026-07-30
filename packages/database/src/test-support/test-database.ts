@@ -90,6 +90,7 @@ const TABLES = [
   'jobs',
   'articles',
   'seasons',
+  'competition_organizations',
   'competitions',
   'organizations',
   'teams',
