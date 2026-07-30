@@ -1,5 +1,6 @@
 export * from './scoring.js';
 export * from './match.js';
+export * from './match-context.js';
 export * from './prediction.js';
 export * from './standings.js';
 export * from './games.js';
