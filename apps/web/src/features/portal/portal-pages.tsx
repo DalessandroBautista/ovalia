@@ -17,6 +17,7 @@ import {
   sortAgendaGroups,
   type AgendaMatch,
 } from '../matches/agenda-data';
+import { MatchModal } from '../matches/match-modal';
 import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
 import { useCompetitions, useOrganizations, useTournament } from '../tournaments/use-tournaments';
@@ -80,7 +81,7 @@ function liveToAgendaMatch(match: LiveFeedMatch, competitionSlug?: string): Agen
   };
 }
 
-function PortalMatchRow({ match }: { match: AgendaMatch }) {
+function PortalMatchRow({ match, onOpen }: { match: AgendaMatch; onOpen?: (match: AgendaMatch) => void }) {
   const homeCode = teamCode(match.homeTeam);
   const awayCode = teamCode(match.awayTeam);
   const status = match.status === 'live'
@@ -88,8 +89,7 @@ function PortalMatchRow({ match }: { match: AgendaMatch }) {
     : match.status === 'final'
       ? 'FINAL'
       : formatMatchTime(match.startsAt);
-  return (
-    <a className="portal-match" href={`/partidos/${match.id}`}>
+  const content = <>
       <small>{match.round}</small>
       <span className={match.status === 'live' ? 'live-text' : ''}>{status}</span>
       <div>
@@ -97,25 +97,27 @@ function PortalMatchRow({ match }: { match: AgendaMatch }) {
         <strong>{match.status === 'scheduled' ? 'vs' : matchScore(match)}</strong>
         <b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} badgeUrl={match.awayBadgeUrl ?? undefined} /></b>
       </div>
-    </a>
-  );
+    </>;
+  if (onOpen) {
+    return <button className="portal-match" type="button" aria-label={`${match.homeTeam} contra ${match.awayTeam}`} onClick={() => onOpen(match)}>{content}</button>;
+  }
+  return <a className="portal-match" href={`/partidos/${match.id}`}>{content}</a>;
 }
 
-// Lee el estado de /partidos representado en la URL. Una tarea futura sumará
-// un parámetro `partido` (para abrir un modal): agregarlo acá basta, sin
-// tocar el listener de popstate que la usa.
-function readMatchesUrlState(search: string): { date: string; familyKey: string } {
+function readMatchesUrlState(search: string): { date: string; familyKey: string; matchId: string | null } {
   const params = new URLSearchParams(search);
   return {
     date: params.get('fecha') ?? argentinaDateKey(),
     familyKey: params.get('torneo') ?? '',
+    matchId: params.get('partido'),
   };
 }
 
-export function MatchesPage({ initialDate, initialFamily }: { initialDate?: string; initialFamily?: string } = {}) {
+export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { initialDate?: string; initialFamily?: string; initialMatchId?: string } = {}) {
   const feed = useLiveFeed();
   const [selectedDate, setSelectedDate] = useState(() => initialDate ?? argentinaDateKey());
   const [selectedFamilyKey, setSelectedFamilyKey] = useState(initialFamily ?? '');
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialMatchId ?? null);
   const [expandedUnionKey, setExpandedUnionKey] = useState('');
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
@@ -134,10 +136,11 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const syncFromUrl = () => {
-      const { date, familyKey } = readMatchesUrlState(window.location.search);
+      const { date, familyKey, matchId } = readMatchesUrlState(window.location.search);
       isSyncingFromHistory.current = true;
       setSelectedDate(date);
       setSelectedFamilyKey(familyKey);
+      setSelectedMatchId(matchId);
     };
     window.addEventListener('popstate', syncFromUrl);
     return () => window.removeEventListener('popstate', syncFromUrl);
@@ -176,8 +179,17 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
     groupMatchesByCompetition(visibleMatches),
     priorityBySlug,
   );
+  const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId) ?? null;
+  const selectMatch = (matchId: string | null) => {
+    setSelectedMatchId(matchId);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (matchId) url.searchParams.set('partido', matchId);
+    else url.searchParams.delete('partido');
+    window.history.pushState(null, '', url.toString());
+  };
   return (
-    <Frame className="portal-main--compact" eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="Elegí un torneo y consultá sus partidos por fecha.">
+    <><Frame className="portal-main--compact" eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="Elegí un torneo y consultá sus partidos por fecha.">
       <div className="rugby-matches-layout">
         {organizationsStatus === 'error' ? (
           <p className="portal-live-status portal-live-status--error">No pudimos cargar el catálogo de torneos. La agenda sigue disponible sin el explorador.</p>
@@ -222,14 +234,14 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
                   <div><small>{group.round}</small><h2>{group.competition}</h2></div>
                   <span>{group.matches.length} {group.matches.length === 1 ? 'partido' : 'partidos'}</span>
                 </header>
-                {group.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}
+                {group.matches.map((match) => <PortalMatchRow match={match} onOpen={() => selectMatch(match.id)} key={match.id} />)}
               </section>
             ))}
           </div>
           {agenda.status === 'ready' && visibleScheduledMatches.length > 0 ? <DataProvenance source={agenda.source} freshness={agenda.freshness} /> : null}
         </section>
       </div>
-    </Frame>
+    </Frame>{selectedMatch ? <MatchModal match={selectedMatch} onClose={() => selectMatch(null)} /> : null}</>
   );
 }
 

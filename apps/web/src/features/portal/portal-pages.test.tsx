@@ -1,11 +1,11 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentType } from 'react';
 import type { AgendaMatch } from '../matches/agenda-data';
-import type { Freshness } from '../../lib/api/types';
+import type { ApiMatchContext, Freshness } from '../../lib/api/types';
 
 let agendaState: {
   status: 'loading' | 'ready' | 'error';
@@ -20,6 +20,11 @@ let agendaState: {
 };
 
 let organizationsStatus: 'loading' | 'ready' | 'error' = 'ready';
+
+let matchContextState: {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  context: ApiMatchContext | null;
+} = { status: 'ready', context: null };
 
 vi.mock('../tournaments/use-tournaments', async () => {
   const { ARGENTINA_RUGBY_UNIONS } = await import('@ovalia/domain');
@@ -93,11 +98,40 @@ vi.mock('../matches/use-agenda', () => ({
   useAgendaMatches: () => agendaState,
 }));
 
+vi.mock('../matches/use-match-context', () => ({
+  useMatchContext: () => matchContextState,
+}));
+
 vi.mock('../../components/live-rail', () => ({
   useLiveFeed: () => ({ status: 'loading' as const, matches: [] }),
 }));
 
 import { MatchesPage, PredictionPage, TournamentsPage, TournamentPage } from './portal-pages';
+
+function modalMatchFixture(): AgendaMatch {
+  return {
+    id: 'match-1',
+    competition: 'TOP 14 - Superior',
+    competitionSlug: 'urba-top-14',
+    round: 'Fecha 5',
+    startsAt: '2026-07-30T18:00:00.000Z',
+    status: 'final',
+    homeTeam: 'Hindú',
+    awayTeam: 'La Plata',
+    homeBadgeUrl: null,
+    awayBadgeUrl: null,
+    homeScore: 24,
+    awayScore: 17,
+  };
+}
+
+function modalContextFixture(): ApiMatchContext {
+  return {
+    headToHead: { played: 0, homeWins: 0, awayWins: 0, draws: 0, recent: [] },
+    form: { home: ['win'], away: ['loss'] },
+    standings: { home: null, away: null },
+  };
+}
 
 describe('public portal pages', () => {
   it('renders the match center', () => {
@@ -358,6 +392,78 @@ describe('browser history sync', () => {
     });
 
     expect(within(screen.getByRole('main')).getByText(/Unión de Rugby de Buenos Aires/i)).toBeInTheDocument();
+  });
+});
+
+describe('MatchesPage con detalle en modal', () => {
+  const originalUrl = window.location.href;
+  const InteractiveMatchesPage = MatchesPage as ComponentType<{
+    initialDate?: string;
+    initialMatchId?: string;
+  }>;
+
+  beforeEach(() => {
+    agendaState = {
+      status: 'ready',
+      source: 'urba',
+      freshness: 'fresh',
+      matches: [modalMatchFixture()],
+    };
+    matchContextState = { status: 'ready', context: modalContextFixture() };
+    organizationsStatus = 'ready';
+    window.history.replaceState({}, '', '/partidos?fecha=2026-07-30');
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, '', originalUrl);
+  });
+
+  it('abre el modal cuando la URL trae un partido de la fecha visible', () => {
+    render(<InteractiveMatchesPage initialDate="2026-07-30" initialMatchId="match-1" />);
+    expect(screen.getByRole('dialog', { name: 'Hindú contra La Plata' })).toBeInTheDocument();
+  });
+
+  it('ignora un partido de la URL que no está en la agenda visible', () => {
+    render(<InteractiveMatchesPage initialDate="2026-07-30" initialMatchId="inexistente" />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('abre el partido desde la agenda y lo agrega a la URL sin perder la fecha', async () => {
+    const user = userEvent.setup();
+    render(<InteractiveMatchesPage initialDate="2026-07-30" />);
+
+    await user.click(screen.getByRole('button', { name: /Hindú.*La Plata/i }));
+    expect(screen.getByRole('dialog', { name: 'Hindú contra La Plata' })).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('partido')).toBe('match-1');
+    expect(new URLSearchParams(window.location.search).get('fecha')).toBe('2026-07-30');
+  });
+
+  it('cierra el modal y quita solo el partido de la URL', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/partidos?fecha=2026-07-30&partido=match-1');
+    render(<InteractiveMatchesPage initialDate="2026-07-30" initialMatchId="match-1" />);
+
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('partido')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('fecha')).toBe('2026-07-30');
+  });
+
+  it('restaura el modal desde la URL al navegar atrás o adelante', async () => {
+    render(<InteractiveMatchesPage initialDate="2026-07-30" />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    act(() => {
+      window.history.replaceState({}, '', '/partidos?fecha=2026-07-30&partido=match-1');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    act(() => {
+      window.history.replaceState({}, '', '/partidos?fecha=2026-07-30');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
 

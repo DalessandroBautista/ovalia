@@ -298,8 +298,9 @@ body::before {
 .portal-competition-group h2 { margin: 2px 0 0; font-family: var(--display); font-size: 22px; font-weight: 500; line-height: 1.1; }
 .portal-competition-group small { color: #87998d; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .portal-competition-group > header > span { flex: 0 0 auto; color: var(--lime); font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
-.portal-match { min-height: 94px; display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 15px 22px; border-bottom: 1px solid var(--line); }
+.portal-match { width: 100%; min-height: 94px; display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 15px 22px; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--line); text-align: left; cursor: pointer; }
 .portal-match:last-child { border-bottom: 0; }.portal-match:hover { background: var(--pitch-raised); }
+.portal-match:focus-visible { outline: 2px solid var(--lime); outline-offset: -3px; }
 .portal-match small { color: var(--mist); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .portal-match > span { font-size: 10px; font-weight: 900; }.live-text { color: var(--lime); }
 .portal-match div { grid-column: 1 / 3; display: grid; grid-template-columns: 1fr 130px 1fr; align-items: center; margin-top: 13px; font-family: var(--display); font-size: 17px; }
