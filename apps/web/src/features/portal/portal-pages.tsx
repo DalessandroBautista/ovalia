@@ -1,7 +1,7 @@
 'use client';
 
 import { findTeamBadge } from '@ovalia/domain';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ArrowLeftIcon, ArrowRightIcon, ClockIcon, DiamondIcon, HomeIcon, RugbyBallIcon, TargetIcon, UserIcon } from '../../components/icons';
 import { type LiveFeedMatch, useLiveFeed } from '../../components/live-rail';
@@ -101,6 +101,17 @@ function PortalMatchRow({ match }: { match: AgendaMatch }) {
   );
 }
 
+// Lee el estado de /partidos representado en la URL. Una tarea futura sumará
+// un parámetro `partido` (para abrir un modal): agregarlo acá basta, sin
+// tocar el listener de popstate que la usa.
+function readMatchesUrlState(search: string): { date: string; familyKey: string } {
+  const params = new URLSearchParams(search);
+  return {
+    date: params.get('fecha') ?? argentinaDateKey(),
+    familyKey: params.get('torneo') ?? '',
+  };
+}
+
 export function MatchesPage({ initialDate, initialFamily }: { initialDate?: string; initialFamily?: string } = {}) {
   const feed = useLiveFeed();
   const [selectedDate, setSelectedDate] = useState(() => initialDate ?? argentinaDateKey());
@@ -108,7 +119,7 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
   const [expandedUnionKey, setExpandedUnionKey] = useState('');
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
-  const { organizations } = useOrganizations();
+  const { status: organizationsStatus, organizations } = useOrganizations();
   const explorer = buildRugbyExplorer(organizations, competitions);
   const selectedFamily = explorer.flatMap((union) => union.families).find((family) => family.key === selectedFamilyKey);
   const activeFamilyKey = selectedFamily?.key ?? '';
@@ -118,6 +129,19 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
   const activeExpandedUnionKey = explorer.some((union) => union.key === expandedUnionKey)
     ? expandedUnionKey
     : defaultExpandedUnionKey;
+  const isSyncingFromHistory = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncFromUrl = () => {
+      const { date, familyKey } = readMatchesUrlState(window.location.search);
+      isSyncingFromHistory.current = true;
+      setSelectedDate(date);
+      setSelectedFamilyKey(familyKey);
+    };
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -125,7 +149,12 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
     url.searchParams.set('fecha', selectedDate);
     if (activeFamilyKey) url.searchParams.set('torneo', activeFamilyKey);
     else url.searchParams.delete('torneo');
-    window.history.replaceState(null, '', url.toString());
+    if (isSyncingFromHistory.current) {
+      isSyncingFromHistory.current = false;
+      window.history.replaceState(null, '', url.toString());
+      return;
+    }
+    window.history.pushState(null, '', url.toString());
   }, [selectedDate, activeFamilyKey]);
 
   useEffect(() => {
@@ -150,18 +179,22 @@ export function MatchesPage({ initialDate, initialFamily }: { initialDate?: stri
   return (
     <Frame className="portal-main--compact" eyebrow="FIXTURES Y RESULTADOS" title="Centro de partidos" intro="Elegí un torneo y consultá sus partidos por fecha.">
       <div className="rugby-matches-layout">
-        <RugbyExplorer
-          unions={explorer}
-          expandedUnionKey={activeExpandedUnionKey}
-          selectedFamilyKey={activeFamilyKey}
-          mode="matches"
-          onUnionSelect={setExpandedUnionKey}
-          onFamilySelect={(family, unionKey) => {
-            setSelectedFamilyKey(family.key);
-            setExpandedUnionKey(unionKey);
-          }}
-          onClearFamily={() => setSelectedFamilyKey('')}
-        />
+        {organizationsStatus === 'error' ? (
+          <p className="portal-live-status portal-live-status--error">No pudimos cargar el catálogo de torneos. La agenda sigue disponible sin el explorador.</p>
+        ) : (
+          <RugbyExplorer
+            unions={explorer}
+            expandedUnionKey={activeExpandedUnionKey}
+            selectedFamilyKey={activeFamilyKey}
+            mode="matches"
+            onUnionSelect={setExpandedUnionKey}
+            onFamilySelect={(family, unionKey) => {
+              setSelectedFamilyKey(family.key);
+              setExpandedUnionKey(unionKey);
+            }}
+            onClearFamily={() => setSelectedFamilyKey('')}
+          />
+        )}
         <section className="rugby-match-center">
           {selectedFamily ? (
             <header className="rugby-match-filter">
@@ -218,6 +251,13 @@ function tournamentCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'torneo' : 'torneos'}`;
 }
 
+// Lee el estado de /torneos representado en la URL. Igual que en /partidos,
+// sumar un parámetro nuevo más adelante sólo requiere extender esta función.
+function readTournamentsUrlState(search: string): { unionKey: string } {
+  const params = new URLSearchParams(search);
+  return { unionKey: params.get('union') ?? '' };
+}
+
 export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}) {
   const { status, competitions } = useCompetitions();
   const { status: organizationsStatus, organizations } = useOrganizations();
@@ -231,12 +271,22 @@ export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}
     }
   }, [selectedUnion, selectedUnionKey]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncFromUrl = () => {
+      const { unionKey } = readTournamentsUrlState(window.location.search);
+      setSelectedUnionKey(unionKey);
+    };
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
+
   const selectUnion = (unionKey: string) => {
     setSelectedUnionKey(unionKey);
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     url.searchParams.set('union', unionKey);
-    window.history.replaceState(null, '', url.toString());
+    window.history.pushState(null, '', url.toString());
   };
   return (
     <Frame className="portal-main--compact" eyebrow="COBERTURA" title="Todos los torneos" intro="Elegí una unión y después el torneo que querés consultar.">

@@ -1,6 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentType } from 'react';
 import type { AgendaMatch } from '../matches/agenda-data';
 import type { Freshness } from '../../lib/api/types';
@@ -17,6 +19,8 @@ let agendaState: {
   freshness: 'unknown' as const,
 };
 
+let organizationsStatus: 'loading' | 'ready' | 'error' = 'ready';
+
 vi.mock('../tournaments/use-tournaments', async () => {
   const { ARGENTINA_RUGBY_UNIONS } = await import('@ovalia/domain');
   const competitionSlugsByUnion: Record<string, string[]> = {
@@ -28,8 +32,8 @@ vi.mock('../tournaments/use-tournaments', async () => {
   };
   return {
   useOrganizations: () => ({
-    status: 'ready',
-    organizations: ARGENTINA_RUGBY_UNIONS.map((organization, index) => ({
+    status: organizationsStatus,
+    organizations: organizationsStatus === 'error' ? [] : ARGENTINA_RUGBY_UNIONS.map((organization, index) => ({
       ...organization,
       id: String(index + 1),
       competitionSlugs: competitionSlugsByUnion[organization.slug] ?? [],
@@ -103,6 +107,31 @@ describe('public portal pages', () => {
     expect(html).toContain('Volver al inicio');
     expect(html).toContain('Día anterior');
     expect(html).toContain('Día siguiente');
+  });
+
+  it('keeps the agenda visible with a non-blocking notice when the tournament catalog fails', () => {
+    agendaState = {
+      status: 'ready',
+      source: 'urba',
+      freshness: 'fresh',
+      matches: [
+        {
+          id: 'top-14-superior', competition: 'TOP 14 - Superior', competitionSlug: 'urba-top-14', round: 'Fecha 1',
+          startsAt: '2026-07-25T17:00:00.000Z', status: 'scheduled', homeTeam: 'Newman', awayTeam: 'CUBA',
+          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
+        },
+      ],
+    };
+    organizationsStatus = 'error';
+    try {
+      const html = renderToStaticMarkup(createElement(MatchesPage as ComponentType<{ initialDate?: string }>, { initialDate: '2026-07-25' }));
+      expect(html).toContain('Centro de partidos');
+      expect(html).toContain('Newman');
+      expect(html).toContain('No pudimos cargar el catálogo de torneos');
+      expect(html).not.toContain('rugby-explorer__union');
+    } finally {
+      organizationsStatus = 'ready';
+    }
   });
 
   it('keeps the primary portal destinations available in mobile navigation', () => {
@@ -250,6 +279,85 @@ describe('public portal pages', () => {
 
   it('renders the prediction experience', () => {
     expect(renderToStaticMarkup(createElement(PredictionPage))).toContain('Prode Ovalia');
+  });
+});
+
+describe('browser history sync', () => {
+  const originalUrl = window.location.href;
+
+  beforeEach(() => {
+    agendaState = {
+      status: 'ready',
+      source: 'urba',
+      freshness: 'fresh',
+      matches: [
+        {
+          id: 'top-14-superior', competition: 'TOP 14 - Superior', competitionSlug: 'urba-top-14', round: 'Fecha 1',
+          startsAt: '2026-07-25T17:00:00.000Z', status: 'scheduled', homeTeam: 'Newman', awayTeam: 'CUBA',
+          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
+        },
+      ],
+    };
+    organizationsStatus = 'ready';
+    window.history.replaceState(null, '', '/partidos');
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, '', originalUrl);
+  });
+
+  it('pushes a history entry (not just replaceState) when the family filter changes in /partidos', async () => {
+    const user = userEvent.setup();
+    render(createElement(MatchesPage as ComponentType<{ initialDate?: string }>, { initialDate: '2026-07-25' }));
+    const pushSpy = vi.spyOn(window.history, 'pushState');
+
+    const unionButton = screen.getByRole('button', { name: /URBA/i });
+    await user.click(unionButton);
+    const familyButton = screen.getByRole('button', { name: /TOP 14/i });
+    await user.click(familyButton);
+
+    expect(pushSpy).toHaveBeenCalled();
+    const lastCallUrl = String(pushSpy.mock.calls.at(-1)?.[2]);
+    expect(lastCallUrl).toContain('torneo=top-14');
+    pushSpy.mockRestore();
+  });
+
+  it('restores date and family from the URL when the user navigates back (popstate) in /partidos', () => {
+    render(createElement(MatchesPage as ComponentType<{ initialDate?: string; initialFamily?: string }>, { initialDate: '2026-07-25', initialFamily: 'top-14' }));
+    expect(screen.getByText(/Partidos de TOP 14/i)).toBeInTheDocument();
+
+    act(() => {
+      window.history.pushState(null, '', '/partidos?fecha=2026-07-25');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    expect(screen.getByText('Todos los partidos')).toBeInTheDocument();
+  });
+
+  it('pushes a history entry when the selected union changes in /torneos', async () => {
+    const user = userEvent.setup();
+    render(createElement(TournamentsPage));
+    const pushSpy = vi.spyOn(window.history, 'pushState');
+
+    const cordobaButton = screen.getByRole('button', { name: /Córdoba/i });
+    await user.click(cordobaButton);
+
+    expect(pushSpy).toHaveBeenCalled();
+    const lastCallUrl = String(pushSpy.mock.calls.at(-1)?.[2]);
+    expect(lastCallUrl).toContain('union=cordoba');
+    pushSpy.mockRestore();
+  });
+
+  it('restores the selected union from the URL when the user navigates back (popstate) in /torneos', () => {
+    render(createElement(TournamentsPage, { initialUnion: 'cordoba' } as never));
+    expect(within(screen.getByRole('main')).getByText(/Unión Cordobesa/i)).toBeInTheDocument();
+
+    act(() => {
+      window.history.pushState(null, '', '/torneos?union=urba');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    expect(within(screen.getByRole('main')).getByText(/Unión de Rugby de Buenos Aires/i)).toBeInTheDocument();
   });
 });
 
