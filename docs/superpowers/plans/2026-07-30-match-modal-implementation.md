@@ -27,6 +27,18 @@ App Router, Vitest, Testing Library.
 - Usar `corepack pnpm` — `pnpm` no está en el PATH.
 - Cierre de cada tarea: `corepack pnpm verify` y commit enfocado.
 
+## Enmienda del 2026-07-30 — entorno de pruebas
+
+Al ejecutar la tarea 1 se detectó que `apps/web` no tenía jsdom ni Testing
+Library: sus pruebas usaban `renderToStaticMarkup`, que produce HTML estático sin
+DOM y no puede ejercer un clic, una tecla ni `popstate`. Las pruebas que este
+plan especificaba en las tareas 7 y 8 chocaban con ese techo.
+
+El entorno de DOM se incorpora durante la ronda de corrección de la tarea 1. A
+partir de ahí, **las pruebas de comportamiento interactivo usan Testing Library**;
+`renderToStaticMarkup` queda solo para aserciones de marcado estático. Las
+tareas 7 y 8 de abajo ya reflejan ese cambio.
+
 ## Especificaciones de referencia
 
 - `docs/superpowers/specs/2026-07-30-match-modal-design.md`
@@ -860,32 +872,75 @@ git commit -m "refactor(web): extraer atrapado de foco reutilizable"
 Agregar a `apps/web/src/features/portal/portal-pages.test.tsx`:
 
 ```typescript
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MatchModal } from '../matches/match-modal';
+
 describe('MatchModal', () => {
   it('muestra la cabecera con los dos equipos antes de cargar el contexto', () => {
-    const html = renderToStaticMarkup(
-      createElement(MatchModal, { match: agendaMatchFixture(), onClose: () => {} }),
-    );
-    expect(html).toContain('Hindú');
-    expect(html).toContain('La Plata');
+    contextState = { status: 'loading', context: null };
+    render(<MatchModal match={agendaMatchFixture()} onClose={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Hindú')).toBeDefined();
+    expect(within(dialog).getByText('La Plata')).toBeDefined();
   });
 
-  it('expone el diálogo con etiqueta accesible', () => {
-    const html = renderToStaticMarkup(
-      createElement(MatchModal, { match: agendaMatchFixture(), onClose: () => {} }),
-    );
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('aria-modal="true"');
+  it('nombra el diálogo con los dos equipos', () => {
+    contextState = { status: 'loading', context: null };
+    render(<MatchModal match={agendaMatchFixture()} onClose={() => {}} />);
+    expect(screen.getByRole('dialog', { name: 'Hindú contra La Plata' })).toBeDefined();
   });
 
-  it('degrada cada pestaña con un vacío honesto cuando el contexto falla', () => {
+  it('cambia de pestaña al hacer clic', async () => {
+    contextState = { status: 'ready', context: matchContextFixture() };
+    render(<MatchModal match={agendaMatchFixture()} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Historial' }));
+    expect(screen.getByRole('button', { name: 'Historial' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Forma' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('degrada cada pestaña con un vacío honesto cuando el contexto falla', async () => {
     contextState = { status: 'error', context: null };
-    const html = renderToStaticMarkup(
-      createElement(MatchModal, { match: agendaMatchFixture(), onClose: () => {} }),
-    );
-    expect(html).toContain('Sin enfrentamientos previos registrados');
-    expect(html).toContain('Hindú');
+    render(<MatchModal match={agendaMatchFixture()} onClose={() => {}} />);
+    // La cabecera sobrevive al fallo: sale de los datos que la agenda ya tenía.
+    expect(screen.getByText('Hindú')).toBeDefined();
+    expect(screen.getByText('Sin partidos anteriores')).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: 'Historial' }));
+    expect(screen.getByText('Sin enfrentamientos previos registrados')).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: 'Posiciones' }));
+    expect(screen.getByText('Este equipo no figura en la tabla')).toBeDefined();
+  });
+
+  it('cierra con Escape y con el botón de cerrar', async () => {
+    contextState = { status: 'ready', context: matchContextFixture() };
+    const onClose = vi.fn();
+    render(<MatchModal match={agendaMatchFixture()} onClose={onClose} />);
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });
+```
+
+Agregar también este ayudante de contexto, junto al de partido:
+
+```typescript
+function matchContextFixture(): ApiMatchContext {
+  return {
+    headToHead: {
+      played: 2,
+      homeWins: 1,
+      awayWins: 1,
+      draws: 0,
+      recent: [
+        { id: 'p1', startsAt: '2026-05-10T18:00:00.000Z', homeTeamSlug: 'hindu', awayTeamSlug: 'la-plata', homeScore: 20, awayScore: 10 },
+      ],
+    },
+    form: { home: ['win', 'loss'], away: ['draw'] },
+    standings: { home: { position: 3, points: 40, played: 10 }, away: { position: 8, points: 22, played: 10 } },
+  };
+}
 ```
 
 Agregar arriba del archivo, junto a las simulaciones que ya existen, el estado
@@ -1073,22 +1128,60 @@ git commit -m "feat(web): modal de partido con forma, historial y posiciones"
 Agregar a `apps/web/src/features/portal/portal-pages.test.tsx`:
 
 ```typescript
-it('abre el modal cuando la URL trae un partido', () => {
-  agendaState = { status: 'ready', matches: [agendaMatchFixture()], source: 'urba', freshness: 'fresh' };
-  const html = renderToStaticMarkup(
-    createElement(MatchesPage as ComponentType<{ initialMatchId?: string }>, { initialMatchId: 'match-1' }),
-  );
-  expect(html).toContain('role="dialog"');
-});
+describe('MatchesPage con modal', () => {
+  beforeEach(() => {
+    agendaState = { status: 'ready', matches: [agendaMatchFixture()], source: 'urba', freshness: 'fresh' };
+    contextState = { status: 'ready', context: matchContextFixture() };
+    window.history.replaceState({}, '', '/partidos?fecha=2026-07-30');
+  });
 
-it('no abre el modal si el partido de la URL no está en la fecha', () => {
-  agendaState = { status: 'ready', matches: [agendaMatchFixture()], source: 'urba', freshness: 'fresh' };
-  const html = renderToStaticMarkup(
-    createElement(MatchesPage as ComponentType<{ initialMatchId?: string }>, { initialMatchId: 'inexistente' }),
-  );
-  expect(html).not.toContain('role="dialog"');
+  it('abre el modal cuando la URL trae un partido', () => {
+    render(<MatchesPage initialMatchId="match-1" />);
+    expect(screen.getByRole('dialog')).toBeDefined();
+  });
+
+  it('no abre el modal si el partido de la URL no está en la fecha', () => {
+    render(<MatchesPage initialMatchId="inexistente" />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('abre el modal al hacer clic y agrega el partido a la URL', async () => {
+    render(<MatchesPage />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /Hindú/ }));
+    expect(screen.getByRole('dialog')).toBeDefined();
+    expect(new URLSearchParams(window.location.search).get('partido')).toBe('match-1');
+    // La fecha que el usuario estaba mirando no se pierde al abrir el modal.
+    expect(new URLSearchParams(window.location.search).get('fecha')).toBe('2026-07-30');
+  });
+
+  it('cierra el modal y saca el partido de la URL sin tocar la fecha', async () => {
+    render(<MatchesPage initialMatchId="match-1" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('partido')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('fecha')).toBe('2026-07-30');
+  });
+
+  it('cierra el modal cuando el navegador vuelve atrás', async () => {
+    render(<MatchesPage />);
+    await userEvent.click(screen.getByRole('button', { name: /Hindú/ }));
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    window.history.replaceState({}, '', '/partidos?fecha=2026-07-30');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });
 ```
+
+`waitFor` se importa de `@testing-library/react` junto con `render` y `screen`.
+
+La última prueba simula el retroceso cambiando la URL y despachando `popstate`,
+porque jsdom no implementa la pila de historial real de un navegador. Verifica lo
+que importa: que el componente reaccione al evento reconstruyendo su estado desde
+la URL.
 
 - [ ] **Step 2: Correr las pruebas y verificar que fallan**
 
