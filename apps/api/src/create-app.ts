@@ -25,6 +25,7 @@ import {
   findMatchById,
   findMatchesByCompetition,
   findMatchesInRange,
+  findPastMatchesForTeams,
   findSeason,
   findTeamBySlug,
   findUpcomingMatches,
@@ -37,6 +38,7 @@ import {
   pingDatabase,
   type Database,
 } from '@ovalia/database';
+import { buildHeadToHead, buildRecentForm, findTeamPosition } from '@ovalia/domain';
 import {
   createConfiguredLiveProvider,
   createLiveFeedService,
@@ -165,6 +167,44 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     const match = await findMatchById(db, id);
     if (!match) return reply.code(404).send({ error: 'match_not_found' });
     return { match: serializeMatch(match) };
+  });
+
+  app.get('/v1/matches/:id/context', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const match = await findMatchById(db, id);
+    if (!match) return reply.code(404).send({ error: 'match_not_found' });
+
+    const [pastRows, standingRows] = await Promise.all([
+      findPastMatchesForTeams(db, {
+        teamIds: [match.home.id, match.away.id],
+        before: match.startsAt,
+      }),
+      getStandingsForSeason(db, match.seasonId),
+    ]);
+    const past = pastRows.map((row) => ({
+      id: row.id,
+      startsAt: row.startsAt.toISOString(),
+      homeTeamSlug: row.home.slug,
+      awayTeamSlug: row.away.slug,
+      homeScore: row.homeScore ?? 0,
+      awayScore: row.awayScore ?? 0,
+    }));
+
+    return {
+      headToHead: buildHeadToHead({
+        homeTeamSlug: match.home.slug,
+        awayTeamSlug: match.away.slug,
+        matches: past,
+      }),
+      form: {
+        home: buildRecentForm({ teamSlug: match.home.slug, matches: past }),
+        away: buildRecentForm({ teamSlug: match.away.slug, matches: past }),
+      },
+      standings: {
+        home: findTeamPosition(standingRows, match.home.slug),
+        away: findTeamPosition(standingRows, match.away.slug),
+      },
+    };
   });
 
   // --- Competencias ---

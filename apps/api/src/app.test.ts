@@ -48,7 +48,7 @@ describe.skipIf(!available)('API real', () => {
     const season = await makeSeason(db, competition.id, { year: 2026 });
     const sic = await makeTeam(db, { slug: 'sic', name: 'SIC', badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png' });
     const hindu = await makeTeam(db, { slug: 'hindu', name: 'Hindú' });
-    await upsertMatchByNaturalKey(db, {
+    const current = await upsertMatchByNaturalKey(db, {
       seasonId: season.id,
       round: 'Fecha 1',
       startsAt: new Date('2026-08-01T18:00:00Z'),
@@ -68,7 +68,7 @@ describe.skipIf(!available)('API real', () => {
       ],
       'urba',
     );
-    return { competition, season };
+    return { competition, season, sic, hindu, current: current.match };
   }
 
   it('/health y /ready responden', async () => {
@@ -121,6 +121,48 @@ describe.skipIf(!available)('API real', () => {
       url: '/v1/matches/00000000-0000-0000-0000-000000000000',
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  it('devuelve 404 para el contexto de un partido inexistente', async () => {
+    const app = makeAppFor();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/matches/00000000-0000-0000-0000-000000000000/context',
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'match_not_found' });
+  });
+
+  it('devuelve historial, forma y posiciones de un partido existente', async () => {
+    const { db } = handle;
+    const seeded = await seedCompetition();
+    await upsertMatchByNaturalKey(db, {
+      seasonId: seeded.season.id,
+      round: 'Fecha anterior',
+      startsAt: new Date('2026-07-01T18:00:00Z'),
+      homeTeamId: seeded.hindu.id,
+      awayTeamId: seeded.sic.id,
+      status: 'final',
+      homeScore: 10,
+      awayScore: 20,
+      source: 'urba',
+    });
+
+    const app = makeAppFor();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/matches/${seeded.current.id}/context`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      headToHead: { played: 1, homeWins: 1, awayWins: 0, draws: 0 },
+      form: { home: ['win'], away: ['loss'] },
+      standings: {
+        home: { position: 1, points: 4, played: 1 },
+        away: { position: 2, points: 1, played: 1 },
+      },
+    });
   });
 
   it('sirve próximos partidos importantes en /v1/matches/upcoming', async () => {
