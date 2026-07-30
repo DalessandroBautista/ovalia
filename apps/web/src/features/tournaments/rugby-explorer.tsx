@@ -27,8 +27,9 @@ function ExplorerNavigation({
     onFamilySelect?.(family, unionKey);
     closeDrawer?.();
   };
+  const navLabel = mode === 'matches' ? 'Uniones y partidos' : 'Uniones y torneos';
   return (
-    <nav className="rugby-explorer__nav" aria-label="Uniones y torneos">
+    <nav className="rugby-explorer__nav" aria-label={navLabel}>
       <header>
         <span>Uniones</span>
         <strong>{unions.length}</strong>
@@ -130,7 +131,13 @@ export function RugbyExplorer(props: RugbyExplorerProps) {
         <span>Uniones y torneos</span><i aria-hidden="true">☰</i>
       </button>
       {drawerOpen ? (
-        <div className="rugby-explorer-drawer" role="dialog" aria-modal="true" aria-label="Uniones y torneos" ref={drawerRef}>
+        <div
+          className="rugby-explorer-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label={props.mode === 'matches' ? 'Uniones y partidos' : 'Uniones y torneos'}
+          ref={drawerRef}
+        >
           <header><strong>Uniones y torneos</strong><button type="button" aria-label="Cerrar explorador" onClick={() => setDrawerOpen(false)}>×</button></header>
           <ExplorerNavigation {...props} closeDrawer={() => setDrawerOpen(false)} />
         </div>
