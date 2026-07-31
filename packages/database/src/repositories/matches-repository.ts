@@ -153,18 +153,28 @@ export async function findMatchesByCompetition(db: Database, params: Competition
 export type PastMatchesParams = {
   teamIds: readonly [string, string];
   before: Date;
+  /**
+   * Restringe a la misma competencia que el partido consultado. En URBA, un mismo
+   * cruce de clubes se juega el mismo día en varias divisiones (Superior, Intermedia,
+   * Preintermedia, ...), que comparten el registro de equipo pero son planteles y
+   * competencias distintas. Sin este filtro, el historial mezclaba resultados de
+   * divisiones ajenas y producía un balance falso.
+   */
+  competitionSlug?: string;
   limit?: number;
 };
 
 /** Partidos finalizados de cualquiera de los equipos, anteriores al partido consultado. */
 export async function findPastMatchesForTeams(db: Database, params: PastMatchesParams) {
   const teamIds = [...params.teamIds];
+  const filters = [
+    eq(matches.status, 'final'),
+    lt(matches.startsAt, params.before),
+    or(inArray(matches.homeTeamId, teamIds), inArray(matches.awayTeamId, teamIds)),
+  ];
+  if (params.competitionSlug) filters.push(eq(competitions.slug, params.competitionSlug));
   return baseSelect(db)
-    .where(and(
-      eq(matches.status, 'final'),
-      lt(matches.startsAt, params.before),
-      or(inArray(matches.homeTeamId, teamIds), inArray(matches.awayTeamId, teamIds)),
-    ))
+    .where(and(...filters))
     .orderBy(desc(matches.startsAt))
     .limit(Math.min(params.limit ?? 200, 500));
 }

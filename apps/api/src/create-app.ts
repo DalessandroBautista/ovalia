@@ -184,6 +184,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       findPastMatchesForTeams(db, {
         teamIds: [match.home.id, match.away.id],
         before: match.startsAt,
+        competitionSlug: match.competitionSlug,
       }),
       getStandingsForSeason(db, match.seasonId),
     ]);

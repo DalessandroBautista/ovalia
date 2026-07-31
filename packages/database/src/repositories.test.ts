@@ -366,6 +366,47 @@ describe.skipIf(!available)('repositories', () => {
     expect(rows[0]?.homeScore).toBe(30);
   });
 
+  it('findPastMatchesForTeams restringe a la misma competencia cuando se pide', async () => {
+    const { db } = handle;
+    const superior = await makeCompetition(db, { slug: 'top-14-superior' });
+    const intermedia = await makeCompetition(db, { slug: 'top-14-intermedia' });
+    const superiorSeason = await makeSeason(db, superior.id);
+    const intermediaSeason = await makeSeason(db, intermedia.id);
+    // Mismo par de equipos (registro de club compartido entre divisiones).
+    const casi = await makeTeam(db, { slug: 'casi', name: 'CASI' });
+    const champagnat = await makeTeam(db, { slug: 'champagnat', name: 'Champagnat' });
+
+    await makeMatch(db, {
+      seasonId: superiorSeason.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-05-01T18:00:00.000Z'),
+      homeTeamId: casi.id,
+      awayTeamId: champagnat.id,
+      status: 'final',
+      homeScore: 31,
+      awayScore: 24,
+    });
+    await makeMatch(db, {
+      seasonId: intermediaSeason.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-05-01T18:00:00.000Z'),
+      homeTeamId: casi.id,
+      awayTeamId: champagnat.id,
+      status: 'final',
+      homeScore: 32,
+      awayScore: 31,
+    });
+
+    const rows = await findPastMatchesForTeams(db, {
+      teamIds: [casi.id, champagnat.id],
+      before: new Date('2026-06-01T00:00:00.000Z'),
+      competitionSlug: 'top-14-superior',
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.homeScore).toBe(31);
+  });
+
   it('findUpcomingMatches trae solo partidos de competencias con priority > 0, ordenados por prioridad y fecha', async () => {
     const { db } = handle;
     const important = await makeCompetition(db, { slug: 'urba-top-14', priority: 100 });

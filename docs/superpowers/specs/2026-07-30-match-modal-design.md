@@ -69,16 +69,31 @@ Las tres definiciones se fijan aquí para que la implementación no tenga que
 elegir.
 
 **Enfrentamientos previos.** Partidos con estado `final` entre los dos equipos
-cuya fecha de inicio sea anterior a la del partido mostrado, sin restringir por
-competencia: dos clubes que se cruzaron en Top 14 y en Intermedia comparten
-historial. Se informa el balance completo —victorias de cada lado y empates— y se
-listan los diez encuentros más recientes con su resultado.
+cuya fecha de inicio sea anterior a la del partido mostrado, **restringidos a la
+misma competencia** que el partido mostrado. Se informa el balance completo
+—victorias de cada lado y empates— y se listan los diez encuentros más recientes
+con su resultado, incluyendo el nombre de cada equipo (no solo su identificador).
+
+> **Corrección post-lanzamiento (2026-07-30):** el diseño original no
+> restringía por competencia, con la idea de que dos clubes que se cruzaron en
+> Top 14 y en Intermedia comparten historial. Una verificación con datos reales
+> mostró que esa decisión era errónea: en URBA, un mismo cruce de clubes se
+> juega el mismo día en varias divisiones (Superior, Intermedia,
+> Preintermedia, ...), que comparten el registro de equipo pero son planteles y
+> competencias distintas. Sin el filtro, el modal de CASI vs Champagnat en
+> TOP 14 - Superior informaba "3 partidos entre ambos" con balance 3-0-0,
+> mezclando los resultados de primera, segunda y tercera división del mismo
+> club en un único balance falso. Se revierte la decisión: el historial ahora
+> se restringe a la competencia del partido mostrado.
 
 **Forma reciente.** Los cinco partidos `final` más recientes de cada equipo con
-fecha anterior a la del partido mostrado. Definir la ventana como *anterior a este
-partido* hace que el mismo cálculo sirva para un encuentro ya jugado —muestra la
-forma con la que cada equipo llegaba— y para uno futuro —muestra la forma
-actual—, sin ramas condicionales.
+fecha anterior a la del partido mostrado, **restringidos a la misma competencia**
+que el partido mostrado, por la misma razón que el historial: la racha del
+primer equipo de un club no la deben construir los partidos del segundo o
+tercer equipo. Definir la ventana como *anterior a este partido* hace que el
+mismo cálculo sirva para un encuentro ya jugado —muestra la forma con la que
+cada equipo llegaba— y para uno futuro —muestra la forma actual—, sin ramas
+condicionales.
 
 **Posición en la tabla.** La fila de `standings` de cada equipo en la competencia
 y temporada del partido, con puesto y puntos.
