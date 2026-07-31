@@ -82,9 +82,9 @@ function HistoryPanel({ context }: { context: ApiMatchContext | null }) {
         {history.recent.map((pastMatch) => (
           <li key={pastMatch.id}>
             <time dateTime={pastMatch.startsAt}>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(pastMatch.startsAt))}</time>
-            <span>{pastMatch.homeTeamSlug.replaceAll('-', ' ')}</span>
+            <span>{pastMatch.homeTeamName}</span>
             <strong>{pastMatch.homeScore}–{pastMatch.awayScore}</strong>
-            <span>{pastMatch.awayTeamSlug.replaceAll('-', ' ')}</span>
+            <span>{pastMatch.awayTeamName}</span>
           </li>
         ))}
       </ol>

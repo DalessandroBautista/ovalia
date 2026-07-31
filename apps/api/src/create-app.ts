@@ -193,6 +193,8 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       startsAt: row.startsAt.toISOString(),
       homeTeamSlug: row.home.slug,
       awayTeamSlug: row.away.slug,
+      homeTeamName: row.home.name,
+      awayTeamName: row.away.name,
       homeScore: row.homeScore ?? 0,
       awayScore: row.awayScore ?? 0,
     }));

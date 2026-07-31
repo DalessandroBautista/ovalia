@@ -55,6 +55,8 @@ function contextFixture(): ApiMatchContext {
           startsAt: '2026-05-10T18:00:00.000Z',
           homeTeamSlug: 'hindu',
           awayTeamSlug: 'la-plata',
+          homeTeamName: 'Hindú',
+          awayTeamName: 'CURDA La Plata',
           homeScore: 20,
           awayScore: 10,
         },
@@ -107,6 +109,11 @@ describe('MatchModal', () => {
     await user.click(screen.getByRole('button', { name: 'Historial' }));
     expect(screen.getByRole('button', { name: 'Historial' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('2 partidos entre ambos')).toBeInTheDocument();
+    const historyList = screen.getByRole('list');
+    expect(within(historyList).getByText('Hindú')).toBeInTheDocument();
+    expect(within(historyList).getByText('CURDA La Plata')).toBeInTheDocument();
+    expect(within(historyList).queryByText('hindu')).not.toBeInTheDocument();
+    expect(within(historyList).queryByText('la plata')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Posiciones' }));
     expect(screen.getByRole('button', { name: 'Posiciones' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('3°')).toBeInTheDocument();

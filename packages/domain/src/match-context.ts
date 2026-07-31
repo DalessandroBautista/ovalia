@@ -5,6 +5,8 @@ export interface PastMatch {
   startsAt: string;
   homeTeamSlug: string;
   awayTeamSlug: string;
+  homeTeamName: string;
+  awayTeamName: string;
   homeScore: number;
   awayScore: number;
 }

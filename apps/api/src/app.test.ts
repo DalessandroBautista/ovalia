@@ -168,6 +168,63 @@ describe.skipIf(!available)('API real', () => {
     });
   });
 
+  it('el historial y la forma reciente no mezclan partidos de otra competencia (mismo club, otra división)', async () => {
+    const { db } = handle;
+    const seeded = await seedCompetition();
+    const otraCompetencia = await makeCompetition(db, { slug: 'urba-top-14-intermedia', name: 'URBA Top 14 Intermedia' });
+    const otraSeason = await makeSeason(db, otraCompetencia.id, { year: 2026 });
+    // Mismo par de equipos (SIC/Hindú), pero en otra división: no debe contar en el historial.
+    await upsertMatchByNaturalKey(db, {
+      seasonId: otraSeason.id,
+      round: 'Fecha anterior',
+      startsAt: new Date('2026-07-01T18:00:00Z'),
+      homeTeamId: seeded.hindu.id,
+      awayTeamId: seeded.sic.id,
+      status: 'final',
+      homeScore: 10,
+      awayScore: 20,
+      source: 'urba',
+    });
+
+    const app = makeAppFor();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/matches/${seeded.current.id}/context`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      headToHead: { played: 0, homeWins: 0, awayWins: 0, draws: 0, recent: [] },
+      form: { home: [], away: [] },
+    });
+  });
+
+  it('el historial incluye el nombre de cada equipo, no solo el identificador', async () => {
+    const { db } = handle;
+    const seeded = await seedCompetition();
+    await upsertMatchByNaturalKey(db, {
+      seasonId: seeded.season.id,
+      round: 'Fecha anterior',
+      startsAt: new Date('2026-07-01T18:00:00Z'),
+      homeTeamId: seeded.hindu.id,
+      awayTeamId: seeded.sic.id,
+      status: 'final',
+      homeScore: 10,
+      awayScore: 20,
+      source: 'urba',
+    });
+
+    const app = makeAppFor();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/matches/${seeded.current.id}/context`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const [recent] = response.json().headToHead.recent;
+    expect(recent).toMatchObject({ homeTeamName: 'Hindú', awayTeamName: 'SIC' });
+  });
+
   it('sirve próximos partidos importantes en /v1/matches/upcoming', async () => {
     const { db } = handle;
     const important = await makeCompetition(db, { slug: 'urba-top-14', priority: 100 });

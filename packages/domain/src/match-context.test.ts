@@ -10,7 +10,16 @@ const match = (
   homeScore: number,
   awayTeamSlug: string,
   awayScore: number,
-): PastMatch => ({ id, startsAt, homeTeamSlug, homeScore, awayTeamSlug, awayScore });
+): PastMatch => ({
+  id,
+  startsAt,
+  homeTeamSlug,
+  homeScore,
+  awayTeamSlug,
+  awayScore,
+  homeTeamName: homeTeamSlug,
+  awayTeamName: awayTeamSlug,
+});
 
 describe('buildHeadToHead', () => {
   it('devuelve un balance vacío cuando no hubo enfrentamientos', () => {
