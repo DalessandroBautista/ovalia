@@ -172,13 +172,12 @@ export function MatchModal({ match, onClose }: { match: AgendaMatch; onClose: ()
   const contextLoading = status === 'loading';
   const hasLineups = lineupsStatus === 'ready' && (lineups!.home.length > 0 || lineups!.away.length > 0);
   const lineupsLoading = lineupsStatus === 'loading';
-  const lineupsError = lineupsStatus === 'error';
 
   // Build dynamic tabs.
   const tabs: Array<{ key: AllTabs; label: string }> = [
     ...CONTEXT_TABS.map((key) => ({ key, label: CONTEXT_TAB_LABELS[key] })),
   ];
-  if (hasLineups || lineupsLoading || lineupsError) {
+  if (hasLineups) {
     tabs.push({ key: LINEUPS_TAB_KEY, label: 'Formaciones' });
   }
 

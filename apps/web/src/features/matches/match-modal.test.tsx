@@ -166,24 +166,19 @@ describe('MatchModal', () => {
     expect(captains).toHaveLength(2); // Juan Cruz Pérez y Nicolás Sánchez
   });
 
-  it('muestra indicador de carga mientras se obtienen las formaciones', async () => {
+  it('no muestra la pestaña de formaciones mientras se están cargando', () => {
     lineupsState = { status: 'loading', lineups: null };
-    const user = userEvent.setup();
     render(<MatchModal match={matchFixture()} onClose={() => {}} />);
 
-    // La pestaña aparece aunque esté cargando.
-    expect(screen.getByRole('button', { name: 'Formaciones' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Formaciones' }));
-    expect(screen.getByText('Cargando formaciones…')).toBeInTheDocument();
+    // La pestaña no debe parpadear: solo aparece cuando hay formación cargada.
+    expect(screen.queryByRole('button', { name: 'Formaciones' })).not.toBeInTheDocument();
   });
 
-  it('muestra error de formaciones sin romper la cabecera', async () => {
+  it('no muestra la pestaña de formaciones si la carga falló', () => {
     lineupsState = { status: 'error', lineups: null };
-    const user = userEvent.setup();
     render(<MatchModal match={matchFixture()} onClose={() => {}} />);
 
-    await user.click(screen.getByRole('button', { name: 'Formaciones' }));
-    expect(screen.getByText('No se pudieron cargar las formaciones')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Formaciones' })).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Hindú contra La Plata' })).toBeInTheDocument();
   });
 });
