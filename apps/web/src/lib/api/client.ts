@@ -1,6 +1,10 @@
 import type {
   ApiArticleDetail,
   ApiArticlesResponse,
+  ApiCareerClub,
+  ApiCareerEntry,
+  ApiCareerSeasonRecord,
+  ApiCareerSummary,
   ApiCompetitionDetail,
   ApiCompetitionsResponse,
   ApiHomeResponse,
@@ -215,4 +219,40 @@ export function saveMatchLineup(
       body: { side, entries },
     },
   );
+}
+
+// --- Simulador de carrera ---
+
+export function fetchCareerClubs(options?: ApiFetchOptions) {
+  return apiFetch<{ clubs: ApiCareerClub[] }>('/v1/career/clubs', options);
+}
+
+export function publishCareerEntry(
+  input: {
+    displayName: string;
+    score: number;
+    summary: ApiCareerSummary;
+    history: ApiCareerSeasonRecord[];
+    surname: string;
+    position: string;
+    clubSlug: string;
+    seed: number;
+    decisions: number[];
+    originKey: string;
+  },
+  options?: ApiFetchOptions,
+) {
+  return apiFetch<{ entry: ApiCareerEntry }>('/v1/career/entries', {
+    method: 'POST',
+    body: input,
+    ...options,
+  });
+}
+
+export function fetchCareerRanking(limit = 20, options?: ApiFetchOptions) {
+  return apiFetch<{ entries: ApiCareerEntry[] }>(`/v1/career/entries?limit=${limit}`, options);
+}
+
+export function fetchCareerEntry(id: string, options?: ApiFetchOptions) {
+  return apiFetch<{ entry: ApiCareerEntry }>(`/v1/career/entries/${encodeURIComponent(id)}`, options);
 }

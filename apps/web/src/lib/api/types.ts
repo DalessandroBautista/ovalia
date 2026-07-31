@@ -182,3 +182,46 @@ export interface ApiPlayer {
 export interface PlayerSearchResponse {
   players: ApiPlayer[];
 }
+
+// --- Simulador de carrera ---
+
+export interface ApiCareerClub {
+  slug: string;
+  name: string;
+  level: number;
+  badgeUrl: string | null;
+}
+
+export interface ApiCareerSummary {
+  tier: string;
+  verdict: string;
+  score: number;
+  comparison: { figure: string; reason: string };
+  seasons: number;
+  clubs: string[];
+  peakLevel: number;
+}
+
+export interface ApiCareerSeasonRecord {
+  season: number;
+  age: number;
+  clubSlug: string;
+  clubName: string;
+  level: number;
+  rating: number;
+  note: string;
+}
+
+export interface ApiCareerEntry {
+  id: string;
+  score: number;
+  displayName: string;
+  summary: ApiCareerSummary;
+  surname: string;
+  position: string;
+  clubSlug: string;
+  seed: number;
+  decisions: number[];
+  createdAt: string;
+  history?: ApiCareerSeasonRecord[];
+}
