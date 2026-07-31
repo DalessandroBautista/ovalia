@@ -50,6 +50,30 @@ No se usan endpoints privados, autenticados ni de intranet (`intraweb.urba.org.a
 El catálogo completo (intermedias, formativas, menores) se obtiene de
 `/api/championships/{year}` y puede sumarse luego.
 
+## Video por partido: descartado (verificado 2026-07-31)
+
+Los partidos de `/api/championship/{id}` incluyen dos campos de video:
+`video_club` y `video_tv`, con rutas del estilo
+`videos/14032026_TOP 14 - Superior_Los Matreros vs. Regatas Bella Vista_tv.mp4`.
+La cobertura no es marginal: en TOP 14 - Superior, 111 de 182 partidos traen
+`video_club` y 107 traen `video_tv`.
+
+**No se usan.** Se comprobó que esas rutas no se sirven desde ningún origen
+público: `https://api.urba.org.ar/videos/...` responde `501` con
+`{"status":"not implemented"}`, y lo mismo ocurre bajo `/api/`, `/storage/`,
+`/public/`, `/img/` y `/uploads/`. El patrón que sí funciona en ese host es el de
+las imágenes de clubes (`/img/clubs/hindu.png` responde `200 image/png`), de modo
+que el host sirve estáticos pero no expone el directorio de video.
+
+El único origen que responde es `https://intraweb.urba.org.ar/`, el intranet. Los
+propios nombres de los campos lo sugieren: `video_club` es la toma para los clubes
+y `video_tv` la de televisión, material de distribución interna.
+
+Consumirlos exigiría entrar al intranet, que este documento excluye
+explícitamente. Habilitar la funcionalidad requiere autorización de URBA y una URL
+pública provista por ellos; es una gestión, no una tarea técnica. Hasta que eso
+ocurra, los campos se ignoran y no se persisten.
+
 ## Formato de datos
 
 - **Fechas**: `playdate` en `YYYY-MM-DDTHH:MM:SS` **sin offset** = hora local de
