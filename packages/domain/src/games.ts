@@ -8,9 +8,9 @@ export function calculateRugbyIdentity(answers: number[]) {
   } as const;
 }
 
-export interface CareerAttributes { power: number; speed: number; vision: number }
+export interface RoleAttributes { power: number; speed: number; vision: number }
 
-export function chooseCareerOutcome(attributes: CareerAttributes): string {
+export function chooseCareerOutcome(attributes: RoleAttributes): string {
   if (attributes.power >= 8) return 'Tercera línea de impacto';
   if (attributes.speed >= 8 && attributes.vision < 7) return 'Wing definidor';
   if (attributes.vision >= 7) return 'Apertura conductor';
