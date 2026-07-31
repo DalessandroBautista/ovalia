@@ -26,7 +26,9 @@ import {
   findMatchesByCompetition,
   findMatchesInRange,
   findPastMatchesForTeams,
-  findPlayersByNormalizedName,
+  createPlayer,
+  findPlayerById,
+  searchPlayersByName,
   findSeason,
   findTeamBySlug,
   findUpcomingMatches,
@@ -39,7 +41,6 @@ import {
   listSeasons,
   pingDatabase,
   replaceLineup,
-  upsertPlayer,
   type Database,
 } from '@ovalia/database';
 import { buildHeadToHead, buildRecentForm, findTeamPosition, normalizePlayerName } from '@ovalia/domain';
@@ -331,9 +332,8 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   // --- Jugadores (Tramo C) ---
   app.get('/v1/players/search', async (request, reply) => {
     const { q } = request.query as { q?: string };
-    if (!q || q.length < 2) return reply.code(400).send({ error: 'query_too_short' });
-    const normalized = normalizePlayerName(q);
-    const rows = await findPlayersByNormalizedName(db, normalized);
+    if (!q || q.length < 3) return reply.code(400).send({ error: 'query_too_short' });
+    const rows = await searchPlayersByName(db, { query: q });
     return {
       players: rows.map((p) => ({ id: p.id, slug: p.slug, fullName: p.fullName, normalizedName: p.normalizedName })),
     };
@@ -509,15 +509,22 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
 
     const teamId = parsed.data.side === 'home' ? match.home.id : match.away.id;
 
-    // Resolver o crear jugadores.
+    // Verificar que cada playerId provisto por el cliente exista de verdad: un UUID
+    // inexistente rompería la FK con un 500 en vez de un 400 claro.
+    for (const entry of parsed.data.entries) {
+      if (entry.playerId && !(await findPlayerById(db, entry.playerId))) {
+        return reply.code(400).send({ error: 'unknown_player' });
+      }
+    }
+
+    // Resolver o crear jugadores. Sin playerId explícito, siempre se crea una
+    // persona nueva: la carga nunca fusiona homónimos por su cuenta (ver spec).
     const resolvedEntries: Array<{ playerId: string; shirtNumber: number; isStarter: boolean; isCaptain: boolean }> = [];
     for (const entry of parsed.data.entries) {
       let playerId = entry.playerId;
       if (!playerId) {
-        // Crear jugador nuevo.
         const normalizedName = normalizePlayerName(entry.name);
-        const slug = normalizedName.replace(/\s+/g, '-') || 'unknown';
-        const player = await upsertPlayer(db, { slug, fullName: entry.name, normalizedName });
+        const player = await createPlayer(db, { fullName: entry.name, normalizedName });
         playerId = player.id;
       }
       resolvedEntries.push({

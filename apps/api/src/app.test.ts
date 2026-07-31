@@ -11,7 +11,6 @@ import {
   upsertCompetition,
   upsertMatchByNaturalKey,
   upsertOrganization,
-  upsertPlayer,
 } from '@ovalia/database';
 import {
   getTestDatabase,
@@ -436,7 +435,6 @@ describe.skipIf(!available)('API real', () => {
     const seeded = await seedCompetition();
 
     const player = await createPlayer(db, {
-      slug: 'marcos-torrillas',
       fullName: 'Marcos Torrillas',
       normalizedName: 'marcos torrillas',
     });
@@ -456,7 +454,8 @@ describe.skipIf(!available)('API real', () => {
       shirtNumber: 10,
       isStarter: true,
       isCaptain: true,
-      player: { slug: 'marcos-torrillas', fullName: 'Marcos Torrillas' },
+      // El slug ahora es un UUID interno (identificador del jugador); se verifica solo el nombre.
+      player: { slug: player.slug, fullName: 'Marcos Torrillas' },
     });
     expect(body.away).toEqual([]);
   });
@@ -519,11 +518,55 @@ describe.skipIf(!available)('API real', () => {
     delete process.env.ADMIN_TOKEN;
   });
 
+  it('POST /admin/matches/:id/lineups nunca fusiona homónimos: cargar el mismo nombre dos veces crea dos jugadores', async () => {
+    const seeded = await seedCompetition();
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+
+    await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { side: 'home', entries: [{ shirtNumber: 10, name: 'Juan Pérez', isCaptain: false, playerId: null }] },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { side: 'away', entries: [{ shirtNumber: 10, name: 'Juan Pérez', isCaptain: false, playerId: null }] },
+    });
+
+    const players = await handle.db.query.players.findMany();
+    expect(players).toHaveLength(2);
+    expect(players[0]!.id).not.toBe(players[1]!.id);
+
+    delete process.env.ADMIN_TOKEN;
+  });
+
+  it('POST /admin/matches/:id/lineups rechaza playerId inexistente con 400', async () => {
+    const seeded = await seedCompetition();
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: {
+        side: 'home',
+        entries: [
+          { shirtNumber: 10, name: 'Fantasma', isCaptain: false, playerId: '00000000-0000-0000-0000-000000000000' },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: 'unknown_player' });
+    delete process.env.ADMIN_TOKEN;
+  });
+
   // --- Players search API ---
 
   it('GET /v1/players/search devuelve jugadores por nombre normalizado', async () => {
-    await upsertPlayer(handle.db, {
-      slug: 'marcos-torrillas',
+    await createPlayer(handle.db, {
       fullName: 'Marcos Torrillas',
       normalizedName: 'marcos torrillas',
     });
@@ -533,15 +576,13 @@ describe.skipIf(!available)('API real', () => {
     const body = res.json();
     expect(body.players).toHaveLength(1);
     expect(body.players[0]).toMatchObject({
-      slug: 'marcos-torrillas',
       fullName: 'Marcos Torrillas',
       normalizedName: 'marcos torrillas',
     });
   });
 
   it('GET /v1/players/search normaliza la consulta (acentos y mayúsculas)', async () => {
-    await upsertPlayer(handle.db, {
-      slug: 'juan-cruz-perez',
+    await createPlayer(handle.db, {
       fullName: 'Juan Cruz Pérez',
       normalizedName: normalizePlayerName('Juan Cruz Pérez'),
     });
@@ -551,10 +592,28 @@ describe.skipIf(!available)('API real', () => {
     expect(res.json().players).toHaveLength(1);
   });
 
-  it('GET /v1/players/search rechaza consultas demasiado cortas', async () => {
+  it('GET /v1/players/search encuentra por prefijo del primer nombre (no exige el nombre completo)', async () => {
+    await createPlayer(handle.db, {
+      fullName: 'Juan Cruz Pérez',
+      normalizedName: normalizePlayerName('Juan Cruz Pérez'),
+    });
     const app = makeAppFor();
-    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=a' });
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=Juan' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().players).toHaveLength(1);
+  });
+
+  it('GET /v1/players/search rechaza consultas de menos de 3 caracteres', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=an' });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: 'query_too_short' });
+  });
+
+  it('GET /v1/players/search acepta consultas de exactamente 3 caracteres', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=jua' });
+    expect(res.statusCode).toBe(200);
   });
 
   it('GET /v1/players/search devuelve lista vacía sin coincidencias', async () => {
