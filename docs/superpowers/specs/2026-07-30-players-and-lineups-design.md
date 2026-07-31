@@ -109,6 +109,26 @@ la respuesta ante un partido sin formación y el rechazo sin token. En `apps/web
 pruebas de la pantalla de carga —previsualización, resolución de un jugador
 ambiguo, confirmación— y de la pestaña en el modal.
 
+## Restricción de categoría (menores)
+
+Una formación es una lista de nombres de personas identificables. `AGENTS.md`
+prohíbe cargar datos de menores; hasta 2026-07-31 esa regla era solo una
+convención operativa sin barrera técnica en `POST /admin/matches/:id/lineups`.
+
+Ahora se aplica en el código: la columna `competitions.tier` (`'youth' |
+'senior'`) se calcula a partir del nombre de la competencia con
+`classifyCompetitionTier` (`packages/domain/src/competition-tier.ts`), función
+pura que reconoce "Menores de N" y las abreviaturas M15 a M20, insensible a
+mayúsculas y acentos. La ingesta (`apps/worker/src/ingestion/run-ingestion.ts`)
+y el seed (`packages/database/src/seed.ts`) la usan al llamar a
+`upsertCompetition` cuando la fuente no trae un `tier` explícito.
+
+La ruta `POST /admin/matches/:id/lineups` resuelve el `tier` de la competencia
+del partido y responde `403 { error: 'youth_category_not_allowed' }` sin
+escribir nada si no es `'senior'`. La clasificación por patrón de nombre queda
+así confinada a la ingesta/seed (un único lugar); el punto de uso solo lee el
+`tier` ya guardado.
+
 ## Dependencias
 
 Requiere el modal de partido de `2026-07-30-match-modal-design.md`, que aporta la

@@ -48,6 +48,7 @@ function baseSelect(db: Database) {
       seasonId: matches.seasonId,
       competitionSlug: competitions.slug,
       competitionName: competitions.name,
+      competitionTier: competitions.tier,
       seasonYear: seasons.year,
       home: {
         id: homeTeam.id,

@@ -507,6 +507,13 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     const match = await findMatchById(db, id);
     if (!match) return reply.code(404).send({ error: 'match_not_found' });
 
+    // Una formación es una lista de nombres de personas identificables: nunca
+    // se cargan datos de menores (AGENTS.md), y esto ahora se aplica técnicamente
+    // por el tier de la competencia, no solo por convención operativa.
+    if (match.competitionTier !== 'senior') {
+      return reply.code(403).send({ error: 'youth_category_not_allowed' });
+    }
+
     const parsed = adminLineupSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_lineup', issues: parsed.error.issues });
 

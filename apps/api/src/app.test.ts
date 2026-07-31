@@ -600,6 +600,66 @@ describe.skipIf(!available)('API real', () => {
     delete process.env.ADMIN_TOKEN;
   });
 
+  it('POST /admin/matches/:id/lineups rechaza 403 para competencias juveniles y no guarda nada', async () => {
+    const { db } = handle;
+    const competition = await makeCompetition(db, {
+      slug: 'urba-menores-de-15',
+      name: 'Menores de 15 - Primera Rueda - G1 A',
+      tier: 'youth',
+    });
+    const season = await makeSeason(db, competition.id, { year: 2026 });
+    const sic = await makeTeam(db, { slug: 'sic-m15', name: 'SIC M15' });
+    const hindu = await makeTeam(db, { slug: 'hindu-m15', name: 'Hindú M15' });
+    const { match } = await upsertMatchByNaturalKey(db, {
+      seasonId: season.id,
+      round: 'Fecha 1',
+      startsAt: new Date('2026-08-01T18:00:00Z'),
+      homeTeamId: sic.id,
+      awayTeamId: hindu.id,
+      status: 'scheduled',
+      source: 'urba',
+    });
+
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${match.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: {
+        side: 'home',
+        entries: [{ shirtNumber: 10, name: 'Nombre de Menor', isCaptain: false, playerId: null }],
+      },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({ error: 'youth_category_not_allowed' });
+
+    const players = await handle.db.query.players.findMany();
+    expect(players).toHaveLength(0);
+    const audit = await handle.db.query.auditLog.findMany();
+    expect(audit.some((entry) => entry.action === 'admin.lineup.save')).toBe(false);
+
+    delete process.env.ADMIN_TOKEN;
+  });
+
+  it('POST /admin/matches/:id/lineups sigue funcionando para competencias senior', async () => {
+    const seeded = await seedCompetition();
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: {
+        side: 'home',
+        entries: [{ shirtNumber: 10, name: 'Jugador Adulto', isCaptain: false, playerId: null }],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, side: 'home' });
+    delete process.env.ADMIN_TOKEN;
+  });
+
   it('POST /admin/matches/:id/lineups rechaza playerId inexistente con 400', async () => {
     const seeded = await seedCompetition();
     process.env.ADMIN_TOKEN = 'secreto';
