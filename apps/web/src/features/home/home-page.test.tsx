@@ -2,10 +2,13 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { FeaturedMatch, HomePage } from './home-page';
+import { argentinaDateKey } from '../matches/agenda-data';
 
-// Usa la fecha real de "hoy" en vez de una fija, para que el filtro de "partidos de
-// hoy" de la Agenda no descarte estos partidos mockeados al pasar los días.
-const todayAt = (hour: string) => `${new Date().toISOString().slice(0, 10)}T${hour}:00Z`;
+// Usa el día argentino real de "hoy" (no el UTC) para que el filtro de "partidos de
+// hoy" de la Agenda -que compara con argentinaDateKey()- no descarte estos partidos
+// mockeados al pasar los días, incluida la franja 21:00-24:00 en Argentina donde el
+// día UTC ya avanzó pero el día argentino no.
+const todayAt = (hour: string) => `${argentinaDateKey()}T${hour}:00Z`;
 
 vi.mock('../matches/use-agenda', () => ({
   useAgendaMatches: () => ({
