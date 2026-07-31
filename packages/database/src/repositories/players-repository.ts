@@ -1,9 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
+import { normalizePlayerName } from '@ovalia/domain';
 import type { Database } from '../client.js';
 import { players } from '../schema.js';
 
-export interface PlayerInput {
-  slug: string;
+export interface NewPlayerInput {
   fullName: string;
   normalizedName: string;
 }
@@ -28,16 +29,6 @@ export async function findPlayerByNormalizedName(
   return row ?? null;
 }
 
-/** Busca todos los jugadores con el mismo nombre normalizado (homónimos). */
-export async function findPlayersByNormalizedName(
-  db: Database,
-  normalizedName: string,
-): Promise<PlayerRow[]> {
-  return db.query.players.findMany({
-    where: eq(players.normalizedName, normalizedName),
-  });
-}
-
 /** Busca un jugador por ID. */
 export async function findPlayerById(
   db: Database,
@@ -60,28 +51,21 @@ export async function findPlayerBySlug(
   return row ?? null;
 }
 
-/** Crea o actualiza un jugador por slug. */
-export async function upsertPlayer(
+/**
+ * Crea un jugador nuevo. Nunca fusiona con uno existente: cada llamada es una
+ * persona distinta, incluso si comparte nombre con otra. El `slug` es un UUID
+ * generado acá mismo (no se deriva del nombre), así que homónimos no colisionan.
+ */
+export async function createPlayer(
   db: Database,
-  input: PlayerInput,
+  input: NewPlayerInput,
 ): Promise<PlayerRow> {
-  const existing = await findPlayerBySlug(db, input.slug);
-  if (existing) {
-    const [row] = await db
-      .update(players)
-      .set({
-        fullName: input.fullName,
-        normalizedName: input.normalizedName,
-        updatedAt: new Date(),
-      })
-      .where(eq(players.id, existing.id))
-      .returning();
-    return row!;
-  }
+  const id = randomUUID();
   const [row] = await db
     .insert(players)
     .values({
-      slug: input.slug,
+      id,
+      slug: id,
       fullName: input.fullName,
       normalizedName: input.normalizedName,
     })
@@ -89,18 +73,24 @@ export async function upsertPlayer(
   return row!;
 }
 
-/** Crea un jugador nuevo sin verificar duplicados. */
-export async function createPlayer(
+/**
+ * Busca jugadores cuyo nombre coincida por prefijo de token con la consulta.
+ * Cada token de la consulta (normalizado) debe ser prefijo de algún token del
+ * `normalizedName` almacenado. Limita a `limit` resultados (20 por defecto).
+ */
+export async function searchPlayersByName(
   db: Database,
-  input: PlayerInput,
-): Promise<PlayerRow> {
-  const [row] = await db
-    .insert(players)
-    .values({
-      slug: input.slug,
-      fullName: input.fullName,
-      normalizedName: input.normalizedName,
-    })
-    .returning();
-  return row!;
+  { query, limit = 20 }: { query: string; limit?: number },
+): Promise<PlayerRow[]> {
+  const queryTokens = normalizePlayerName(query)
+    .split(' ')
+    .filter((token) => token.length > 0);
+  if (queryTokens.length === 0) return [];
+
+  const all = await db.query.players.findMany();
+  const matches = all.filter((player) => {
+    const nameTokens = player.normalizedName.split(' ').filter((token) => token.length > 0);
+    return queryTokens.every((queryToken) => nameTokens.some((nameToken) => nameToken.startsWith(queryToken)));
+  });
+  return matches.slice(0, limit);
 }

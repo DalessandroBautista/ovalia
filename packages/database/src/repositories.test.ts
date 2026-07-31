@@ -11,7 +11,7 @@ import {
   findMatchesInRange,
   findPastMatchesForTeams,
   findPlayerByNormalizedName,
-  findPlayersByNormalizedName,
+  searchPlayersByName,
   findTeamByExternalId,
   findUpcomingMatches,
   findUserByEmail,
@@ -35,7 +35,6 @@ import {
   upsertOrganization,
   upsertPrediction,
   upsertTeams,
-  upsertPlayer,
   findPlayerBySlug,
 } from './repositories';
 import { predictions } from './schema';
@@ -600,48 +599,65 @@ describe.skipIf(!available)('repositories', () => {
   it('createPlayer persiste y findPlayerByNormalizedName lo encuentra', async () => {
     const { db } = handle;
     const player = await createPlayer(db, {
-      slug: 'juan-cruz-perez',
       fullName: 'Juan Cruz Pérez',
       normalizedName: 'cruz juan perez',
     });
-    expect(player.slug).toBe('juan-cruz-perez');
     expect(player.fullName).toBe('Juan Cruz Pérez');
+    expect(player.slug).toBe(player.id);
 
     const found = await findPlayerByNormalizedName(db, 'cruz juan perez');
     expect(found?.id).toBe(player.id);
   });
 
-  it('upsertPlayer es idempotente por slug', async () => {
+  it('createPlayer nunca fusiona: dos cargas del mismo nombre crean dos jugadores distintos', async () => {
     const { db } = handle;
-    const created = await upsertPlayer(db, {
-      slug: 'marcos-torrillas',
-      fullName: 'Marcos Torrillas',
-      normalizedName: 'marcos torrillas',
-    });
-    const updated = await upsertPlayer(db, {
-      slug: 'marcos-torrillas',
-      fullName: 'Marcos Torrillas (c)',
-      normalizedName: 'marcos torrillas',
-    });
-    expect(updated.id).toBe(created.id);
-    expect(updated.fullName).toBe('Marcos Torrillas (c)');
+    const first = await createPlayer(db, { fullName: 'Marcos Torrillas', normalizedName: 'marcos torrillas' });
+    const second = await createPlayer(db, { fullName: 'Marcos Torrillas', normalizedName: 'marcos torrillas' });
+    expect(second.id).not.toBe(first.id);
+    expect(second.slug).not.toBe(first.slug);
     const all = await db.query.players.findMany();
-    expect(all).toHaveLength(1);
-  });
-
-  it('findPlayersByNormalizedName devuelve homónimos', async () => {
-    const { db } = handle;
-    await createPlayer(db, { slug: 'juan-perez-1', fullName: 'Juan Pérez', normalizedName: 'juan perez' });
-    await createPlayer(db, { slug: 'juan-perez-2', fullName: 'Juan Pérez', normalizedName: 'juan perez' });
-    const results = await findPlayersByNormalizedName(db, 'juan perez');
-    expect(results).toHaveLength(2);
+    expect(all).toHaveLength(2);
   });
 
   it('findPlayerBySlug busca por slug', async () => {
     const { db } = handle;
-    await createPlayer(db, { slug: 'nico-sanchez', fullName: 'Nicolás Sánchez', normalizedName: 'nicolas sanchez' });
-    const found = await findPlayerBySlug(db, 'nico-sanchez');
+    const player = await createPlayer(db, { fullName: 'Nicolás Sánchez', normalizedName: 'nicolas sanchez' });
+    const found = await findPlayerBySlug(db, player.slug);
     expect(found?.fullName).toBe('Nicolás Sánchez');
+  });
+
+  it('searchPlayersByName encuentra por prefijo del primer nombre', async () => {
+    const { db } = handle;
+    await createPlayer(db, { fullName: 'Juan Cruz Pérez', normalizedName: 'cruz juan perez' });
+    const results = await searchPlayersByName(db, { query: 'Juan' });
+    expect(results).toHaveLength(1);
+    expect(results[0]!.fullName).toBe('Juan Cruz Pérez');
+  });
+
+  it('searchPlayersByName encuentra por prefijo del apellido', async () => {
+    const { db } = handle;
+    await createPlayer(db, { fullName: 'Juan Cruz Pérez', normalizedName: 'cruz juan perez' });
+    const results = await searchPlayersByName(db, { query: 'Pérez' });
+    expect(results).toHaveLength(1);
+    expect(results[0]!.fullName).toBe('Juan Cruz Pérez');
+  });
+
+  it('searchPlayersByName devuelve vacío sin coincidencias', async () => {
+    const { db } = handle;
+    await createPlayer(db, { fullName: 'Juan Cruz Pérez', normalizedName: 'cruz juan perez' });
+    const results = await searchPlayersByName(db, { query: 'Nicolás' });
+    expect(results).toHaveLength(0);
+  });
+
+  it('searchPlayersByName respeta el límite', async () => {
+    const { db } = handle;
+    for (let i = 0; i < 25; i += 1) {
+      await createPlayer(db, { fullName: `Juan Pérez ${i}`, normalizedName: `juan perez${i}` });
+    }
+    const results = await searchPlayersByName(db, { query: 'Juan' });
+    expect(results).toHaveLength(20);
+    const limited = await searchPlayersByName(db, { query: 'Juan', limit: 5 });
+    expect(limited).toHaveLength(5);
   });
 
   // --- Lineups ---
@@ -667,7 +683,6 @@ describe.skipIf(!available)('repositories', () => {
     const match = await makeMatch(db, { seasonId: season.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id });
 
     const player = await createPlayer(db, {
-      slug: 'marcos-torrillas',
       fullName: 'Marcos Torrillas',
       normalizedName: 'marcos torrillas',
     });
@@ -696,8 +711,8 @@ describe.skipIf(!available)('repositories', () => {
     const awayTeam = await makeTeam(db, { slug: 'away', name: 'Away', shortName: 'AWY' });
     const match = await makeMatch(db, { seasonId: season.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id });
 
-    const p1 = await createPlayer(db, { slug: 'p1', fullName: 'Player 1', normalizedName: 'player 1' });
-    const p2 = await createPlayer(db, { slug: 'p2', fullName: 'Player 2', normalizedName: 'player 2' });
+    const p1 = await createPlayer(db, { fullName: 'Player 1', normalizedName: 'player 1' });
+    const p2 = await createPlayer(db, { fullName: 'Player 2', normalizedName: 'player 2' });
 
     // Primera carga
     await replaceLineup(db, {
@@ -728,7 +743,7 @@ describe.skipIf(!available)('repositories', () => {
 
     expect(await hasLineup(db, match.id)).toBe(false);
 
-    const player = await createPlayer(db, { slug: 'p', fullName: 'P', normalizedName: 'p' });
+    const player = await createPlayer(db, { fullName: 'P', normalizedName: 'p' });
     await replaceLineup(db, {
       matchId: match.id,
       teamId: homeTeam.id,
