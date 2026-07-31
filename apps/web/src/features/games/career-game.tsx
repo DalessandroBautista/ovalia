@@ -7,8 +7,9 @@ import {
   type CareerPosition,
   type SeasonRecord,
 } from '@ovalia/domain';
-import type { ApiCareerSeasonRecord } from '../../lib/api/types';
+import type { ApiCareerEntry, ApiCareerSeasonRecord } from '../../lib/api/types';
 import { CareerCard } from './career-card';
+import { CareerRanking } from './career-ranking';
 import { useCareerClubs } from './use-career-clubs';
 import { useCareerRun } from './use-career-run';
 
@@ -48,6 +49,7 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
   const [surname, setSurname] = useState('');
   const [clubSlug, setClubSlug] = useState('');
   const [position, setPosition] = useState<CareerPosition>(initialPosition ?? 'pilar');
+  const [myEntry, setMyEntry] = useState<ApiCareerEntry | null>(null);
 
   const catalogClubs = clubs.length > 0 ? clubs : FALLBACK_CATALOG.clubs;
   const effectiveClubSlug = clubSlug || catalogClubs[0]?.slug || '';
@@ -140,16 +142,20 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
 
   if (phase === 'retired' && summary) {
     return (
-      <section className="game-stage">
-        <p className="eyebrow">RETIRO</p>
-        <CareerCard
-          summary={summary}
-          history={run.state.history.map(recordToApi)}
-          displayName={run.input.surname}
-          position={run.input.position}
-        />
-        <button onClick={reset}>Jugar de nuevo</button>
-      </section>
+      <>
+        <section className="game-stage">
+          <p className="eyebrow">RETIRO</p>
+          <CareerCard
+            summary={summary}
+            history={run.state.history.map(recordToApi)}
+            displayName={run.input.surname}
+            position={run.input.position}
+            entry={myEntry ?? undefined}
+          />
+          <button onClick={reset}>Jugar de nuevo</button>
+        </section>
+        <CareerRanking run={run} summary={summary} onPublished={setMyEntry} />
+      </>
     );
   }
 

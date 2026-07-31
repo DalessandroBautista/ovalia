@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseHandle } from '../client.js';
-import { makeTeam } from '../test-support/index.js';
 import { getTestDatabase, isDatabaseAvailable, truncateAll } from '../test-support/index.js';
 import { createUser } from './users-repository.js';
 import { countRecentEntriesByOrigin, findCareerEntryById, insertCareerEntry, listCareerEntries } from './career-repository.js';

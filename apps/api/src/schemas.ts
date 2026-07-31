@@ -96,12 +96,20 @@ export type AdminLineupInput = z.infer<typeof adminLineupSchema>;
 
 // --- Simulador de carrera ---
 
+function hasControlCharacters(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code < 32 || code === 127) return true;
+  }
+  return false;
+}
+
 const apodoSchema = z
   .string()
   .trim()
   .min(1, 'apodo vacío')
   .max(24, 'apodo demasiado largo')
-  .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'caracteres de control no permitidos')
+  .refine((value) => !hasControlCharacters(value), 'caracteres de control no permitidos')
   .refine((value) => !/(https?:\/\/|www\.)/i.test(value), 'enlaces no permitidos');
 
 const careerSummarySchema = z.object({
