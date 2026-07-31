@@ -1,8 +1,8 @@
 /**
  * Generador de azar inyectable. Todo el motor de carrera lo recibe por
- * parámetro en vez de usar `Math.random`, para que una semilla fija produzca
- * siempre la misma carrera: eso hace las reglas verificables con pruebas y
- * permite compartir una trayectoria reproducible.
+ * parámetro en vez de usar el azar global del entorno, para que una semilla
+ * fija produzca siempre la misma carrera: eso hace las reglas verificables con
+ * pruebas y permite compartir una trayectoria reproducible.
  */
 export interface Rng {
   next(): number;
