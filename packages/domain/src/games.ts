@@ -1,3 +1,5 @@
+import type { CareerPosition } from './career/types.js';
+
 export function calculateRugbyIdentity(answers: number[]) {
   const total = answers.reduce((sum, answer) => sum + answer, 0);
   const balance = answers.filter((answer) => answer === 0).length;
@@ -15,4 +17,19 @@ export function chooseCareerOutcome(attributes: RoleAttributes): string {
   if (attributes.speed >= 8 && attributes.vision < 7) return 'Wing definidor';
   if (attributes.vision >= 7) return 'Apertura conductor';
   return 'Centro completo';
+}
+
+const ROLE_TO_POSITION: Record<string, CareerPosition> = {
+  'Tercera línea de impacto': 'ala',
+  'Wing definidor': 'wing',
+  'Apertura conductor': 'apertura',
+  'Centro completo': 'centro',
+};
+
+/**
+ * Conecta «Camino al XV» con la carrera: el rol que devuelve `chooseCareerOutcome`
+ * se convierte en la posición inicial del jugador en el simulador.
+ */
+export function roleToCareerPosition(role: string): CareerPosition | null {
+  return ROLE_TO_POSITION[role] ?? null;
 }
