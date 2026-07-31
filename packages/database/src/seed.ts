@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import { TEAM_BADGES } from '@ovalia/domain';
+import { classifyCompetitionTier, TEAM_BADGES } from '@ovalia/domain';
 import { createDatabase } from './client.js';
 import { upsertSource } from './repositories/ingestion-repository.js';
 import { upsertCompetition, upsertSeason } from './repositories/competitions-repository.js';
@@ -150,7 +150,10 @@ for (const competition of await db.select().from(competitions)) {
     coverage: competition.coverage,
     organizationId,
     familySlug: competition.familySlug,
-    tier: competition.tier,
+    // upsertCompetition siempre sobreescribe tier (a diferencia de priority u
+    // organizationId): sin esto, este loop de vinculación pisaría a 'senior'
+    // el tier ya clasificado de competencias juveniles (ej. "Menores de 15").
+    tier: competition.tier ?? classifyCompetitionTier(competition.name),
   });
 }
 
@@ -230,6 +233,9 @@ for (const [slug, priority] of Object.entries(URBA_TOP_FLIGHT_PRIORITY)) {
       format: row.format,
       priority,
       coverage: row.coverage,
+      // Igual razón que arriba: preservar (o reclasificar) el tier en vez de
+      // dejar que el default 'senior' de upsertCompetition lo pise.
+      tier: row.tier ?? classifyCompetitionTier(row.name),
     });
   }
 }

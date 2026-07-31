@@ -24,6 +24,7 @@ import type {
   FetchContext,
   SportsDataAdapter,
 } from '@ovalia/domain';
+import { classifyCompetitionTier } from '@ovalia/domain';
 import { normalizeName, parseOffsetDateTime, resolveEntity } from './normalization';
 import type { EntityLookups } from './normalization';
 
@@ -196,7 +197,10 @@ async function persistCatalog(db: Database, sourceId: string, payload: CatalogPa
       format: competition.format,
       coverage: 'auto',
       familySlug: competition.familySlug ?? null,
-      tier: competition.tier ?? 'senior',
+      // Sin tier explícito de la fuente, se clasifica por nombre. Es la única
+      // señal disponible hoy para distinguir competencias juveniles (ver
+      // AGENTS.md: no cargar datos de menores) de competencias de adultos.
+      tier: competition.tier ?? classifyCompetitionTier(competition.name),
     });
     const season = await upsertSeason(db, {
       competitionId: saved.id,
