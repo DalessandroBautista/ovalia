@@ -234,9 +234,6 @@ export function MatchModal({ match, onClose }: { match: AgendaMatch; onClose: ()
           {activeTab === LINEUPS_TAB_KEY && lineupsStatus === 'ready' ? (
             <LineupsPanel homeEntries={lineups?.home ?? []} awayEntries={lineups?.away ?? []} />
           ) : null}
-          {activeTab === LINEUPS_TAB_KEY && lineupsStatus === 'error' ? (
-            <p className="match-modal__empty">No se pudieron cargar las formaciones</p>
-          ) : null}
         </div>
 
         <footer className="match-modal__footer">
