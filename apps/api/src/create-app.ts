@@ -13,8 +13,10 @@ import {
   countFailedRuns,
   countOpenConflicts,
   countPendingDrafts,
+  countRecentEntriesByOrigin,
   featuredPublishedArticle,
   findPublishedArticleBySlug,
+  findCareerEntryById,
   listOpenConflicts,
   listPublishedArticles,
   recordAudit,
@@ -36,6 +38,8 @@ import {
   getLatestSeason,
   getLineupsForMatch,
   getStandingsForSeason,
+  insertCareerEntry,
+  listCareerEntries,
   listCompetitions,
   listOrganizationsWithCompetitionSlugs,
   listSeasons,
@@ -54,6 +58,8 @@ import {
   adminConflictResolutionSchema,
   adminLineupSchema,
   analyticsEventSchema,
+  careerEntryInputSchema,
+  careerListQuerySchema,
   competitionMatchesQuerySchema,
   decodeCursor,
   encodeCursor,
@@ -87,6 +93,42 @@ function serializeMatch(row: NonNullable<MatchRow>) {
     source: row.source,
     freshness: freshness(row.fetchedAt),
   };
+}
+
+// --- Simulador de carrera ---
+
+const URBA_DIVISION_LEVEL: Record<string, number> = {
+  'urba-top-14': 1,
+  'urba-primera-a': 2,
+  'urba-primera-b': 3,
+  'urba-primera-c': 4,
+  'urba-segunda': 5,
+  'urba-tercera': 6,
+  'urba-desarrollo': 7,
+};
+
+const CAREER_PUBLISH_LIMIT = 3;
+const CAREER_PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+type CareerEntryRow = Awaited<ReturnType<typeof insertCareerEntry>>;
+
+function serializeCareerEntry(row: CareerEntryRow) {
+  return {
+    id: row.id,
+    score: row.score,
+    displayName: row.displayName,
+    summary: row.summary,
+    surname: row.surname,
+    position: row.position,
+    clubSlug: row.clubSlug,
+    seed: row.seed,
+    decisions: row.decisions,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function serializeCareerEntryDetail(row: CareerEntryRow) {
+  return { ...serializeCareerEntry(row), history: row.history };
 }
 
 export function configureApp(app: FastifyInstance, dependencies: AppDependencies) {
@@ -559,6 +601,57 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     });
 
     return { ok: true, matchId: id, side: parsed.data.side };
+  });
+
+  // --- Simulador de carrera ---
+
+  app.get('/v1/career/clubs', async () => {
+    const byLevel = new Map<string, { slug: string; name: string; level: number; badgeUrl: string | null }>();
+    for (const [slug, level] of Object.entries(URBA_DIVISION_LEVEL)) {
+      const competition = await findCompetitionBySlug(db, slug);
+      if (!competition) continue;
+      const season = await getLatestSeason(db, competition.id);
+      if (!season) continue;
+      const rows = await getStandingsForSeason(db, season.id);
+      for (const row of rows) {
+        const current = byLevel.get(row.teamSlug);
+        if (!current || level < current.level) {
+          byLevel.set(row.teamSlug, { slug: row.teamSlug, name: row.teamName, level, badgeUrl: row.teamBadgeUrl });
+        }
+      }
+    }
+    return { clubs: [...byLevel.values()].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)) };
+  });
+
+  app.post('/v1/career/entries', async (request, reply) => {
+    const parsed = careerEntryInputSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_career_entry', issues: parsed.error.issues });
+    const data = parsed.data;
+
+    // La vía con cuenta llega con el Hito 10: cuando el plugin de sesión exista,
+    // este handler resuelve userId desde la sesión y deja de confiar en el apodo.
+    const since = new Date(Date.now() - CAREER_PUBLISH_WINDOW_MS);
+    const recent = await countRecentEntriesByOrigin(db, data.originKey, since);
+    if (recent >= CAREER_PUBLISH_LIMIT) {
+      return reply.code(429).send({ error: 'too_many_career_posts' });
+    }
+
+    const row = await insertCareerEntry(db, data);
+    return reply.code(201).send({ entry: serializeCareerEntry(row) });
+  });
+
+  app.get('/v1/career/entries', async (request) => {
+    const parsed = careerListQuerySchema.safeParse(request.query);
+    const limit = parsed.success ? parsed.data.limit : 20;
+    const rows = await listCareerEntries(db, { limit });
+    return { entries: rows.map(serializeCareerEntry) };
+  });
+
+  app.get('/v1/career/entries/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const row = await findCareerEntryById(db, id);
+    if (!row) return reply.code(404).send({ error: 'career_entry_not_found' });
+    return { entry: serializeCareerEntryDetail(row) };
   });
 
   return app;

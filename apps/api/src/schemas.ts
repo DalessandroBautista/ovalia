@@ -93,3 +93,53 @@ export const adminLineupSchema = z.object({
 
 export type LineupEntryInput = z.infer<typeof lineupEntryInputSchema>;
 export type AdminLineupInput = z.infer<typeof adminLineupSchema>;
+
+// --- Simulador de carrera ---
+
+const apodoSchema = z
+  .string()
+  .trim()
+  .min(1, 'apodo vacío')
+  .max(24, 'apodo demasiado largo')
+  .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'caracteres de control no permitidos')
+  .refine((value) => !/(https?:\/\/|www\.)/i.test(value), 'enlaces no permitidos');
+
+const careerSummarySchema = z.object({
+  tier: z.string().min(1),
+  verdict: z.string().min(1),
+  score: z.number().int().nonnegative(),
+  comparison: z.object({ figure: z.string().min(1), reason: z.string().min(1) }),
+  seasons: z.number().int().nonnegative(),
+  clubs: z.array(z.string()),
+  peakLevel: z.number().int().positive(),
+});
+
+const careerHistorySchema = z.array(
+  z.object({
+    season: z.number().int(),
+    age: z.number().int(),
+    clubSlug: z.string(),
+    clubName: z.string(),
+    level: z.number().int(),
+    rating: z.number().int(),
+    note: z.string(),
+  }),
+);
+
+export const careerEntryInputSchema = z.object({
+  displayName: apodoSchema,
+  score: z.number().int().min(0).max(100_000),
+  summary: careerSummarySchema,
+  history: careerHistorySchema,
+  surname: z.string().trim().min(1).max(40),
+  position: z.enum(['pilar', 'hooker', 'segunda', 'ala', 'octavo', 'medio-scrum', 'apertura', 'centro', 'wing', 'fullback']),
+  clubSlug: z.string().min(1).max(120),
+  seed: z.number().int().min(0).max(4_294_967_295),
+  decisions: z.array(z.number().int().nonnegative()).max(120),
+  originKey: z.string().regex(/^[a-f0-9]{64}$/, 'originKey debe ser un hash sha256 hex'),
+});
+export type CareerEntryInput = z.infer<typeof careerEntryInputSchema>;
+
+export const careerListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
