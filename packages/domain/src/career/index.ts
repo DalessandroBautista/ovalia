@@ -5,3 +5,4 @@ export * from './season.js';
 export * from './scenarios.js';
 export * from './figures.js';
 export * from './retirement.js';
+export * from './replay.js';
