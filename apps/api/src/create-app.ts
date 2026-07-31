@@ -26,19 +26,23 @@ import {
   findMatchesByCompetition,
   findMatchesInRange,
   findPastMatchesForTeams,
+  findPlayersByNormalizedName,
   findSeason,
   findTeamBySlug,
   findUpcomingMatches,
   getActiveContest,
   getLatestSeason,
+  getLineupsForMatch,
   getStandingsForSeason,
   listCompetitions,
   listOrganizationsWithCompetitionSlugs,
   listSeasons,
   pingDatabase,
+  replaceLineup,
+  upsertPlayer,
   type Database,
 } from '@ovalia/database';
-import { buildHeadToHead, buildRecentForm, findTeamPosition } from '@ovalia/domain';
+import { buildHeadToHead, buildRecentForm, findTeamPosition, normalizePlayerName } from '@ovalia/domain';
 import {
   createConfiguredLiveProvider,
   createLiveFeedService,
@@ -47,6 +51,7 @@ import {
 } from './live/live-feed.js';
 import {
   adminConflictResolutionSchema,
+  adminLineupSchema,
   analyticsEventSchema,
   competitionMatchesQuerySchema,
   decodeCursor,
@@ -207,6 +212,30 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     };
   });
 
+  // --- Lineups (Tramo C) ---
+
+  app.get('/v1/matches/:id/lineups', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const match = await findMatchById(db, id);
+    if (!match) return reply.code(404).send({ error: 'match_not_found' });
+
+    const lineups = await getLineupsForMatch(db, id);
+    return {
+      home: lineups.home.map((e) => ({
+        shirtNumber: e.shirtNumber,
+        isStarter: e.isStarter,
+        isCaptain: e.isCaptain,
+        player: { slug: e.player.slug, fullName: e.player.fullName },
+      })),
+      away: lineups.away.map((e) => ({
+        shirtNumber: e.shirtNumber,
+        isStarter: e.isStarter,
+        isCaptain: e.isCaptain,
+        player: { slug: e.player.slug, fullName: e.player.fullName },
+      })),
+    };
+  });
+
   // --- Competencias ---
   app.get('/v1/organizations', async (request, reply) => {
     const parsed = organizationsQuerySchema.safeParse(request.query);
@@ -296,6 +325,17 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     return {
       matches: result.matches.map((m) => serializeMatch(m as NonNullable<MatchRow>)),
       nextCursor: encodeCursor(result.nextCursor),
+    };
+  });
+
+  // --- Jugadores (Tramo C) ---
+  app.get('/v1/players/search', async (request, reply) => {
+    const { q } = request.query as { q?: string };
+    if (!q || q.length < 2) return reply.code(400).send({ error: 'query_too_short' });
+    const normalized = normalizePlayerName(q);
+    const rows = await findPlayersByNormalizedName(db, normalized);
+    return {
+      players: rows.map((p) => ({ id: p.id, slug: p.slug, fullName: p.fullName, normalizedName: p.normalizedName })),
     };
   });
 
@@ -453,6 +493,55 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       metadata: { status, via: 'admin-token' },
     });
     return { id, status };
+  });
+
+  // --- Admin: Lineups (Tramo C) ---
+
+  app.post('/admin/matches/:id/lineups', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    const { id } = request.params as { id: string };
+
+    const match = await findMatchById(db, id);
+    if (!match) return reply.code(404).send({ error: 'match_not_found' });
+
+    const parsed = adminLineupSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_lineup', issues: parsed.error.issues });
+
+    const teamId = parsed.data.side === 'home' ? match.home.id : match.away.id;
+
+    // Resolver o crear jugadores.
+    const resolvedEntries: Array<{ playerId: string; shirtNumber: number; isStarter: boolean; isCaptain: boolean }> = [];
+    for (const entry of parsed.data.entries) {
+      let playerId = entry.playerId;
+      if (!playerId) {
+        // Crear jugador nuevo.
+        const normalizedName = normalizePlayerName(entry.name);
+        const slug = normalizedName.replace(/\s+/g, '-') || 'unknown';
+        const player = await upsertPlayer(db, { slug, fullName: entry.name, normalizedName });
+        playerId = player.id;
+      }
+      resolvedEntries.push({
+        playerId,
+        shirtNumber: entry.shirtNumber,
+        isStarter: entry.shirtNumber <= 15,
+        isCaptain: entry.isCaptain,
+      });
+    }
+
+    await replaceLineup(db, {
+      matchId: id,
+      teamId,
+      entries: resolvedEntries,
+    });
+
+    await recordAudit(db, {
+      action: 'admin.lineup.save',
+      targetType: 'match_lineup',
+      targetId: id,
+      metadata: { side: parsed.data.side, count: parsed.data.entries.length, via: 'admin-token' },
+    });
+
+    return { ok: true, matchId: id, side: parsed.data.side };
   });
 
   return app;

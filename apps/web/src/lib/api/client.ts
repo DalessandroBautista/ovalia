@@ -4,11 +4,13 @@ import type {
   ApiCompetitionDetail,
   ApiCompetitionsResponse,
   ApiHomeResponse,
+  ApiLineups,
   ApiMatch,
   ApiMatchContext,
   ApiMatchListResponse,
   ApiOrganizationsResponse,
   ApiStandingsResponse,
+  PlayerSearchResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -183,5 +185,34 @@ export function fetchCompetitionMatches(
   return apiFetch<ApiMatchListResponse>(
     `/v1/competitions/${encodeURIComponent(slug)}/matches${toQueryString(query as Record<string, string | number | undefined>)}`,
     options,
+  );
+}
+
+// --- Lineups (Tramo C) ---
+
+export function fetchMatchLineups(id: string, options?: ApiFetchOptions) {
+  return apiFetch<ApiLineups>(`/v1/matches/${encodeURIComponent(id)}/lineups`, options);
+}
+
+export function fetchPlayersSearch(q: string, options?: ApiFetchOptions) {
+  return apiFetch<PlayerSearchResponse>(
+    `/v1/players/search${toQueryString({ q })}`,
+    options,
+  );
+}
+
+export function saveMatchLineup(
+  token: string,
+  matchId: string,
+  side: 'home' | 'away',
+  entries: Array<{ shirtNumber: number; name: string; isCaptain: boolean; playerId: string | null }>,
+) {
+  return apiFetch<{ ok: boolean; matchId: string; side: string }>(
+    `/admin/matches/${encodeURIComponent(matchId)}/lineups`,
+    {
+      method: 'POST',
+      headers: { 'x-admin-token': token },
+      body: { side, entries },
+    },
   );
 }

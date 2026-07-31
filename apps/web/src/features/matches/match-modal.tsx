@@ -5,17 +5,22 @@ import { useCallback, useRef, useState } from 'react';
 
 import { TeamBadge } from '../../components/team-badge';
 import { useFocusTrap } from '../../hooks/use-focus-trap';
-import type { ApiFormResult, ApiMatchContext, ApiTeamPosition } from '../../lib/api/types';
+import type { ApiFormResult, ApiLineupEntry, ApiMatchContext, ApiTeamPosition } from '../../lib/api/types';
 import { formatMatchTime, type AgendaMatch } from './agenda-data';
 import { useMatchContext } from './use-match-context';
+import { useMatchLineups } from './use-match-lineups';
 
-type MatchContextTab = 'form' | 'history' | 'standings';
+const CONTEXT_TABS = ['form', 'history', 'standings'] as const;
+const LINEUPS_TAB_KEY = 'lineups';
 
-const TAB_LABELS: Array<{ key: MatchContextTab; label: string }> = [
-  { key: 'form', label: 'Forma' },
-  { key: 'history', label: 'Historial' },
-  { key: 'standings', label: 'Posiciones' },
-];
+type MatchContextTab = (typeof CONTEXT_TABS)[number];
+type AllTabs = MatchContextTab | typeof LINEUPS_TAB_KEY;
+
+const CONTEXT_TAB_LABELS: Record<MatchContextTab, string> = {
+  form: 'Forma',
+  history: 'Historial',
+  standings: 'Posiciones',
+};
 
 function teamCode(team: string): string {
   return findTeamBadge({ name: team })?.shortCode ?? team.slice(0, 3).toUpperCase();
@@ -110,15 +115,72 @@ function StandingsPanel({ match, context }: { match: AgendaMatch; context: ApiMa
   );
 }
 
+function LineupPlayersList({ entries, label }: { entries: ApiLineupEntry[]; label: string }) {
+  if (entries.length === 0) return null;
+  const starters = entries.filter((e) => e.isStarter);
+  const substitutes = entries.filter((e) => !e.isStarter);
+
+  return (
+    <section className="match-lineup__team">
+      <small>{label}</small>
+      <ol className="match-lineup__list">
+        {starters.map((entry) => (
+          <li key={entry.shirtNumber} className="match-lineup__player">
+            <span className="match-lineup__number">{entry.shirtNumber}</span>
+            <span className="match-lineup__name">
+              {entry.player.fullName}
+              {entry.isCaptain ? <span className="match-lineup__captain" title="Capitán">©</span> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {substitutes.length > 0 && (
+        <>
+          <small className="match-lineup__subs-label">Suplentes</small>
+          <ol className="match-lineup__list">
+            {substitutes.map((entry) => (
+              <li key={entry.shirtNumber} className="match-lineup__player">
+                <span className="match-lineup__number">{entry.shirtNumber}</span>
+                <span className="match-lineup__name">{entry.player.fullName}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </section>
+  );
+}
+
+function LineupsPanel({ homeEntries, awayEntries }: { homeEntries: ApiLineupEntry[]; awayEntries: ApiLineupEntry[] }) {
+  return (
+    <div className="match-lineup">
+      <LineupPlayersList entries={homeEntries} label="Local" />
+      <LineupPlayersList entries={awayEntries} label="Visitante" />
+    </div>
+  );
+}
+
 export function MatchModal({ match, onClose }: { match: AgendaMatch; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<MatchContextTab>('form');
+  const [activeTab, setActiveTab] = useState<AllTabs>('form');
   const dialogRef = useRef<HTMLElement>(null);
   const close = useCallback(() => onClose(), [onClose]);
   const { status, context } = useMatchContext(match.id);
+  const { status: lineupsStatus, lineups } = useMatchLineups(match.id);
   useFocusTrap({ active: true, containerRef: dialogRef, onEscape: close });
 
   const hasScore = match.homeScore !== null && match.awayScore !== null;
-  const loading = status === 'loading';
+  const contextLoading = status === 'loading';
+  const hasLineups = lineupsStatus === 'ready' && (lineups!.home.length > 0 || lineups!.away.length > 0);
+  const lineupsLoading = lineupsStatus === 'loading';
+  const lineupsError = lineupsStatus === 'error';
+
+  // Build dynamic tabs.
+  const tabs: Array<{ key: AllTabs; label: string }> = [
+    ...CONTEXT_TABS.map((key) => ({ key, label: CONTEXT_TAB_LABELS[key] })),
+  ];
+  if (hasLineups || lineupsLoading || lineupsError) {
+    tabs.push({ key: LINEUPS_TAB_KEY, label: 'Formaciones' });
+  }
 
   return (
     <div className="match-modal-overlay" onMouseDown={(event) => {
@@ -153,7 +215,7 @@ export function MatchModal({ match, onClose }: { match: AgendaMatch; onClose: ()
         </header>
 
         <nav className="match-modal__tabs" aria-label="Información del partido">
-          {TAB_LABELS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               className={activeTab === tab.key ? 'is-active' : ''}
               type="button"
@@ -165,10 +227,17 @@ export function MatchModal({ match, onClose }: { match: AgendaMatch; onClose: ()
         </nav>
 
         <div className="match-modal__body" aria-live="polite">
-          {loading ? <p className="match-modal__loading">Cargando contexto…</p> : null}
-          {!loading && activeTab === 'form' ? <FormPanel match={match} context={context} /> : null}
-          {!loading && activeTab === 'history' ? <HistoryPanel context={context} /> : null}
-          {!loading && activeTab === 'standings' ? <StandingsPanel match={match} context={context} /> : null}
+          {contextLoading ? <p className="match-modal__loading">Cargando contexto…</p> : null}
+          {!contextLoading && activeTab === 'form' ? <FormPanel match={match} context={context} /> : null}
+          {!contextLoading && activeTab === 'history' ? <HistoryPanel context={context} /> : null}
+          {!contextLoading && activeTab === 'standings' ? <StandingsPanel match={match} context={context} /> : null}
+          {activeTab === LINEUPS_TAB_KEY && lineupsLoading ? <p className="match-modal__loading">Cargando formaciones…</p> : null}
+          {activeTab === LINEUPS_TAB_KEY && lineupsStatus === 'ready' ? (
+            <LineupsPanel homeEntries={lineups?.home ?? []} awayEntries={lineups?.away ?? []} />
+          ) : null}
+          {activeTab === LINEUPS_TAB_KEY && lineupsStatus === 'error' ? (
+            <p className="match-modal__empty">No se pudieron cargar las formaciones</p>
+          ) : null}
         </div>
 
         <footer className="match-modal__footer">

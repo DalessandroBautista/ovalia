@@ -6,4 +6,6 @@ export * from './standings.js';
 export * from './games.js';
 export * from './team-badges.js';
 export * from './rugby-unions.js';
+export * from './player-identity.js';
+export * from './lineup-parser.js';
 export * from './ingestion/index.js';

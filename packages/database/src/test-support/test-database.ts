@@ -66,6 +66,7 @@ const TABLES = [
   'analytics_events',
   'feedback',
   'audit_log',
+  'lineup_entries',
   'contest_rankings',
   'prediction_group_members',
   'prediction_groups',
@@ -93,6 +94,7 @@ const TABLES = [
   'competition_organizations',
   'competitions',
   'organizations',
+  'players',
   'teams',
   'users',
 ];

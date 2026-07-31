@@ -76,3 +76,20 @@ export function freshness(fetchedAt: Date | null | undefined, now: Date = new Da
   const ageMs = now.getTime() - fetchedAt.getTime();
   return ageMs <= 24 * 60 * 60 * 1000 ? 'fresh' : 'stale';
 }
+
+// --- Lineups (Tramo C) ---
+
+export const lineupEntryInputSchema = z.object({
+  shirtNumber: z.number().int().min(1).max(99),
+  name: z.string().min(1).max(120),
+  isCaptain: z.boolean().default(false),
+  playerId: z.string().uuid().nullable(),
+});
+
+export const adminLineupSchema = z.object({
+  side: z.enum(['home', 'away']),
+  entries: z.array(lineupEntryInputSchema).min(1).max(30),
+});
+
+export type LineupEntryInput = z.infer<typeof lineupEntryInputSchema>;
+export type AdminLineupInput = z.infer<typeof adminLineupSchema>;

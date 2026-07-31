@@ -3,12 +3,15 @@ import type { DatabaseHandle } from '@ovalia/database';
 import {
   createConflict,
   createDraft,
+  createPlayer,
   linkCompetitionOrganization,
+  replaceLineup,
   replaceStandings,
   setArticleStatus,
   upsertCompetition,
   upsertMatchByNaturalKey,
   upsertOrganization,
+  upsertPlayer,
 } from '@ovalia/database';
 import {
   getTestDatabase,
@@ -18,6 +21,7 @@ import {
   makeTeam,
   truncateAll,
 } from '@ovalia/database/test-support';
+import { normalizePlayerName } from '@ovalia/domain';
 import { buildApp } from './create-app';
 
 const available = await isDatabaseAvailable();
@@ -409,5 +413,154 @@ describe.skipIf(!available)('API real', () => {
       headers: { origin: 'http://localhost:3000', 'access-control-request-method': 'GET' },
     });
     expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+  });
+
+  // --- Lineups API ---
+
+  it('GET /v1/matches/:id/lineups devuelve listas vacías si no hay formación', async () => {
+    const seeded = await seedCompetition();
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: `/v1/matches/${seeded.current.id}/lineups` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ home: [], away: [] });
+  });
+
+  it('GET /v1/matches/:id/lineups devuelve 404 si el partido no existe', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/matches/00000000-0000-0000-0000-000000000000/lineups' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('GET /v1/matches/:id/lineups devuelve formaciones cargadas', async () => {
+    const { db } = handle;
+    const seeded = await seedCompetition();
+
+    const player = await createPlayer(db, {
+      slug: 'marcos-torrillas',
+      fullName: 'Marcos Torrillas',
+      normalizedName: 'marcos torrillas',
+    });
+
+    await replaceLineup(db, {
+      matchId: seeded.current.id,
+      teamId: seeded.sic.id,
+      entries: [{ playerId: player.id, shirtNumber: 10, isStarter: true, isCaptain: true }],
+    });
+
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: `/v1/matches/${seeded.current.id}/lineups` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.home).toHaveLength(1);
+    expect(body.home[0]).toMatchObject({
+      shirtNumber: 10,
+      isStarter: true,
+      isCaptain: true,
+      player: { slug: 'marcos-torrillas', fullName: 'Marcos Torrillas' },
+    });
+    expect(body.away).toEqual([]);
+  });
+
+  it('POST /admin/matches/:id/lineups guarda y reemplaza formaciones con token', async () => {
+    const seeded = await seedCompetition();
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: {
+        side: 'home',
+        entries: [
+          { shirtNumber: 10, name: 'Marcos Torrillas', isCaptain: true, playerId: null },
+          { shirtNumber: 9, name: 'Juan Cruz Pérez', isCaptain: false, playerId: null },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, side: 'home' });
+
+    // Verificar que los datos persisten.
+    const getRes = await app.inject({ method: 'GET', url: `/v1/matches/${seeded.current.id}/lineups` });
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.json().home).toHaveLength(2);
+
+    // Verificar auditoría.
+    const audit = await handle.db.query.auditLog.findMany();
+    expect(audit.some((entry) => entry.action === 'admin.lineup.save')).toBe(true);
+
+    delete process.env.ADMIN_TOKEN;
+  });
+
+  it('POST /admin/matches/:id/lineups rechaza sin token', async () => {
+    const seeded = await seedCompetition();
+    delete process.env.ADMIN_TOKEN;
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      payload: { side: 'home', entries: [{ shirtNumber: 10, name: 'Test', isCaptain: false, playerId: null }] },
+    });
+    expect(res.statusCode).toBe(503);
+  });
+
+  it('POST /admin/matches/:id/lineups rechaza body inválido', async () => {
+    const seeded = await seedCompetition();
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/admin/matches/${seeded.current.id}/lineups`,
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { side: 'home', entries: [{ shirtNumber: 999, name: '', isCaptain: false, playerId: null }] },
+    });
+    expect(res.statusCode).toBe(400);
+    delete process.env.ADMIN_TOKEN;
+  });
+
+  // --- Players search API ---
+
+  it('GET /v1/players/search devuelve jugadores por nombre normalizado', async () => {
+    await upsertPlayer(handle.db, {
+      slug: 'marcos-torrillas',
+      fullName: 'Marcos Torrillas',
+      normalizedName: 'marcos torrillas',
+    });
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=marcos%20torrillas' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.players).toHaveLength(1);
+    expect(body.players[0]).toMatchObject({
+      slug: 'marcos-torrillas',
+      fullName: 'Marcos Torrillas',
+      normalizedName: 'marcos torrillas',
+    });
+  });
+
+  it('GET /v1/players/search normaliza la consulta (acentos y mayúsculas)', async () => {
+    await upsertPlayer(handle.db, {
+      slug: 'juan-cruz-perez',
+      fullName: 'Juan Cruz Pérez',
+      normalizedName: normalizePlayerName('Juan Cruz Pérez'),
+    });
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=Juan%20Cruz%20P%C3%A9rez' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().players).toHaveLength(1);
+  });
+
+  it('GET /v1/players/search rechaza consultas demasiado cortas', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=a' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('GET /v1/players/search devuelve lista vacía sin coincidencias', async () => {
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/players/search?q=jugador%20inexistente' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ players: [] });
   });
 });

@@ -75,6 +75,9 @@ export function AdminPage() {
           </section>
         ) : (
           <>
+            <nav className="admin-nav">
+              <a href="/admin/lineups">Cargar formaciones</a>
+            </nav>
             <div className="admin-grid">
               <section><small>CONFLICTOS</small><strong>{summary?.openConflicts ?? 0}</strong><span>en cuarentena</span></section>
               <section><small>INGESTIÓN</small><strong>{summary?.failedRuns ?? 0}</strong><span>corridas fallidas</span></section>

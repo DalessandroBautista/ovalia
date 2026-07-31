@@ -150,3 +150,33 @@ export interface ApiCompetitionDetail {
     seasons: Array<{ year: number; name: string }>;
   };
 }
+
+// --- Lineups (Tramo C) ---
+
+export interface ApiLineupPlayer {
+  slug: string;
+  fullName: string;
+}
+
+export interface ApiLineupEntry {
+  shirtNumber: number;
+  isStarter: boolean;
+  isCaptain: boolean;
+  player: ApiLineupPlayer;
+}
+
+export interface ApiLineups {
+  home: ApiLineupEntry[];
+  away: ApiLineupEntry[];
+}
+
+export interface ApiPlayer {
+  id: string;
+  slug: string;
+  fullName: string;
+  normalizedName: string;
+}
+
+export interface PlayerSearchResponse {
+  players: ApiPlayer[];
+}

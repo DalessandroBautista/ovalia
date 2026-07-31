@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ApiMatchContext } from '../../lib/api/types';
+import type { ApiLineups, ApiMatchContext } from '../../lib/api/types';
 import type { AgendaMatch } from './agenda-data';
 
 let contextState: {
@@ -10,8 +10,17 @@ let contextState: {
   context: ApiMatchContext | null;
 };
 
+let lineupsState: {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  lineups: ApiLineups | null;
+};
+
 vi.mock('./use-match-context', () => ({
   useMatchContext: () => contextState,
+}));
+
+vi.mock('./use-match-lineups', () => ({
+  useMatchLineups: () => lineupsState,
 }));
 
 import { MatchModal } from './match-modal';
@@ -59,9 +68,23 @@ function contextFixture(): ApiMatchContext {
   };
 }
 
+function lineupsFixture(): ApiLineups {
+  return {
+    home: [
+      { shirtNumber: 1, isStarter: true, isCaptain: false, player: { slug: 'marcos-torrillas', fullName: 'Marcos Torrillas' } },
+      { shirtNumber: 10, isStarter: true, isCaptain: true, player: { slug: 'juan-cruz-perez', fullName: 'Juan Cruz Pérez' } },
+      { shirtNumber: 16, isStarter: false, isCaptain: false, player: { slug: 'felipe-lopez', fullName: 'Felipe López' } },
+    ],
+    away: [
+      { shirtNumber: 10, isStarter: true, isCaptain: true, player: { slug: 'nicolas-sanchez', fullName: 'Nicolás Sánchez' } },
+    ],
+  };
+}
+
 describe('MatchModal', () => {
   beforeEach(() => {
     contextState = { status: 'ready', context: contextFixture() };
+    lineupsState = { status: 'idle', lineups: null };
   });
 
   it('muestra los equipos y el resultado mientras carga el contexto', () => {
@@ -110,5 +133,57 @@ describe('MatchModal', () => {
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Cerrar' }));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('no muestra la pestaña de formaciones si no hay datos', () => {
+    lineupsState = { status: 'ready', lineups: { home: [], away: [] } };
+    render(<MatchModal match={matchFixture()} onClose={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Formaciones' })).not.toBeInTheDocument();
+  });
+
+  it('muestra la pestaña de formaciones cuando hay datos', async () => {
+    lineupsState = { status: 'ready', lineups: lineupsFixture() };
+    const user = userEvent.setup();
+    render(<MatchModal match={matchFixture()} onClose={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Formaciones' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Formaciones' }));
+
+    expect(screen.getByText('Marcos Torrillas')).toBeInTheDocument();
+    expect(screen.getByText('Juan Cruz Pérez')).toBeInTheDocument();
+    expect(screen.getByText('Felipe López')).toBeInTheDocument();
+    expect(screen.getByText('Nicolás Sánchez')).toBeInTheDocument();
+  });
+
+  it('muestra la marca de capitán solo donde corresponde', async () => {
+    lineupsState = { status: 'ready', lineups: lineupsFixture() };
+    const user = userEvent.setup();
+    render(<MatchModal match={matchFixture()} onClose={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: 'Formaciones' }));
+
+    const captains = screen.queryAllByTitle('Capitán');
+    expect(captains).toHaveLength(2); // Juan Cruz Pérez y Nicolás Sánchez
+  });
+
+  it('muestra indicador de carga mientras se obtienen las formaciones', async () => {
+    lineupsState = { status: 'loading', lineups: null };
+    const user = userEvent.setup();
+    render(<MatchModal match={matchFixture()} onClose={() => {}} />);
+
+    // La pestaña aparece aunque esté cargando.
+    expect(screen.getByRole('button', { name: 'Formaciones' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Formaciones' }));
+    expect(screen.getByText('Cargando formaciones…')).toBeInTheDocument();
+  });
+
+  it('muestra error de formaciones sin romper la cabecera', async () => {
+    lineupsState = { status: 'error', lineups: null };
+    const user = userEvent.setup();
+    render(<MatchModal match={matchFixture()} onClose={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: 'Formaciones' }));
+    expect(screen.getByText('No se pudieron cargar las formaciones')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Hindú contra La Plata' })).toBeInTheDocument();
   });
 });

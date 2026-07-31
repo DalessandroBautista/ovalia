@@ -4,23 +4,29 @@ import * as repositoryExports from './repositories';
 import {
   ContestClosedError,
   createDraft,
+  createPlayer,
   createUser,
   featuredPublishedArticle,
   findMatchById,
   findMatchesInRange,
   findPastMatchesForTeams,
+  findPlayerByNormalizedName,
+  findPlayersByNormalizedName,
   findTeamByExternalId,
   findUpcomingMatches,
   findUserByEmail,
   findOrganizationBySlug,
   getActiveContest,
+  getLineupsForMatch,
   getStandingsForSeason,
   hasArtifact,
+  hasLineup,
   linkExternalEntity,
   listPublishedArticles,
   rebuildRanking,
   recordArtifact,
   recordAudit,
+  replaceLineup,
   replaceStandings,
   resolveExternalEntity,
   setArticleStatus,
@@ -29,6 +35,8 @@ import {
   upsertOrganization,
   upsertPrediction,
   upsertTeams,
+  upsertPlayer,
+  findPlayerBySlug,
 } from './repositories';
 import { predictions } from './schema';
 import { eq } from 'drizzle-orm';
@@ -585,5 +593,148 @@ describe.skipIf(!available)('repositories', () => {
       targetId: 'abc',
     });
     expect(entry.action).toBe('match.override');
+  });
+
+  // --- Players ---
+
+  it('createPlayer persiste y findPlayerByNormalizedName lo encuentra', async () => {
+    const { db } = handle;
+    const player = await createPlayer(db, {
+      slug: 'juan-cruz-perez',
+      fullName: 'Juan Cruz Pérez',
+      normalizedName: 'cruz juan perez',
+    });
+    expect(player.slug).toBe('juan-cruz-perez');
+    expect(player.fullName).toBe('Juan Cruz Pérez');
+
+    const found = await findPlayerByNormalizedName(db, 'cruz juan perez');
+    expect(found?.id).toBe(player.id);
+  });
+
+  it('upsertPlayer es idempotente por slug', async () => {
+    const { db } = handle;
+    const created = await upsertPlayer(db, {
+      slug: 'marcos-torrillas',
+      fullName: 'Marcos Torrillas',
+      normalizedName: 'marcos torrillas',
+    });
+    const updated = await upsertPlayer(db, {
+      slug: 'marcos-torrillas',
+      fullName: 'Marcos Torrillas (c)',
+      normalizedName: 'marcos torrillas',
+    });
+    expect(updated.id).toBe(created.id);
+    expect(updated.fullName).toBe('Marcos Torrillas (c)');
+    const all = await db.query.players.findMany();
+    expect(all).toHaveLength(1);
+  });
+
+  it('findPlayersByNormalizedName devuelve homónimos', async () => {
+    const { db } = handle;
+    await createPlayer(db, { slug: 'juan-perez-1', fullName: 'Juan Pérez', normalizedName: 'juan perez' });
+    await createPlayer(db, { slug: 'juan-perez-2', fullName: 'Juan Pérez', normalizedName: 'juan perez' });
+    const results = await findPlayersByNormalizedName(db, 'juan perez');
+    expect(results).toHaveLength(2);
+  });
+
+  it('findPlayerBySlug busca por slug', async () => {
+    const { db } = handle;
+    await createPlayer(db, { slug: 'nico-sanchez', fullName: 'Nicolás Sánchez', normalizedName: 'nicolas sanchez' });
+    const found = await findPlayerBySlug(db, 'nico-sanchez');
+    expect(found?.fullName).toBe('Nicolás Sánchez');
+  });
+
+  // --- Lineups ---
+
+  it('getLineupsForMatch devuelve vacío cuando no hay datos', async () => {
+    const { db } = handle;
+    const match = await makeMatch(db, {
+      seasonId: (await makeSeason(db, (await makeCompetition(db)).id)).id,
+      homeTeamId: (await makeTeam(db)).id,
+      awayTeamId: (await makeTeam(db)).id,
+    });
+    const result = await getLineupsForMatch(db, match.id);
+    expect(result.home).toEqual([]);
+    expect(result.away).toEqual([]);
+  });
+
+  it('replaceLineup guarda y getLineupsForMatch recupera entradas', async () => {
+    const { db } = handle;
+    const competition = await makeCompetition(db);
+    const season = await makeSeason(db, competition.id);
+    const homeTeam = await makeTeam(db, { slug: 'home-fc', name: 'Home FC', shortName: 'HOM' });
+    const awayTeam = await makeTeam(db, { slug: 'away-fc', name: 'Away FC', shortName: 'AWY' });
+    const match = await makeMatch(db, { seasonId: season.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id });
+
+    const player = await createPlayer(db, {
+      slug: 'marcos-torrillas',
+      fullName: 'Marcos Torrillas',
+      normalizedName: 'marcos torrillas',
+    });
+
+    await replaceLineup(db, {
+      matchId: match.id,
+      teamId: homeTeam.id,
+      entries: [
+        { playerId: player.id, shirtNumber: 1, isStarter: true, isCaptain: true },
+      ],
+    });
+
+    const result = await getLineupsForMatch(db, match.id);
+    expect(result.home).toHaveLength(1);
+    expect(result.home[0]!.shirtNumber).toBe(1);
+    expect(result.home[0]!.isCaptain).toBe(true);
+    expect(result.home[0]!.player.fullName).toBe('Marcos Torrillas');
+    expect(result.away).toHaveLength(0);
+  });
+
+  it('replaceLineup reemplaza entradas previas del mismo equipo', async () => {
+    const { db } = handle;
+    const competition = await makeCompetition(db);
+    const season = await makeSeason(db, competition.id);
+    const homeTeam = await makeTeam(db, { slug: 'home', name: 'Home', shortName: 'HOM' });
+    const awayTeam = await makeTeam(db, { slug: 'away', name: 'Away', shortName: 'AWY' });
+    const match = await makeMatch(db, { seasonId: season.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id });
+
+    const p1 = await createPlayer(db, { slug: 'p1', fullName: 'Player 1', normalizedName: 'player 1' });
+    const p2 = await createPlayer(db, { slug: 'p2', fullName: 'Player 2', normalizedName: 'player 2' });
+
+    // Primera carga
+    await replaceLineup(db, {
+      matchId: match.id,
+      teamId: homeTeam.id,
+      entries: [{ playerId: p1.id, shirtNumber: 1, isStarter: true, isCaptain: true }],
+    });
+
+    // Reemplazo
+    await replaceLineup(db, {
+      matchId: match.id,
+      teamId: homeTeam.id,
+      entries: [{ playerId: p2.id, shirtNumber: 1, isStarter: true, isCaptain: false }],
+    });
+
+    const result = await getLineupsForMatch(db, match.id);
+    expect(result.home).toHaveLength(1);
+    expect(result.home[0]!.player.id).toBe(p2.id);
+  });
+
+  it('hasLineup detecta si hay formaciones cargadas', async () => {
+    const { db } = handle;
+    const competition = await makeCompetition(db);
+    const season = await makeSeason(db, competition.id);
+    const homeTeam = await makeTeam(db, { slug: 'h', name: 'H', shortName: 'H' });
+    const awayTeam = await makeTeam(db, { slug: 'a', name: 'A', shortName: 'A' });
+    const match = await makeMatch(db, { seasonId: season.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id });
+
+    expect(await hasLineup(db, match.id)).toBe(false);
+
+    const player = await createPlayer(db, { slug: 'p', fullName: 'P', normalizedName: 'p' });
+    await replaceLineup(db, {
+      matchId: match.id,
+      teamId: homeTeam.id,
+      entries: [{ playerId: player.id, shirtNumber: 10, isStarter: true, isCaptain: false }],
+    });
+
+    expect(await hasLineup(db, match.id)).toBe(true);
   });
 });

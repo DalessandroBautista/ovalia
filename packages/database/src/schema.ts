@@ -422,6 +422,35 @@ export const feedback = pgTable('feedback', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+// --- Jugadores y formaciones (Tramo C) ---
+
+export const players = pgTable('players', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull(),
+  fullName: text('full_name').notNull(),
+  normalizedName: text('normalized_name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  uniqueIndex('players_slug_unique').on(table.slug),
+  index('players_normalized_idx').on(table.normalizedName)
+]);
+
+export const lineupEntries = pgTable('lineup_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  matchId: uuid('match_id').notNull().references(() => matches.id),
+  teamId: uuid('team_id').notNull().references(() => teams.id),
+  playerId: uuid('player_id').notNull().references(() => players.id),
+  shirtNumber: integer('shirt_number').notNull(),
+  isStarter: boolean('is_starter').notNull(),
+  isCaptain: boolean('is_captain').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  uniqueIndex('lineup_match_team_shirt_unique').on(table.matchId, table.teamId, table.shirtNumber),
+  index('lineup_match_team_idx').on(table.matchId, table.teamId),
+  index('lineup_player_idx').on(table.playerId)
+]);
+
 // --- Relations ---
 
 export const competitionsRelations = relations(competitions, ({ one, many }) => ({
