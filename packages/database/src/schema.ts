@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   uuid
 } from 'drizzle-orm/pg-core';
+import type { CareerSummary, SeasonRecord } from '@ovalia/domain';
 
 export const matchStatus = pgEnum('match_status', ['scheduled', 'live', 'halftime', 'final', 'postponed', 'cancelled']);
 export const articleStatus = pgEnum('article_status', ['draft', 'review', 'published', 'archived']);
@@ -449,6 +450,27 @@ export const lineupEntries = pgTable('lineup_entries', {
   uniqueIndex('lineup_match_team_shirt_unique').on(table.matchId, table.teamId, table.shirtNumber),
   index('lineup_match_team_idx').on(table.matchId, table.teamId),
   index('lineup_player_idx').on(table.playerId)
+]);
+
+// --- Simulador de carrera (publicaciones al ranking) ---
+
+export const careerEntries = pgTable('career_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  score: integer('score').notNull(),
+  displayName: text('display_name').notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  summary: jsonb('summary').notNull().$type<CareerSummary>(),
+  history: jsonb('history').notNull().$type<SeasonRecord[]>(),
+  surname: text('surname').notNull(),
+  position: text('position').notNull(),
+  clubSlug: text('club_slug').notNull(),
+  seed: integer('seed').notNull(),
+  decisions: jsonb('decisions').notNull().$type<number[]>(),
+  originKey: text('origin_key'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  index('career_entries_score_idx').on(table.score),
+  index('career_entries_origin_idx').on(table.originKey, table.createdAt),
 ]);
 
 // --- Relations ---

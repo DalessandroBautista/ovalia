@@ -12,3 +12,4 @@ export * from './jobs-repository.js';
 export * from './analytics-repository.js';
 export * from './players-repository.js';
 export * from './lineups-repository.js';
+export * from './career-repository.js';
