@@ -368,12 +368,19 @@ describe.skipIf(!available)('API real', () => {
   it('/v1/articles solo expone publicados', async () => {
     const { db } = handle;
     await createDraft(db, { slug: 'borrador', title: 'Borrador', summary: 's', body: 'b' });
-    const pub = await createDraft(db, { slug: 'publicada', title: 'Publicada', summary: 's', body: 'cuerpo' });
+    const pub = await createDraft(db, {
+      slug: 'publicada',
+      title: 'Publicada',
+      summary: 's',
+      body: 'cuerpo',
+      coverImageUrl: 'https://images.example/publicada.webp',
+    });
     await setArticleStatus(db, pub.id, 'published');
     const app = makeAppFor();
     const list = await app.inject({ method: 'GET', url: '/v1/articles' });
     expect(list.json().articles).toHaveLength(1);
     expect(list.json().articles[0].slug).toBe('publicada');
+    expect(list.json().articles[0].coverImageUrl).toBe('https://images.example/publicada.webp');
     const detail = await app.inject({ method: 'GET', url: '/v1/articles/publicada' });
     expect(detail.statusCode).toBe(200);
     expect(detail.json().article.body).toBe('cuerpo');
@@ -469,6 +476,26 @@ describe.skipIf(!available)('API real', () => {
       headers: { origin: 'http://localhost:3000', 'access-control-request-method': 'GET' },
     });
     expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+  });
+
+  it('permite CORS a ambos dominios de producción configurados', async () => {
+    const app = buildApp(
+      { logger: false },
+      {
+        db: handle.db,
+        webOrigins: ['https://ovalia.com.ar', 'https://www.ovalia.com.ar'],
+      },
+    );
+    apps.push(app);
+
+    for (const origin of ['https://ovalia.com.ar', 'https://www.ovalia.com.ar']) {
+      const response = await app.inject({
+        method: 'OPTIONS',
+        url: '/v1/home',
+        headers: { origin, 'access-control-request-method': 'GET' },
+      });
+      expect(response.headers['access-control-allow-origin']).toBe(origin);
+    }
   });
 
   // --- Lineups API ---

@@ -208,6 +208,7 @@ export interface AdminArticle {
   slug: string;
   title: string;
   summary: string;
+  coverImageUrl: string | null;
   status: 'draft' | 'review';
   aiGenerated: boolean;
   createdAt: string;
@@ -258,7 +259,7 @@ export function fetchAdminArticle(token: string, id: string) {
 export function updateAdminArticle(
   token: string,
   id: string,
-  content: { title: string; summary: string; body: string },
+  content: { title: string; summary: string; body: string; coverImageUrl: string | null },
 ) {
   return apiFetch<{ article: AdminArticleDetail }>(`/admin/articles/${encodeURIComponent(id)}`, {
     method: 'PATCH',

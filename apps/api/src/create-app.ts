@@ -116,6 +116,7 @@ export interface AppDependencies {
   db: Database;
   liveProvider?: LiveProvider;
   sendAuthEmail?: (message: AuthEmailMessage) => Promise<void>;
+  webOrigins?: string[];
 }
 
 export interface AuthEmailMessage {
@@ -210,6 +211,11 @@ function serializeCareerEntryDetail(row: CareerEntryRow) {
 export function configureApp(app: FastifyInstance, dependencies: AppDependencies) {
   const { db } = dependencies;
   const sendAuthEmail = dependencies.sendAuthEmail ?? (async () => undefined);
+  const webOrigins = dependencies.webOrigins
+    ?? (process.env.WEB_ORIGIN ?? 'http://localhost:3000')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
   const liveFeed = createLiveFeedService(
     dependencies.liveProvider ?? createConfiguredLiveProvider(),
@@ -218,7 +224,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
 
   void app.register(helmet);
   void app.register(cors, {
-    origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((o) => o.trim()),
+    origin: webOrigins,
     credentials: true,
   });
   void app.register(rateLimit, {
@@ -230,11 +236,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
     const origin = request.headers.origin;
     if (!origin) return;
-    const allowedOrigins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-    if (!allowedOrigins.includes(origin)) {
+    if (!webOrigins.includes(origin)) {
       await reply.code(403).send({ error: 'csrf_origin_rejected' });
     }
   });
@@ -627,6 +629,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         slug: a.slug,
         title: a.title,
         summary: a.summary,
+        coverImageUrl: a.coverImageUrl,
         publishedAt: a.publishedAt?.toISOString() ?? null,
       })),
     };
@@ -642,6 +645,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         title: article.title,
         summary: article.summary,
         body: article.body,
+        coverImageUrl: article.coverImageUrl,
         publishedAt: article.publishedAt?.toISOString() ?? null,
       },
     };
@@ -667,7 +671,13 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         ? { slug: contest.slug, name: contest.name, round: contest.round, closesAt: contest.closesAt?.toISOString() ?? null }
         : null,
       featuredArticle: article
-        ? { slug: article.slug, title: article.title, summary: article.summary, publishedAt: article.publishedAt?.toISOString() ?? null }
+        ? {
+            slug: article.slug,
+            title: article.title,
+            summary: article.summary,
+            coverImageUrl: article.coverImageUrl,
+            publishedAt: article.publishedAt?.toISOString() ?? null,
+          }
         : null,
     };
   });
@@ -813,6 +823,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         slug: article.slug,
         title: article.title,
         summary: article.summary,
+        coverImageUrl: article.coverImageUrl,
         status: article.status,
         aiGenerated: article.aiGenerated,
         createdAt: article.createdAt.toISOString(),
@@ -832,6 +843,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         title: article.title,
         summary: article.summary,
         body: article.body,
+        coverImageUrl: article.coverImageUrl,
         status: article.status,
         sourceData: article.sourceData,
         aiGenerated: article.aiGenerated,
@@ -854,7 +866,17 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       actorId: actor.id,
       metadata: { via: actor.via },
     });
-    return { article: { id: article.id, slug: article.slug, title: article.title, summary: article.summary, body: article.body, status: article.status } };
+    return {
+      article: {
+        id: article.id,
+        slug: article.slug,
+        title: article.title,
+        summary: article.summary,
+        body: article.body,
+        coverImageUrl: article.coverImageUrl,
+        status: article.status,
+      },
+    };
   });
 
   app.post('/admin/articles/:id/status', async (request, reply) => {

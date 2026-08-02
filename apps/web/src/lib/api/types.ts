@@ -123,6 +123,7 @@ export interface ApiArticleSummary {
   slug: string;
   title: string;
   summary: string;
+  coverImageUrl: string | null;
   publishedAt: string | null;
 }
 
@@ -138,7 +139,7 @@ export interface ApiHomeResponse {
   generatedAt: string;
   stats: { competitions: number; clubs: number; live: number };
   contest: { slug: string; name: string; round: string | null; closesAt: string | null } | null;
-  featuredArticle: { slug: string; title: string; summary: string; publishedAt: string | null } | null;
+  featuredArticle: ApiArticleSummary | null;
 }
 
 export interface ApiUser {

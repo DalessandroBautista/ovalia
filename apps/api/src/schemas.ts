@@ -85,6 +85,7 @@ export const adminArticleContentSchema = z.object({
   title: z.string().trim().min(8).max(180),
   summary: z.string().trim().min(12).max(500),
   body: z.string().trim().min(20).max(50_000),
+  coverImageUrl: z.string().trim().url().max(2_048).nullable().optional(),
 });
 
 export const competitionMatchesQuerySchema = z.object({

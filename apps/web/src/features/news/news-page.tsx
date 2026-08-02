@@ -40,6 +40,7 @@ export function NewsPage() {
         <div className="article-grid">
           {articles.map((article) => (
             <article key={article.slug}>
+              {article.coverImageUrl ? <img className="article-grid__cover" src={article.coverImageUrl} alt="" /> : null}
               <h2>{article.title}</h2>
               <p>{article.summary}</p>
               <a href={`/noticias/${article.slug}`}>Leer nota →</a>

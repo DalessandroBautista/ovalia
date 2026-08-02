@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiFetch, fetchActiveContest, fetchMatchById, fetchMatches, login, saveContestPredictions } from './client';
+import { ApiError, apiFetch, fetchActiveContest, fetchMatchById, fetchMatches, login, saveContestPredictions, updateAdminArticle } from './client';
 import * as apiClient from './client';
 
 const originalFetch = globalThis.fetch;
@@ -80,6 +80,22 @@ describe('api client', () => {
     expect(url).toContain('from=');
     expect(url).toContain('competition=top-14-superior');
     expect(url).toContain('limit=50');
+  });
+
+  it('guarda la imagen de portada junto con el contenido editorial', async () => {
+    const spy = mockFetch({ ok: true, json: { article: {} } });
+
+    await updateAdminArticle('editor-token', 'article-1', {
+      title: 'La final del Top 14',
+      summary: 'Todo lo que dejó la definición.',
+      body: 'Crónica completa.',
+      coverImageUrl: 'https://images.example.test/final.webp',
+    });
+
+    const options = (spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    expect(JSON.parse(String(options.body))).toMatchObject({
+      coverImageUrl: 'https://images.example.test/final.webp',
+    });
   });
 
   it('lanza ApiError con el status en respuestas no-ok', async () => {

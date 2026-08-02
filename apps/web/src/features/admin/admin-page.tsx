@@ -67,6 +67,7 @@ export function AdminPage() {
         title: editing.title,
         summary: editing.summary,
         body: editing.body,
+        coverImageUrl: editing.coverImageUrl,
       });
       setEditing(result.article);
       setEditStatus('Guardado.');
@@ -152,6 +153,8 @@ export function AdminPage() {
                 <div className="article-editor__header"><h2>Editar artículo</h2><button type="button" onClick={() => setEditing(null)}>Cerrar</button></div>
                 <label>Título<input value={editing.title} onChange={(event) => setEditing({ ...editing, title: event.target.value })} /></label>
                 <label>Resumen<textarea rows={3} value={editing.summary} onChange={(event) => setEditing({ ...editing, summary: event.target.value })} /></label>
+                <label>Imagen de portada (URL)<input type="url" placeholder="https://…" value={editing.coverImageUrl ?? ''} onChange={(event) => setEditing({ ...editing, coverImageUrl: event.target.value || null })} /></label>
+                {editing.coverImageUrl ? <img className="article-editor__cover" src={editing.coverImageUrl} alt="Vista previa de la portada" /> : null}
                 <label>Cuerpo<textarea rows={12} value={editing.body} onChange={(event) => setEditing({ ...editing, body: event.target.value })} /></label>
                 <button className="primary-action" type="button" onClick={() => void saveArticle()}>Guardar cambios</button>
                 {editStatus ? <p className="portal-live-status">{editStatus}</p> : null}

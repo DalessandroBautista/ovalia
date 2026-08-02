@@ -30,4 +30,16 @@ describe.skipIf(!available)('article workflow', () => {
     expect(published?.status).toBe('published');
     expect(published?.publishedAt).toBeInstanceOf(Date);
   });
+
+  it('conserva una imagen de portada opcional', async () => {
+    const draft = await createDraft(handle.db, {
+      slug: 'nota-con-imagen',
+      title: 'Una nota con imagen de portada',
+      summary: 'Un resumen editorial verificable.',
+      body: 'Un cuerpo editorial verificable y suficientemente largo.',
+      coverImageUrl: 'https://images.example/partido.webp',
+    });
+
+    expect(draft.coverImageUrl).toBe('https://images.example/partido.webp');
+  });
 });

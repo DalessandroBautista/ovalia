@@ -87,9 +87,15 @@ describe.skipIf(!available)('editorial routes', () => {
       method: 'PATCH',
       url: `/admin/articles/${draft.id}`,
       headers,
-      payload: { title: 'Título corregido', summary: 'Resumen corregido suficientemente largo.', body: 'Cuerpo corregido y revisado para publicar.' },
+      payload: {
+        title: 'Título corregido',
+        summary: 'Resumen corregido suficientemente largo.',
+        body: 'Cuerpo corregido y revisado para publicar.',
+        coverImageUrl: 'https://images.example/cronica.webp',
+      },
     });
     expect(updated.statusCode).toBe(200);
     expect(updated.json().article.title).toBe('Título corregido');
+    expect(updated.json().article.coverImageUrl).toBe('https://images.example/cronica.webp');
   });
 });

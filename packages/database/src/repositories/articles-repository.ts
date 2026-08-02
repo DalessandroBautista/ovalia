@@ -62,6 +62,7 @@ export async function createDraft(
     title: string;
     summary: string;
     body: string;
+    coverImageUrl?: string | null;
     locale?: string;
     authorId?: string | null;
     aiGenerated?: boolean;
@@ -76,6 +77,7 @@ export async function createDraft(
       title: input.title,
       summary: input.summary,
       body: input.body,
+      coverImageUrl: input.coverImageUrl ?? null,
       locale: input.locale ?? 'es',
       status: input.status ?? 'draft',
       authorId: input.authorId ?? null,
@@ -120,7 +122,7 @@ export async function transitionArticleStatus(db: Database, id: string, status: 
 export async function updateArticleContent(
   db: Database,
   id: string,
-  input: { title: string; summary: string; body: string },
+  input: { title: string; summary: string; body: string; coverImageUrl?: string | null },
 ) {
   const [row] = await db
     .update(articles)

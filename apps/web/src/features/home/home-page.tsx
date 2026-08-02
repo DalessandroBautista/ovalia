@@ -1,7 +1,7 @@
 'use client';
 
 import { findTeamBadge } from '@ovalia/domain';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DiamondIcon, HomeIcon, RugbyBallIcon, SearchIcon, TargetIcon, UserIcon, ClockIcon } from '../../components/icons';
 import { LiveRailView, type LiveFeedPayload, type UpcomingRailMatch, useLiveFeed, formatUpcomingTime } from '../../components/live-rail';
@@ -12,6 +12,7 @@ import {
   filterMatchesByDate,
   formatMatchTime,
   groupMatchesByCompetition,
+  mapApiMatch,
   matchScore,
   shiftDateKey,
   sortAgendaGroups,
@@ -21,7 +22,8 @@ import { useAgendaMatches } from '../matches/use-agenda';
 import { useUpcomingMatches } from '../matches/use-upcoming';
 import { useCompetitions } from '../tournaments/use-tournaments';
 import { useCountdown, useHome } from './use-home';
-import type { ApiHomeResponse, ApiMatch } from '../../lib/api/types';
+import { useHomeContent } from './use-home-content';
+import type { ApiArticleSummary, ApiHomeResponse, ApiMatch } from '../../lib/api/types';
 
 export function BallMark() {
   return (
@@ -196,7 +198,20 @@ function PillScroller({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Agenda() {
+export function AgendaFallback({ matches }: { matches: ApiMatch[] }) {
+  if (matches.length === 0) return null;
+  return (
+    <div className="agenda-fallback">
+      <div className="agenda-fallback__heading">
+        <div><p className="eyebrow">LO QUE VIENE</p><h3>Próximos partidos</h3></div>
+        <span>Agenda verificada</span>
+      </div>
+      <div>{matches.slice(0, 3).map((match) => <MatchRow key={match.id} match={mapApiMatch(match)} />)}</div>
+    </div>
+  );
+}
+
+function Agenda({ upcoming = [] }: { upcoming?: ApiMatch[] }) {
   const [selectedDate, setSelectedDate] = useState(() => argentinaDateKey());
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
@@ -223,7 +238,8 @@ function Agenda() {
       <DatePicker selectedDate={selectedDate} onSelect={setSelectedDate} />
       {agenda.status === 'loading' ? <p className="agenda-status">Cargando la agenda…</p> : null}
       {agenda.status === 'error' ? <p className="agenda-status agenda-status--error">No pudimos cargar la agenda. Intentá nuevamente en unos minutos.</p> : null}
-      {agenda.status === 'ready' && groups.length === 0 ? <p className="agenda-status">No hay partidos programados para esta fecha.</p> : null}
+      {agenda.status === 'ready' && groups.length === 0 && upcoming.length === 0 ? <p className="agenda-status">No hay partidos programados para esta fecha.</p> : null}
+      {agenda.status === 'ready' && groups.length === 0 ? <AgendaFallback matches={upcoming} /> : null}
       {groups.length > 1 ? (
         <div className="agenda-match-layout">
           <PillScroller>
@@ -288,38 +304,86 @@ function ProdeCard({ home }: { home: ApiHomeResponse | null }) {
   );
 }
 
-function NewsCard({ home }: { home: ApiHomeResponse | null }) {
-  const article = home?.featuredArticle ?? null;
-  if (!article) {
-    return (
-      <section className="news-card" id="noticias">
-        <div className="news-card__body">
-          <p className="eyebrow">NOTICIAS</p>
-          <h3>Sin notas publicadas todavía</h3>
-          <p>El equipo editorial está preparando las primeras historias.</p>
-        </div>
-      </section>
-    );
-  }
-  return (
-    <section className="news-card" id="noticias">
-      <div className="news-card__label">ANÁLISIS</div>
-      <div className="news-card__body">
-        <p className="eyebrow">LA PIZARRA</p>
-        <h3>{article.title}</h3>
-        <p>{article.summary}</p>
-        <a href={`/noticias/${article.slug}`}>Leer nota →</a>
-      </div>
-    </section>
-  );
-}
-
 function Sidebar({ home }: { home: ApiHomeResponse | null }) {
   return (
     <aside className="sidebar">
       <ProdeCard home={home} />
-      <NewsCard home={home} />
     </aside>
+  );
+}
+
+function ResultStory({ match }: { match: ApiMatch }) {
+  return (
+    <a className="story-card story-card--result" href={`/partidos/${match.id}`}>
+      <div className="story-card__visual">
+        <div><TeamBadge name={match.home.name} shortCode={match.home.shortName} badgeUrl={match.home.badgeUrl ?? undefined} /><span>{match.home.shortName}</span></div>
+        <strong>{match.homeScore ?? 0} — {match.awayScore ?? 0}</strong>
+        <div><TeamBadge name={match.away.name} shortCode={match.away.shortName} badgeUrl={match.away.badgeUrl ?? undefined} /><span>{match.away.shortName}</span></div>
+      </div>
+      <div className="story-card__body">
+        <small>{match.competition.name} · {match.round}</small>
+        <h3>{match.home.name} vs. {match.away.name}</h3>
+        <p>Resultado final verificado. Entrá al partido para ver todos los datos.</p>
+        <span>Ver partido →</span>
+      </div>
+    </a>
+  );
+}
+
+function ArticleStory({ article }: { article: ApiArticleSummary }) {
+  return (
+    <a className="story-card" href={`/noticias/${article.slug}`}>
+      {article.coverImageUrl ? (
+        <img className="story-card__image" src={article.coverImageUrl} alt="" />
+      ) : (
+        <div className="story-card__image story-card__image--placeholder"><BallMark /></div>
+      )}
+      <div className="story-card__body">
+        <small>OVALIA EDITORIAL</small>
+        <h3>{article.title}</h3>
+        <p>{article.summary}</p>
+        <span>Leer nota →</span>
+      </div>
+    </a>
+  );
+}
+
+export function LatestNewsCarousel({ articles, fallbackMatches }: { articles: ApiArticleSummary[]; fallbackMatches: ApiMatch[] }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const hasArticles = articles.length > 0;
+  const hasContent = hasArticles || fallbackMatches.length > 0;
+  const scroll = (direction: -1 | 1) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollBy({ left: direction * Math.max(280, track.clientWidth * 0.72), behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (!hasContent || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => scroll(1), 6500);
+    return () => window.clearInterval(timer);
+  }, [hasContent]);
+
+  if (!hasContent) return null;
+  return (
+    <section className="latest-stories" id="noticias" aria-roledescription="carrusel">
+      <div className="section-heading latest-stories__heading">
+        <div>
+          <p className="eyebrow">{hasArticles ? 'OVALIA EDITORIAL' : 'MARCADOR'}</p>
+          <h2>{hasArticles ? 'Últimas noticias' : 'Últimos resultados'}</h2>
+        </div>
+        <div className="latest-stories__controls">
+          <button type="button" aria-label="Noticia anterior" onClick={() => scroll(-1)}>←</button>
+          <button type="button" aria-label="Noticia siguiente" onClick={() => scroll(1)}>→</button>
+        </div>
+      </div>
+      {!hasArticles ? <p className="latest-stories__context">Mientras el equipo prepara nuevas notas, estos son los resultados verificados más recientes.</p> : null}
+      <div className="latest-stories__track" ref={trackRef} aria-live="polite">
+        {hasArticles
+          ? articles.map((article) => <ArticleStory key={article.slug} article={article} />)
+          : fallbackMatches.map((match) => <ResultStory key={match.id} match={match} />)}
+      </div>
+    </section>
   );
 }
 
@@ -340,6 +404,7 @@ export function HomePage() {
   const liveFeed = useLiveFeed();
   const home = useHome();
   const upcoming = useUpcomingMatches(5);
+  const content = useHomeContent();
   const upcomingRail = toUpcomingRailMatches(upcoming.matches);
   return (
     <>
@@ -349,9 +414,10 @@ export function HomePage() {
         <main>
           <Hero feed={liveFeed} home={home.data} upcoming={upcomingRail} />
           <div className="content-grid">
-            <Agenda />
+            <Agenda upcoming={upcoming.matches} />
             <Sidebar home={home.data} />
           </div>
+          <LatestNewsCarousel articles={content.articles} fallbackMatches={content.recentResults} />
         </main>
         <footer className="site-footer"><span><BallMark /> OVALIA</span><p>El rugby entero, en un solo pulso.</p><small>© {new Date().getFullYear()} Ovalia</small></footer>
       </div>

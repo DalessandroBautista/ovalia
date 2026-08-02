@@ -148,6 +148,7 @@ export const articles = pgTable('articles', {
   title: text('title').notNull(),
   summary: text('summary').notNull(),
   body: text('body').notNull(),
+  coverImageUrl: text('cover_image_url'),
   locale: text('locale').notNull().default('es'),
   status: articleStatus('status').notNull().default('draft'),
   authorId: uuid('author_id').references(() => users.id),

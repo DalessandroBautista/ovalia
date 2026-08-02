@@ -22,7 +22,10 @@ const { db, pool } = createDatabase(environment.databaseUrl, {
   idleTimeoutMillis: 30_000,
 });
 const app = Fastify({ logger: true, genReqId: () => crypto.randomUUID() });
-configureApp(app, { db });
+configureApp(app, {
+  db,
+  webOrigins: environment.webOrigin.split(',').map((origin) => origin.trim()).filter(Boolean),
+});
 
 const stop = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');
