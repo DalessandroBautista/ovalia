@@ -37,3 +37,11 @@ export async function createUser(db: Database, input: UserInput) {
 export async function setUserRole(db: Database, id: string, role: UserRole) {
   await db.update(users).set({ role }).where(eq(users.id, id));
 }
+
+export async function updateUserPassword(db: Database, id: string, passwordHash: string) {
+  await db.update(users).set({ passwordHash }).where(eq(users.id, id));
+}
+
+export async function markUserEmailVerified(db: Database, email: string) {
+  await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.email, email));
+}

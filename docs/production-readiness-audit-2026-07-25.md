@@ -1,4 +1,8 @@
-# Auditoría de preparación para producción — 25/07/2026
+# Auditoría histórica de preparación para producción — 25/07/2026
+
+> Este documento describe el estado anterior a la consolidación de autenticación,
+> prode persistente y flujo editorial. No usarlo como checklist vigente; consultar
+> `docs/production-runbook.md` y los borradores de privacidad/licencias.
 
 ## Veredicto
 

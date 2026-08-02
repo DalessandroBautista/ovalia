@@ -24,6 +24,8 @@ import { useCompetitions, useOrganizations, useTournament } from '../tournaments
 import { RugbyExplorer } from '../tournaments/rugby-explorer';
 import { buildRugbyExplorer, filterMatchesByFamily, splitCompetitionName } from '../tournaments/rugby-explorer-data';
 import { track } from '../../lib/analytics';
+import { ApiError, fetchActiveContest, fetchContestPredictions, fetchContestRanking, saveContestPredictions } from '../../lib/api/client';
+import type { ApiContest } from '../../lib/api/types';
 
 export function PortalHeader() {
   return (
@@ -341,9 +343,76 @@ export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}
 }
 
 export function PredictionPage() {
+  const [contest, setContest] = useState<ApiContest | null>(null);
+  const [scores, setScores] = useState<Record<string, { homeScore: number; awayScore: number }>>({});
+  const [ranking, setRanking] = useState<Array<{ position: number | null; points: number; user: { displayName: string } | null }>>([]);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error' | 'saving' | 'saved'>('loading');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchActiveContest({ signal: controller.signal })
+      .then(async ({ contest: active }) => {
+        setContest(active);
+        const rankingResponse = await fetchContestRanking(active.slug, { signal: controller.signal });
+        setRanking(rankingResponse.ranking);
+        const initial = Object.fromEntries(active.matches.map(({ match }) => [match.id, { homeScore: 0, awayScore: 0 }]));
+        try {
+          const mine = await fetchContestPredictions(active.slug, { signal: controller.signal });
+          for (const prediction of mine.predictions) initial[prediction.matchId] = { homeScore: prediction.homeScore, awayScore: prediction.awayScore };
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 401)) throw error;
+        }
+        setScores(initial);
+        setStatus('ready');
+      })
+      .catch((error) => {
+        if (error instanceof ApiError && error.status === 404) setStatus('empty');
+        else if (!(error instanceof DOMException && error.name === 'AbortError')) setStatus('error');
+      });
+    return () => controller.abort();
+  }, []);
+
+  const save = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!contest) return;
+    setStatus('saving');
+    setMessage('');
+    try {
+      await saveContestPredictions(contest.slug, contest.matches.map(({ match }) => ({ matchId: match.id, ...scores[match.id]! })));
+      setMessage('Pronósticos guardados.');
+      setStatus('saved');
+    } catch (error) {
+      setMessage(error instanceof ApiError && error.status === 401 ? 'Ingresá para guardar tus pronósticos.' : 'No pudimos guardar los pronósticos.');
+      setStatus('ready');
+    }
+  };
+
   return (
     <Frame eyebrow="JUGÁ LA FECHA" title="Prode Ovalia" intro="Pronosticá resultados, sumá puntos y competí en rankings generales o privados.">
-      <section className="prediction-panel"><div className="prediction-heading"><div><small>URBA TOP 14</small><h2>Fecha 12</h2></div><span>Cierra el sábado · 15:25</span></div>{[['SIC','Hindú'],['CASI','Newman'],['Alumni','CUBA']].map(([home,away]) => <div className="prediction-row" key={home}><b>{home}</b><label><span>Local</span><input aria-label={`Goles de ${home}`} inputMode="numeric" defaultValue="0" /></label><em>—</em><label><span>Visitante</span><input aria-label={`Goles de ${away}`} inputMode="numeric" defaultValue="0" /></label><b>{away}</b></div>)}<button className="primary-action" type="button">Guardar pronósticos</button><p className="fine-print">5 pts resultado exacto · 3 pts diferencia exacta · 1 pt ganador</p></section>
+      <section className="prediction-panel">
+        {status === 'loading' ? <p className="portal-live-status">Cargando el concurso…</p> : null}
+        {status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar el concurso.</p> : null}
+        {status === 'empty' ? <p className="portal-live-status">No hay un concurso abierto en este momento.</p> : null}
+        {contest ? <>
+          <div className="prediction-heading"><div><small>{contest.name}</small><h2>{contest.round ?? 'Próxima fecha'}</h2></div><span>{contest.closesAt ? `Cierra ${new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(contest.closesAt))}` : 'Cierre pendiente'}</span></div>
+          <form onSubmit={save}>
+            {contest.matches.map(({ match }) => {
+              const score = scores[match.id] ?? { homeScore: 0, awayScore: 0 };
+              return <div className="prediction-row" key={match.id}><b>{match.home.name}</b><label><span>Local</span><input aria-label={`Goles de ${match.home.name}`} inputMode="numeric" type="number" min="0" max="100" value={score.homeScore} onChange={(event) => setScores((current) => ({ ...current, [match.id]: { ...score, homeScore: Number(event.target.value) } }))} /></label><em>—</em><label><span>Visitante</span><input aria-label={`Goles de ${match.away.name}`} inputMode="numeric" type="number" min="0" max="100" value={score.awayScore} onChange={(event) => setScores((current) => ({ ...current, [match.id]: { ...score, awayScore: Number(event.target.value) } }))} /></label><b>{match.away.name}</b></div>;
+            })}
+            <button className="primary-action" type="submit" disabled={status === 'saving'}>{status === 'saving' ? 'Guardando…' : 'Guardar pronósticos'}</button>
+          </form>
+          {message ? <p className="fine-print">{message}</p> : null}
+          <p className="fine-print">5 pts resultado exacto · 3 pts diferencia exacta · 1 pt ganador</p>
+        </> : null}
+      </section>
+      {ranking.length > 0 ? (
+        <section className="table-card prediction-ranking">
+          <div className="prediction-heading"><div><small>RANKING</small><h2>Cómo viene la fecha</h2></div></div>
+          <ol>{ranking.slice(0, 10).map((entry) => <li key={`${entry.position}-${entry.user?.displayName}`}><span>{entry.position ?? '—'}</span><b>{entry.user?.displayName ?? 'Jugador'}</b><strong>{entry.points} pts</strong></li>)}</ol>
+        </section>
+      ) : null}
     </Frame>
   );
 }

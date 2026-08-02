@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiFetch, fetchMatchById, fetchMatches } from './client';
+import { ApiError, apiFetch, fetchActiveContest, fetchMatchById, fetchMatches, login, saveContestPredictions } from './client';
 import * as apiClient from './client';
 
 const originalFetch = globalThis.fetch;
@@ -21,6 +21,21 @@ function mockFetch(response: { ok: boolean; status?: number; json?: unknown }) {
 }
 
 describe('api client', () => {
+  it('inicia sesión usando cookies y no expone el token al cliente', async () => {
+    const spy = mockFetch({ ok: true, json: { user: { id: 'u', email: 'u@example.test', displayName: 'U', role: 'fan', locale: 'es' } } });
+    await login('u@example.test', 'clave-segura');
+    expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toContain('/auth/login');
+    expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toMatchObject({ credentials: 'include', method: 'POST' });
+  });
+
+  it('carga el concurso activo y guarda el lote de pronósticos', async () => {
+    const spy = mockFetch({ ok: true, json: { contest: { slug: 'fecha-1', matches: [] } } });
+    await fetchActiveContest();
+    expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toContain('/v1/contests/active');
+    await saveContestPredictions('fecha-1', [{ matchId: 'm', homeScore: 20, awayScore: 10 }]);
+    expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[1]![1]).toMatchObject({ credentials: 'include', method: 'PUT' });
+  });
+
   it('pide el contexto del partido con el identificador escapado', async () => {
     const fetchMatchContext = (apiClient as typeof apiClient & {
       fetchMatchContext?: (id: string) => Promise<unknown>;

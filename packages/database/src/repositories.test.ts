@@ -17,6 +17,8 @@ import {
   findUserByEmail,
   findOrganizationBySlug,
   getActiveContest,
+  getContestBySlug,
+  getContestMatches,
   getLineupsForMatch,
   getStandingsForSeason,
   hasArtifact,
@@ -24,6 +26,7 @@ import {
   linkExternalEntity,
   listPublishedArticles,
   rebuildRanking,
+  scoreClosedContests,
   recordArtifact,
   recordAudit,
   replaceLineup,
@@ -37,7 +40,7 @@ import {
   upsertTeams,
   findPlayerBySlug,
 } from './repositories';
-import { predictions } from './schema';
+import { contestMatches, contestRankings, predictionContests, predictions } from './schema';
 import { eq } from 'drizzle-orm';
 import {
   makeCompetition,
@@ -541,6 +544,20 @@ describe.skipIf(!available)('repositories', () => {
     expect(active?.id).toBe(soon.id);
   });
 
+  it('getContestBySlug expone el concurso y sus partidos en orden editorial', async () => {
+    const { db } = handle;
+    const competition = await makeCompetition(db);
+    const season = await makeSeason(db, competition.id);
+    const home = await makeTeam(db);
+    const away = await makeTeam(db);
+    const match = await makeMatch(db, { seasonId: season.id, homeTeamId: home.id, awayTeamId: away.id });
+    const contest = await makeContest(db, { slug: 'fecha-1' });
+    await db.insert(contestMatches).values({ contestId: contest.id, matchId: match.id, ordinal: 1 });
+
+    expect((await getContestBySlug(db, 'fecha-1'))?.id).toBe(contest.id);
+    expect((await getContestMatches(db, contest.id))[0]?.matchId).toBe(match.id);
+  });
+
   it('upsertPrediction guarda antes del cierre y bloquea después', async () => {
     const { db } = handle;
     const competition = await makeCompetition(db);
@@ -596,11 +613,11 @@ describe.skipIf(!available)('repositories', () => {
 
   it('rebuildRanking ordena por puntos otorgados', async () => {
     const { db } = handle;
-    const competition = await makeCompetition(db);
-    const season = await makeSeason(db, competition.id);
-    const home = await makeTeam(db);
-    const away = await makeTeam(db);
-    const match = await makeMatch(db, {
+    const competition = await makeCompetition(handle.db);
+    const season = await makeSeason(handle.db, competition.id);
+    const home = await makeTeam(handle.db);
+    const away = await makeTeam(handle.db);
+    const match = await makeMatch(handle.db, {
       seasonId: season.id,
       homeTeamId: home.id,
       awayTeamId: away.id,
@@ -620,6 +637,36 @@ describe.skipIf(!available)('repositories', () => {
     const top = ranking.find((r) => r.position === 1);
     expect(top?.userId).toBe(alice.id);
     expect(top?.points).toBe(5);
+  });
+
+  it('scoreContest puntúa resultados finales, cierra el concurso y reconstruye el ranking', async () => {
+    const competition = await makeCompetition(handle.db);
+    const season = await makeSeason(handle.db, competition.id);
+    const home = await makeTeam(handle.db);
+    const away = await makeTeam(handle.db);
+    const match = await makeMatch(handle.db, {
+      seasonId: season.id,
+      homeTeamId: home.id,
+      awayTeamId: away.id,
+      status: 'final',
+      homeScore: 24,
+      awayScore: 18,
+    });
+    const contest = await makeContest(handle.db, { status: 'closed' });
+    await handle.db.insert(contestMatches).values({ contestId: contest.id, matchId: match.id, ordinal: 1 });
+    const exact = await makeUser(handle.db, { displayName: 'Exacto' });
+    const winner = await makeUser(handle.db, { displayName: 'Ganador' });
+    await handle.db.insert(predictions).values([
+      { userId: exact.id, contestId: contest.id, matchId: match.id, homeScore: 24, awayScore: 18 },
+      { userId: winner.id, contestId: contest.id, matchId: match.id, homeScore: 30, awayScore: 24 },
+    ]);
+
+    expect(await scoreClosedContests(handle.db)).toBe(1);
+
+    const stored = await handle.db.query.predictions.findMany({ where: eq(predictions.contestId, contest.id) });
+    expect(stored.map((row) => row.awardedPoints).sort()).toEqual([3, 5]);
+    expect((await handle.db.query.predictionContests.findFirst({ where: eq(predictionContests.id, contest.id) }))?.status).toBe('scored');
+    expect((await handle.db.query.contestRankings.findMany({ where: eq(contestRankings.contestId, contest.id) }))[0]?.userId).toBe(exact.id);
   });
 
   it('createUser + findUserByEmail y recordAudit persisten', async () => {

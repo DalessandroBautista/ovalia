@@ -6,6 +6,8 @@ export * from './standings-repository.js';
 export * from './ingestion-repository.js';
 export * from './articles-repository.js';
 export * from './predictions-repository.js';
+export * from './sessions-repository.js';
+export * from './verification-tokens-repository.js';
 export * from './users-repository.js';
 export * from './audit-repository.js';
 export * from './jobs-repository.js';

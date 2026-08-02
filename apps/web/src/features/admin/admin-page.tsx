@@ -4,8 +4,14 @@ import { useCallback, useState } from 'react';
 
 import {
   fetchAdminConflicts,
+  fetchAdminArticles,
+  fetchAdminArticle,
   fetchAdminSummary,
   resolveAdminConflict,
+  transitionAdminArticle,
+  updateAdminArticle,
+  type AdminArticle,
+  type AdminArticleDetail,
   type AdminConflict,
   type AdminSummary,
 } from '../../lib/api/client';
@@ -18,19 +24,57 @@ export function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [conflicts, setConflicts] = useState<AdminConflict[]>([]);
+  const [articles, setArticles] = useState<AdminArticle[]>([]);
+  const [editing, setEditing] = useState<AdminArticleDetail | null>(null);
+  const [editStatus, setEditStatus] = useState<string | null>(null);
 
   const load = useCallback(async (t: string) => {
     setError(null);
     try {
-      const [s, c] = await Promise.all([fetchAdminSummary(t), fetchAdminConflicts(t)]);
+      const [s, c, a] = await Promise.all([fetchAdminSummary(t), fetchAdminConflicts(t), fetchAdminArticles(t)]);
       setSummary(s);
       setConflicts(c.conflicts);
+      setArticles(a.articles);
       setAuthed(true);
     } catch {
       setAuthed(false);
       setError('Token inválido o admin deshabilitado.');
     }
   }, []);
+
+  const updateArticle = async (article: AdminArticle, status: 'draft' | 'review' | 'published') => {
+    try {
+      await transitionAdminArticle(token, article.id, status);
+      await load(token);
+    } catch {
+      setError('No se pudo actualizar el estado editorial.');
+    }
+  };
+
+  const openEditor = async (article: AdminArticle) => {
+    try {
+      setEditing((await fetchAdminArticle(token, article.id)).article);
+      setEditStatus(null);
+    } catch {
+      setError('No se pudo abrir el artículo.');
+    }
+  };
+
+  const saveArticle = async () => {
+    if (!editing) return;
+    try {
+      const result = await updateAdminArticle(token, editing.id, {
+        title: editing.title,
+        summary: editing.summary,
+        body: editing.body,
+      });
+      setEditing(result.article);
+      setEditStatus('Guardado.');
+      await load(token);
+    } catch {
+      setEditStatus('No se pudo guardar el artículo.');
+    }
+  };
 
   const dismiss = async (id: string) => {
     try {
@@ -71,6 +115,7 @@ export function AdminPage() {
               <input type="password" value={token} onChange={(e) => setToken(e.target.value)} />
             </label>
             <button className="primary-action" type="button" onClick={() => void load(token)}>Ingresar</button>
+            <button type="button" onClick={() => void load('')}>Continuar con mi sesión</button>
             {error ? <p className="portal-live-status portal-live-status--error">{error}</p> : null}
           </section>
         ) : (
@@ -83,6 +128,35 @@ export function AdminPage() {
               <section><small>INGESTIÓN</small><strong>{summary?.failedRuns ?? 0}</strong><span>corridas fallidas</span></section>
               <section><small>EDITORIAL</small><strong>{summary?.pendingDrafts ?? 0}</strong><span>borradores por revisar</span></section>
             </div>
+            <section className="review-queue">
+              <h2>Cola editorial</h2>
+              {articles.length === 0 ? <p className="portal-live-status">No hay artículos pendientes.</p> : null}
+              {articles.map((article) => (
+                <article key={article.id}>
+                  <div>
+                    <small>{article.status.toUpperCase()} {article.aiGenerated ? '· IA' : ''}</small>
+                    <h3>{article.title}</h3>
+                    <p>{article.summary}</p>
+                  </div>
+                  <div className="admin-actions">
+                    <button type="button" onClick={() => void openEditor(article)}>Editar</button>
+                    {article.status === 'draft' ? <button type="button" onClick={() => void updateArticle(article, 'review')}>Enviar a revisión</button> : null}
+                    {article.status === 'review' ? <button type="button" onClick={() => void updateArticle(article, 'published')}>Publicar</button> : null}
+                    {article.status === 'review' ? <button type="button" onClick={() => void updateArticle(article, 'draft')}>Devolver</button> : null}
+                  </div>
+                </article>
+              ))}
+            </section>
+            {editing ? (
+              <section className="review-queue article-editor">
+                <div className="article-editor__header"><h2>Editar artículo</h2><button type="button" onClick={() => setEditing(null)}>Cerrar</button></div>
+                <label>Título<input value={editing.title} onChange={(event) => setEditing({ ...editing, title: event.target.value })} /></label>
+                <label>Resumen<textarea rows={3} value={editing.summary} onChange={(event) => setEditing({ ...editing, summary: event.target.value })} /></label>
+                <label>Cuerpo<textarea rows={12} value={editing.body} onChange={(event) => setEditing({ ...editing, body: event.target.value })} /></label>
+                <button className="primary-action" type="button" onClick={() => void saveArticle()}>Guardar cambios</button>
+                {editStatus ? <p className="portal-live-status">{editStatus}</p> : null}
+              </section>
+            ) : null}
             <section className="review-queue">
               <h2>Cola de conflictos</h2>
               {conflicts.length > 1 ? (

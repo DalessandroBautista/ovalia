@@ -42,9 +42,49 @@ export const feedbackSchema = z.object({
   contact: z.string().max(200).optional(),
 });
 
+export const authRegisterSchema = z.object({
+  email: z.string().trim().email().max(320),
+  displayName: z.string().trim().min(2).max(80),
+  password: z.string().min(8).max(200),
+});
+
+export const authLoginSchema = z.object({
+  email: z.string().trim().email().max(320),
+  password: z.string().min(1).max(200),
+});
+
+export const authTokenSchema = z.object({ token: z.string().min(20).max(256) });
+
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email().max(320),
+});
+
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().min(20).max(256),
+  password: z.string().min(8).max(200),
+});
+
+export const predictionBatchSchema = z.object({
+  predictions: z.array(z.object({
+    matchId: z.string().uuid(),
+    homeScore: z.number().int().min(0).max(100),
+    awayScore: z.number().int().min(0).max(100),
+  })).min(1).max(100),
+});
+
 export const adminConflictResolutionSchema = z.object({
   status: z.enum(['resolved', 'dismissed']),
   resolution: z.unknown().optional(),
+});
+
+export const adminArticleStatusSchema = z.object({
+  status: z.enum(['draft', 'review', 'published', 'archived']),
+});
+
+export const adminArticleContentSchema = z.object({
+  title: z.string().trim().min(8).max(180),
+  summary: z.string().trim().min(12).max(500),
+  body: z.string().trim().min(20).max(50_000),
 });
 
 export const competitionMatchesQuerySchema = z.object({

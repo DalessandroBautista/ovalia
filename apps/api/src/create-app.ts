@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import Fastify, {
   type FastifyError,
   type FastifyInstance,
+  type FastifyReply,
   type FastifyServerOptions,
 } from 'fastify';
 import cors from '@fastify/cors';
@@ -14,8 +15,19 @@ import {
   countOpenConflicts,
   countPendingDrafts,
   countRecentEntriesByOrigin,
+  ContestClosedError,
+  ContestNotReadyError,
+  createSession,
+  createUser,
+  createVerificationToken,
+  consumeVerificationToken,
+  deleteSessionByTokenHash,
+  deleteSessionsByUserId,
+  ArticleTransitionError,
+  updateArticleContent,
   featuredPublishedArticle,
   findPublishedArticleBySlug,
+  findArticleById,
   findCareerEntryById,
   listOpenConflicts,
   listPublishedArticles,
@@ -32,19 +44,32 @@ import {
   findPlayerById,
   searchPlayersByName,
   findSeason,
+  findSessionWithUserByTokenHash,
   findTeamBySlug,
+  findUserByEmail,
+  findUserById,
   findUpcomingMatches,
   getActiveContest,
+  getContestBySlug,
+  getContestMatches,
+  getContestRanking,
+  getUserPredictions,
   getLatestSeason,
   getLineupsForMatch,
   getStandingsForSeason,
   insertCareerEntry,
   listCareerEntries,
   listCompetitions,
+  listEditorialQueue,
   listOrganizationsWithCompetitionSlugs,
   listSeasons,
+  markUserEmailVerified,
   pingDatabase,
   replaceLineup,
+  scoreContest,
+  transitionArticleStatus,
+  updateUserPassword,
+  upsertPrediction,
   type Database,
 } from '@ovalia/database';
 import { buildHeadToHead, buildRecentForm, findTeamPosition, normalizePlayerName } from '@ovalia/domain';
@@ -56,8 +81,13 @@ import {
 } from './live/live-feed.js';
 import {
   adminConflictResolutionSchema,
+  adminArticleStatusSchema,
+  adminArticleContentSchema,
   adminLineupSchema,
   analyticsEventSchema,
+  authLoginSchema,
+  authRegisterSchema,
+  authTokenSchema,
   careerEntryInputSchema,
   careerListQuerySchema,
   competitionMatchesQuerySchema,
@@ -67,12 +97,32 @@ import {
   freshness,
   matchesQuerySchema,
   organizationsQuerySchema,
+  predictionBatchSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   standingsQuerySchema,
 } from './schemas.js';
+import {
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  createSessionToken,
+  hashPassword,
+  hashSessionToken,
+  normalizeEmail,
+  verifyPassword,
+} from './auth.js';
 
 export interface AppDependencies {
   db: Database;
   liveProvider?: LiveProvider;
+  sendAuthEmail?: (message: AuthEmailMessage) => Promise<void>;
+}
+
+export interface AuthEmailMessage {
+  kind: 'verify-email' | 'password-reset';
+  to: string;
+  token: string;
+  expiresAt: Date;
 }
 
 type MatchRow = Awaited<ReturnType<typeof findMatchById>>;
@@ -93,6 +143,32 @@ function serializeMatch(row: NonNullable<MatchRow>) {
     source: row.source,
     freshness: freshness(row.fetchedAt),
   };
+}
+
+function serializeUser(user: { id: string; email: string; displayName: string; role: string; locale: string }) {
+  return { id: user.id, email: user.email, displayName: user.displayName, role: user.role, locale: user.locale };
+}
+
+function readCookie(headers: Record<string, unknown>, name: string): string | null {
+  const raw = headers.cookie;
+  if (typeof raw !== 'string') return null;
+  for (const part of raw.split(';')) {
+    const [key, ...value] = part.trim().split('=');
+    if (key === name) return value.join('=') || null;
+  }
+  return null;
+}
+
+function setSessionCookie(reply: FastifyReply, token: string): void {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  reply.header(
+    'set-cookie',
+    `${SESSION_COOKIE}=${token}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; Path=/; HttpOnly; SameSite=Lax${secure}`,
+  );
+}
+
+function clearSessionCookie(reply: FastifyReply): void {
+  reply.header('set-cookie', `${SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`);
 }
 
 // --- Simulador de carrera ---
@@ -133,6 +209,7 @@ function serializeCareerEntryDetail(row: CareerEntryRow) {
 
 export function configureApp(app: FastifyInstance, dependencies: AppDependencies) {
   const { db } = dependencies;
+  const sendAuthEmail = dependencies.sendAuthEmail ?? (async () => undefined);
 
   const liveFeed = createLiveFeedService(
     dependencies.liveProvider ?? createConfiguredLiveProvider(),
@@ -149,12 +226,153 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     timeWindow: process.env.RATE_LIMIT_WINDOW ?? '1 minute',
   });
 
+  app.addHook('onRequest', async (request, reply) => {
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
+    const origin = request.headers.origin;
+    if (!origin) return;
+    const allowedOrigins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!allowedOrigins.includes(origin)) {
+      await reply.code(403).send({ error: 'csrf_origin_rejected' });
+    }
+  });
+
   app.setErrorHandler((error: FastifyError, request, reply) => {
     request.log.error({ err: error, reqId: request.id }, 'request failed');
     const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
     void reply
       .code(status)
       .send({ error: status === 500 ? 'internal_error' : error.message, reqId: request.id });
+  });
+
+  async function currentUser(request: { headers: Record<string, unknown> }) {
+    const token = readCookie(request.headers, SESSION_COOKIE);
+    if (!token) return null;
+    const found = await findSessionWithUserByTokenHash(db, hashSessionToken(token));
+    return found?.user ?? null;
+  }
+
+  async function requireUser(request: { headers: Record<string, unknown> }, reply: FastifyReply) {
+    const user = await currentUser(request);
+    if (!user) {
+      void reply.code(401).send({ error: 'unauthorized' });
+      return null;
+    }
+    return user;
+  }
+
+  // --- Autenticación ---
+  app.post('/auth/register', async (request, reply) => {
+    const parsed = authRegisterSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_registration' });
+    const email = normalizeEmail(parsed.data.email);
+    if (await findUserByEmail(db, email)) return reply.code(409).send({ error: 'email_in_use' });
+    try {
+      const user = await createUser(db, {
+        email,
+        displayName: parsed.data.displayName,
+        passwordHash: await hashPassword(parsed.data.password),
+      });
+      const verificationToken = createSessionToken();
+      const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await createVerificationToken(db, {
+        identifier: email,
+        tokenHash: hashSessionToken(verificationToken),
+        purpose: 'email',
+        expiresAt: verificationExpiresAt,
+      });
+      await sendAuthEmail({ kind: 'verify-email', to: email, token: verificationToken, expiresAt: verificationExpiresAt });
+      const token = createSessionToken();
+      await createSession(db, {
+        userId: user.id,
+        tokenHash: hashSessionToken(token),
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      });
+      setSessionCookie(reply, token);
+      return reply.code(201).send({ user: serializeUser(user) });
+    } catch (error) {
+      if (error instanceof Error && /unique|duplicate/i.test(error.message)) {
+        return reply.code(409).send({ error: 'email_in_use' });
+      }
+      throw error;
+    }
+  });
+
+  app.post('/auth/login', async (request, reply) => {
+    const parsed = authLoginSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_login' });
+    const user = await findUserByEmail(db, normalizeEmail(parsed.data.email));
+    if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+      return reply.code(401).send({ error: 'invalid_credentials' });
+    }
+    const token = createSessionToken();
+    await createSession(db, {
+      userId: user.id,
+      tokenHash: hashSessionToken(token),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    });
+    setSessionCookie(reply, token);
+    return { user: serializeUser(user) };
+  });
+
+  app.get('/auth/me', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    return user ? { user: serializeUser(user) } : reply;
+  });
+
+  app.post('/auth/logout', async (request, reply) => {
+    const token = readCookie(request.headers, SESSION_COOKIE);
+    if (token) await deleteSessionByTokenHash(db, hashSessionToken(token));
+    clearSessionCookie(reply);
+    return reply.code(204).send();
+  });
+
+  app.post('/auth/verify-email', async (request, reply) => {
+    const parsed = authTokenSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_verification_token' });
+    const verification = await consumeVerificationToken(db, {
+      tokenHash: hashSessionToken(parsed.data.token),
+      purpose: 'email',
+    });
+    if (!verification) return reply.code(400).send({ error: 'invalid_verification_token' });
+    await markUserEmailVerified(db, verification.identifier);
+    return reply.code(204).send();
+  });
+
+  app.post('/auth/password-reset/request', async (request, reply) => {
+    const parsed = passwordResetRequestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_password_reset_request' });
+    const email = normalizeEmail(parsed.data.email);
+    const user = await findUserByEmail(db, email);
+    if (user) {
+      const token = createSessionToken();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await createVerificationToken(db, {
+        identifier: email,
+        tokenHash: hashSessionToken(token),
+        purpose: 'password-reset',
+        expiresAt,
+      });
+      await sendAuthEmail({ kind: 'password-reset', to: email, token, expiresAt });
+    }
+    return reply.code(202).send({ ok: true });
+  });
+
+  app.post('/auth/password-reset/confirm', async (request, reply) => {
+    const parsed = passwordResetConfirmSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_password_reset' });
+    const reset = await consumeVerificationToken(db, {
+      tokenHash: hashSessionToken(parsed.data.token),
+      purpose: 'password-reset',
+    });
+    if (!reset) return reply.code(400).send({ error: 'invalid_password_reset' });
+    const user = await findUserByEmail(db, reset.identifier);
+    if (!user) return reply.code(400).send({ error: 'invalid_password_reset' });
+    await updateUserPassword(db, user.id, await hashPassword(parsed.data.password));
+    await deleteSessionsByUserId(db, user.id);
+    return reply.code(204).send();
   });
 
   // --- Salud ---
@@ -469,7 +687,98 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     return reply.code(201).send({ ok: true });
   });
 
-  // --- Admin (deny por defecto; protegido por token mínimo hasta auth real en Hito 10) ---
+  // --- Prode ---
+  async function serializeContest(contest: NonNullable<Awaited<ReturnType<typeof getContestBySlug>>>) {
+    const links = await getContestMatches(db, contest.id);
+    const matches = await Promise.all(links.map(async (link) => {
+      const match = await findMatchById(db, link.matchId);
+      return match ? { ordinal: link.ordinal, match: serializeMatch(match) } : null;
+    }));
+    return {
+      slug: contest.slug,
+      name: contest.name,
+      round: contest.round,
+      status: contest.status,
+      opensAt: contest.opensAt?.toISOString() ?? null,
+      closesAt: contest.closesAt?.toISOString() ?? null,
+      matches: matches.filter((row): row is NonNullable<typeof row> => row !== null),
+    };
+  }
+
+  app.get('/v1/contests/active', async (_request, reply) => {
+    const contest = await getActiveContest(db);
+    if (!contest) return reply.code(404).send({ error: 'active_contest_not_found' });
+    return { contest: await serializeContest(contest) };
+  });
+
+  app.get('/v1/contests/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const contest = await getContestBySlug(db, slug);
+    if (!contest) return reply.code(404).send({ error: 'contest_not_found' });
+    return { contest: await serializeContest(contest) };
+  });
+
+  app.get('/v1/contests/:slug/predictions', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return reply;
+    const { slug } = request.params as { slug: string };
+    const contest = await getContestBySlug(db, slug);
+    if (!contest) return reply.code(404).send({ error: 'contest_not_found' });
+    const predictions = await getUserPredictions(db, user.id, contest.id);
+    return {
+      contest: { slug: contest.slug, closesAt: contest.closesAt?.toISOString() ?? null },
+      predictions: predictions.map((prediction) => ({
+        matchId: prediction.matchId,
+        homeScore: prediction.homeScore,
+        awayScore: prediction.awayScore,
+        awardedPoints: prediction.awardedPoints,
+      })),
+    };
+  });
+
+  app.put('/v1/contests/:slug/predictions', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return reply;
+    const parsed = predictionBatchSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_predictions' });
+    const { slug } = request.params as { slug: string };
+    const contest = await getContestBySlug(db, slug);
+    if (!contest) return reply.code(404).send({ error: 'contest_not_found' });
+    const allowedMatchIds = new Set((await getContestMatches(db, contest.id)).map((link) => link.matchId));
+    if (parsed.data.predictions.some((prediction) => !allowedMatchIds.has(prediction.matchId))) {
+      return reply.code(400).send({ error: 'match_not_in_contest' });
+    }
+    try {
+      const predictions = await Promise.all(parsed.data.predictions.map((prediction) => upsertPrediction(db, {
+        userId: user.id,
+        contestId: contest.id,
+        ...prediction,
+      })));
+      return { predictions: predictions.map((prediction) => ({
+        matchId: prediction.matchId,
+        homeScore: prediction.homeScore,
+        awayScore: prediction.awayScore,
+        awardedPoints: prediction.awardedPoints,
+      })) };
+    } catch (error) {
+      if (error instanceof ContestClosedError) return reply.code(409).send({ error: 'contest_closed' });
+      throw error;
+    }
+  });
+
+  app.get('/v1/contests/:slug/ranking', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const contest = await getContestBySlug(db, slug);
+    if (!contest) return reply.code(404).send({ error: 'contest_not_found' });
+    const ranking = await getContestRanking(db, contest.id);
+    const rows = await Promise.all(ranking.map(async (entry) => {
+      const user = await findUserById(db, entry.userId);
+      return { position: entry.position, points: entry.points, user: user ? { displayName: user.displayName } : null };
+    }));
+    return { contest: { slug: contest.slug }, ranking: rows };
+  });
+
+  // --- Admin (sesión con rol editor/admin o token legacy durante la migración) ---
   function tokensMatch(provided: unknown, expected: string): boolean {
     if (typeof provided !== 'string') return false;
     const a = Buffer.from(provided);
@@ -482,23 +791,121 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     return timingSafeEqual(a, b);
   }
 
-  function requireAdmin(request: { headers: Record<string, unknown> }, reply: {
-    code: (n: number) => { send: (b: unknown) => unknown };
-  }): boolean {
+  async function requireAdmin(request: { headers: Record<string, unknown> }, reply: FastifyReply) {
     const token = process.env.ADMIN_TOKEN;
+    if (token && tokensMatch(request.headers['x-admin-token'], token)) return { id: null, via: 'admin-token' as const };
+    const user = await currentUser(request);
+    if (user?.role === 'editor' || user?.role === 'admin') return { id: user.id, via: 'session' as const };
     if (!token) {
-      reply.code(503).send({ error: 'admin_disabled', reason: 'ADMIN_TOKEN no configurado' });
-      return false;
+      void reply.code(503).send({ error: 'admin_disabled', reason: 'ADMIN_TOKEN no configurado' });
+      return null;
     }
-    if (!tokensMatch(request.headers['x-admin-token'], token)) {
-      reply.code(401).send({ error: 'unauthorized' });
-      return false;
-    }
-    return true;
+    void reply.code(401).send({ error: 'unauthorized' });
+    return null;
   }
 
+  app.get('/admin/articles', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return reply;
+    const articles = await listEditorialQueue(db, 100);
+    return {
+      articles: articles.map((article) => ({
+        id: article.id,
+        slug: article.slug,
+        title: article.title,
+        summary: article.summary,
+        status: article.status,
+        aiGenerated: article.aiGenerated,
+        createdAt: article.createdAt.toISOString(),
+      })),
+    };
+  });
+
+  app.get('/admin/articles/:id', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return reply;
+    const { id } = request.params as { id: string };
+    const article = await findArticleById(db, id);
+    if (!article) return reply.code(404).send({ error: 'article_not_found' });
+    return {
+      article: {
+        id: article.id,
+        slug: article.slug,
+        title: article.title,
+        summary: article.summary,
+        body: article.body,
+        status: article.status,
+        sourceData: article.sourceData,
+        aiGenerated: article.aiGenerated,
+      },
+    };
+  });
+
+  app.patch('/admin/articles/:id', async (request, reply) => {
+    const actor = await requireAdmin(request, reply);
+    if (!actor) return reply;
+    const { id } = request.params as { id: string };
+    const parsed = adminArticleContentSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_article_content' });
+    const article = await updateArticleContent(db, id, parsed.data);
+    if (!article) return reply.code(404).send({ error: 'article_not_found' });
+    await recordAudit(db, {
+      action: 'admin.article.edit',
+      targetType: 'article',
+      targetId: id,
+      actorId: actor.id,
+      metadata: { via: actor.via },
+    });
+    return { article: { id: article.id, slug: article.slug, title: article.title, summary: article.summary, body: article.body, status: article.status } };
+  });
+
+  app.post('/admin/articles/:id/status', async (request, reply) => {
+    const actor = await requireAdmin(request, reply);
+    if (!actor) return reply;
+    const { id } = request.params as { id: string };
+    const parsed = adminArticleStatusSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_article_status' });
+    try {
+      const current = await findArticleById(db, id);
+      if (!current) return reply.code(404).send({ error: 'article_not_found' });
+      const article = await transitionArticleStatus(db, id, parsed.data.status);
+      if (!article) return reply.code(404).send({ error: 'article_not_found' });
+      await recordAudit(db, {
+        action: 'admin.article.status',
+        targetType: 'article',
+        targetId: id,
+        actorId: actor.id,
+        metadata: { from: current.status, to: parsed.data.status, via: actor.via },
+      });
+      return { article: { id: article.id, slug: article.slug, status: article.status, publishedAt: article.publishedAt?.toISOString() ?? null } };
+    } catch (error) {
+      if (error instanceof ArticleTransitionError) return reply.code(409).send({ error: 'invalid_article_transition' });
+      throw error;
+    }
+  });
+
+  app.post('/admin/contests/:slug/score', async (request, reply) => {
+    const actor = await requireAdmin(request, reply);
+    if (!actor) return reply;
+    const { slug } = request.params as { slug: string };
+    const contest = await getContestBySlug(db, slug);
+    if (!contest) return reply.code(404).send({ error: 'contest_not_found' });
+    try {
+      await scoreContest(db, contest.id);
+      await recordAudit(db, {
+        action: 'admin.contest.score',
+        targetType: 'prediction_contest',
+        targetId: contest.id,
+        actorId: actor.id,
+        metadata: { slug, via: actor.via },
+      });
+      return { slug, status: 'scored' };
+    } catch (error) {
+      if (error instanceof ContestNotReadyError) return reply.code(409).send({ error: 'contest_not_ready' });
+      throw error;
+    }
+  });
+
   app.get('/admin/summary', async (request, reply) => {
-    if (!requireAdmin(request, reply)) return reply;
+    if (!(await requireAdmin(request, reply))) return reply;
     const [openConflicts, failedRuns, pendingDrafts] = await Promise.all([
       countOpenConflicts(db),
       countFailedRuns(db),
@@ -508,7 +915,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   });
 
   app.get('/admin/conflicts', async (request, reply) => {
-    if (!requireAdmin(request, reply)) return reply;
+    if (!(await requireAdmin(request, reply))) return reply;
     const conflicts = await listOpenConflicts(db, 100);
     return {
       conflicts: conflicts.map((c) => ({
@@ -522,7 +929,8 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   });
 
   app.post('/admin/conflicts/:id/resolve', async (request, reply) => {
-    if (!requireAdmin(request, reply)) return reply;
+    const actor = await requireAdmin(request, reply);
+    if (!actor) return reply;
     const { id } = request.params as { id: string };
     const parsed = adminConflictResolutionSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_resolution' });
@@ -533,9 +941,8 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       action: 'admin.conflict.resolve',
       targetType: 'ingestion_conflict',
       targetId: id,
-      // Sin identidad de usuario todavía (token-only); se atribuye el método.
-      // El actor real se registra cuando exista auth/RBAC (Hito 10).
-      metadata: { status, via: 'admin-token' },
+      actorId: actor.id,
+      metadata: { status, via: actor.via },
     });
     return { id, status };
   });
@@ -543,7 +950,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   // --- Admin: Lineups (Tramo C) ---
 
   app.post('/admin/matches/:id/lineups', async (request, reply) => {
-    if (!requireAdmin(request, reply)) return reply;
+    if (!(await requireAdmin(request, reply))) return reply;
     const { id } = request.params as { id: string };
 
     const match = await findMatchById(db, id);

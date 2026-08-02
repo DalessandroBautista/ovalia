@@ -141,6 +141,42 @@ export interface ApiHomeResponse {
   featuredArticle: { slug: string; title: string; summary: string; publishedAt: string | null } | null;
 }
 
+export interface ApiUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'fan' | 'contributor' | 'editor' | 'admin';
+  locale: string;
+}
+
+export interface ApiContestMatch {
+  ordinal: number;
+  match: ApiMatch;
+}
+
+export interface ApiContest {
+  slug: string;
+  name: string;
+  round: string | null;
+  status: 'draft' | 'open' | 'closed' | 'scored';
+  opensAt: string | null;
+  closesAt: string | null;
+  matches: ApiContestMatch[];
+}
+
+export interface ApiPrediction {
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  awardedPoints: number | null;
+}
+
+export interface ApiContestRankingEntry {
+  position: number | null;
+  points: number;
+  user: { displayName: string } | null;
+}
+
 export interface ApiCompetitionDetail {
   competition: {
     slug: string;

@@ -13,6 +13,10 @@ import type {
   ApiMatchContext,
   ApiMatchListResponse,
   ApiOrganizationsResponse,
+  ApiPrediction,
+  ApiContest,
+  ApiContestRankingEntry,
+  ApiUser,
   ApiStandingsResponse,
   PlayerSearchResponse,
 } from './types';
@@ -55,6 +59,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     const response = await fetch(`${baseUrl()}${path}`, {
       signal: controller.signal,
       cache: options.cache ?? 'no-store',
+      credentials: 'include',
       method: options.method ?? 'GET',
       headers: {
         accept: 'application/json',
@@ -66,6 +71,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     if (!response.ok) {
       throw new ApiError(`API ${response.status} en ${path}`, response.status);
     }
+    if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   } catch (error) {
     if (timedOut && error instanceof DOMException && error.name === 'AbortError') {
@@ -76,6 +82,51 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', onExternalAbort);
   }
+}
+
+export function login(email: string, password: string) {
+  return apiFetch<{ user: ApiUser }>('/auth/login', { method: 'POST', body: { email, password } });
+}
+
+export function register(email: string, displayName: string, password: string) {
+  return apiFetch<{ user: ApiUser }>('/auth/register', {
+    method: 'POST',
+    body: { email, displayName, password },
+  });
+}
+
+export function fetchCurrentUser(options?: ApiFetchOptions) {
+  return apiFetch<{ user: ApiUser }>('/auth/me', options);
+}
+
+export function logout() {
+  return apiFetch<void>('/auth/logout', { method: 'POST' });
+}
+
+export function fetchActiveContest(options?: ApiFetchOptions) {
+  return apiFetch<{ contest: ApiContest }>('/v1/contests/active', options);
+}
+
+export function fetchContestPredictions(slug: string, options?: ApiFetchOptions) {
+  return apiFetch<{ contest: { slug: string; closesAt: string | null }; predictions: ApiPrediction[] }>(
+    `/v1/contests/${encodeURIComponent(slug)}/predictions`, options,
+  );
+}
+
+export function saveContestPredictions(
+  slug: string,
+  predictions: Array<Pick<ApiPrediction, 'matchId' | 'homeScore' | 'awayScore'>>,
+) {
+  return apiFetch<{ predictions: ApiPrediction[] }>(`/v1/contests/${encodeURIComponent(slug)}/predictions`, {
+    method: 'PUT',
+    body: { predictions },
+  });
+}
+
+export function fetchContestRanking(slug: string, options?: ApiFetchOptions) {
+  return apiFetch<{ contest: { slug: string }; ranking: ApiContestRankingEntry[] }>(
+    `/v1/contests/${encodeURIComponent(slug)}/ranking`, options,
+  );
 }
 
 export interface MatchesQuery {
@@ -152,6 +203,21 @@ export interface AdminConflict {
   createdAt: string;
 }
 
+export interface AdminArticle {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  status: 'draft' | 'review';
+  aiGenerated: boolean;
+  createdAt: string;
+}
+
+export interface AdminArticleDetail extends AdminArticle {
+  body: string;
+  sourceData: unknown;
+}
+
 export function fetchAdminSummary(token: string) {
   return apiFetch<AdminSummary>('/admin/summary', { headers: { 'x-admin-token': token } });
 }
@@ -167,6 +233,37 @@ export function resolveAdminConflict(token: string, id: string, status: 'resolve
     method: 'POST',
     headers: { 'x-admin-token': token },
     body: { status },
+  });
+}
+
+export function fetchAdminArticles(token: string) {
+  return apiFetch<{ articles: AdminArticle[] }>('/admin/articles', {
+    headers: { 'x-admin-token': token },
+  });
+}
+
+export function transitionAdminArticle(token: string, id: string, status: 'draft' | 'review' | 'published' | 'archived') {
+  return apiFetch<{ article: { id: string; slug: string; status: string; publishedAt: string | null } }>(
+    `/admin/articles/${encodeURIComponent(id)}/status`,
+    { method: 'POST', headers: { 'x-admin-token': token }, body: { status } },
+  );
+}
+
+export function fetchAdminArticle(token: string, id: string) {
+  return apiFetch<{ article: AdminArticleDetail }>(`/admin/articles/${encodeURIComponent(id)}`, {
+    headers: { 'x-admin-token': token },
+  });
+}
+
+export function updateAdminArticle(
+  token: string,
+  id: string,
+  content: { title: string; summary: string; body: string },
+) {
+  return apiFetch<{ article: AdminArticleDetail }>(`/admin/articles/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'x-admin-token': token },
+    body: content,
   });
 }
 

@@ -4,6 +4,13 @@ import { articles } from '../schema.js';
 
 export type ArticleStatus = 'draft' | 'review' | 'published' | 'archived';
 
+export class ArticleTransitionError extends Error {
+  constructor(from: ArticleStatus, to: ArticleStatus) {
+    super(`invalid_article_transition:${from}->${to}`);
+    this.name = 'ArticleTransitionError';
+  }
+}
+
 export function countPendingDrafts(db: Database): Promise<number> {
   return db.$count(articles, inArray(articles.status, ['draft', 'review']));
 }
@@ -24,6 +31,18 @@ export function findPublishedArticleBySlug(db: Database, slug: string, locale = 
       eq(articles.locale, locale),
       eq(articles.status, 'published'),
     ),
+  });
+}
+
+export function findArticleById(db: Database, id: string) {
+  return db.query.articles.findFirst({ where: eq(articles.id, id) });
+}
+
+export function listEditorialQueue(db: Database, limit = 100) {
+  return db.query.articles.findMany({
+    where: inArray(articles.status, ['draft', 'review']),
+    orderBy: desc(articles.createdAt),
+    limit,
   });
 }
 
@@ -78,4 +97,35 @@ export async function setArticleStatus(
     .where(eq(articles.id, id))
     .returning();
   return row!;
+}
+
+export async function transitionArticleStatus(db: Database, id: string, status: ArticleStatus) {
+  const current = await findArticleById(db, id);
+  if (!current) return null;
+  const transitions: Record<ArticleStatus, ArticleStatus[]> = {
+    draft: ['review'],
+    review: ['draft', 'published'],
+    published: ['archived'],
+    archived: [],
+  };
+  if (!transitions[current.status].includes(status)) throw new ArticleTransitionError(current.status, status);
+  const [row] = await db
+    .update(articles)
+    .set({ status, publishedAt: status === 'published' ? new Date() : null })
+    .where(eq(articles.id, id))
+    .returning();
+  return row!;
+}
+
+export async function updateArticleContent(
+  db: Database,
+  id: string,
+  input: { title: string; summary: string; body: string },
+) {
+  const [row] = await db
+    .update(articles)
+    .set(input)
+    .where(eq(articles.id, id))
+    .returning();
+  return row ?? null;
 }

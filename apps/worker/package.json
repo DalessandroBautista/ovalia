@@ -10,6 +10,8 @@
     "ingest": "tsx src/cli/ingest.ts",
     "ingest:status": "tsx src/cli/ingest-status.ts",
     "ingest:csv": "tsx src/cli/ingest-csv.ts",
+    "editorial:once": "tsx src/cli/editorial-once.ts",
+    "prode:score": "tsx src/cli/score-contests.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",

@@ -1,6 +1,10 @@
-import { afterEach } from 'vitest';
+/// <reference types="@testing-library/jest-dom/vitest" />
+
+import { afterEach, expect } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom/vitest';
+import * as matchers from '@testing-library/jest-dom/matchers';
+
+expect.extend(matchers);
 
 afterEach(() => {
   cleanup();

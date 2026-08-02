@@ -8,7 +8,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
-    "test": "turbo test",
+    "test": "turbo test --concurrency=1",
     "test:watch": "turbo test:watch",
     "lint": "turbo lint",
     "verify": "pnpm typecheck && pnpm test && pnpm lint",

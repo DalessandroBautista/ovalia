@@ -40,11 +40,16 @@ pnpm ingest:csv --file docs/data-sources/templates/matches.csv           # dry-r
 pnpm ingest:csv --file docs/data-sources/templates/matches.csv --confirm  # aplica
 ```
 
-## Panel de conflictos (`/admin`)
+## Panel de control (`/admin`)
 
-`/admin` deniega por defecto. Configurá `ADMIN_TOKEN` en `.env` para habilitarlo;
-el panel muestra contadores reales y la cola de conflictos de ingestión para resolver.
-Es una protección mínima temporal hasta la autenticación con roles (Release 2).
+`/admin` requiere una sesión de usuario con rol `editor` o `admin`. El `ADMIN_TOKEN`
+queda como compatibilidad operativa temporal. El panel muestra conflictos, cola
+editorial, edición de artículos, publicación auditada y carga de formaciones.
+
+Las cuentas pueden registrarse, iniciar sesión, solicitar recuperación de contraseña
+y verificar el email mediante un notifier de correo inyectable. Sin proveedor de
+correo configurado, las solicitudes son aceptadas de forma genérica pero no se envía
+ningún mensaje.
 
 ## Qué incluye
 
@@ -53,9 +58,9 @@ Es una protección mínima temporal hasta la autenticación con roles (Release 2
 - Catálogo de rugby argentino e internacional, masculino, femenino y seven.
 - Prode con reglas de puntuación probadas.
 - Juegos `Tu identidad ovalada` y `Camino al XV`.
-- Acceso, perfiles y mesa CMS preparados para conectar autenticación.
+- Acceso, perfiles y mesa CMS con sesiones, roles y auditoría.
 - API Fastify y esquema PostgreSQL con equipos, torneos, temporadas, eventos, tablas, usuarios, pronósticos y artículos.
-- Worker editorial OpenAI que produce únicamente borradores estructurados sujetos a revisión humana.
+- Worker editorial OpenAI que consume jobs, produce borradores estructurados y los deja sujetos a revisión humana.
 - Gateway de resultados en vivo sin datos inventados, preparado para Highlightly.
 - Escudos oficiales almacenados localmente, con resolución por alias y fallback SVG para equipos todavía no catalogados.
 
@@ -93,6 +98,13 @@ El proceso valida tipo y tamaño, escribe de forma atómica y no reemplaza archi
 ```bash
 pnpm verify
 pnpm build
+```
+
+Para validar integración con el PostgreSQL local:
+
+```bash
+DATABASE_URL=postgresql://ovalia:ovalia@localhost:54329/ovalia pnpm db:migrate
+DATABASE_URL=postgresql://ovalia:ovalia@localhost:54329/ovalia pnpm verify
 ```
 
 La especificación funcional y el plan completo están en `docs/superpowers/`.
