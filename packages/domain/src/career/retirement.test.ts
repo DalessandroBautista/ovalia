@@ -103,4 +103,16 @@ describe('summarizeCareer', () => {
     for (let i = 0; i < 6; i += 1) state = simulateSeason(state, createSeededRng(i));
     expect(summarizeCareer(state)).toEqual(summarizeCareer(state));
   });
+
+  it('aplica ponderación de posición al puntaje', () => {
+    // Crea dos carreras idénticas salvo por la posición y comprueba que la
+    // posición 'apertura' ponderada produce mayor puntaje que 'pilar'.
+    let apertura = baseState({ position: 'apertura', overall: 80, support: 30, fame: 10, everPro: true, pro: true });
+    let pilar = baseState({ position: 'pilar', overall: 80, support: 30, fame: 10, everPro: true, pro: true });
+    apertura = simulateSeason(apertura, createSeededRng(1));
+    pilar = simulateSeason(pilar, createSeededRng(1));
+    const scoreA = summarizeCareer(apertura).score;
+    const scoreB = summarizeCareer(pilar).score;
+    expect(scoreA).toBeGreaterThan(scoreB);
+  });
 });

@@ -1,5 +1,5 @@
 import type { Rng } from './rng.js';
-import type { CareerState } from './types.js';
+import type { CareerState, CareerPosition } from './types.js';
 import { figureForShape, type CareerShape } from './figures.js';
 
 const HARD_RETIREMENT_AGE = 41;
@@ -39,11 +39,24 @@ function shapeOf(state: CareerState): CareerShape {
  * arraigo es deliberadamente alto: en el rugby amateur, una carrera entera en el
  * club es un final tan válido como emigrar.
  */
+const POSITION_WEIGHT: Record<CareerPosition, number> = {
+  pilar: 1.0,
+  hooker: 1.02,
+  'segunda': 1.02,
+  ala: 1.01,
+  octavo: 1.01,
+  'medio-scrum': 1.03,
+  apertura: 1.05,
+  centro: 1.0,
+  wing: 1.0,
+  fullback: 1.0,
+};
+
 function scoreOf(state: CareerState): number {
   const seasons = state.history.length;
   const avgRating = seasons > 0 ? state.history.reduce((sum, record) => sum + record.rating, 0) / seasons : 0;
   const proBonus = state.everPro ? 200 : 0;
-  return Math.round(
+  const base = Math.round(
     state.peakOverall * 7 +
     avgRating * 6 +
     seasons * 20 +
@@ -51,6 +64,8 @@ function scoreOf(state: CareerState): number {
     state.fame * 3 +
     proBonus,
   );
+  const weight = POSITION_WEIGHT[state.position] ?? 1;
+  return Math.round(base * weight);
 }
 
 function verdictOf(state: CareerState): { tier: string; verdict: string } {
