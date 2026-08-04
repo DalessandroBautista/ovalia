@@ -38,6 +38,8 @@ export interface CareerState {
   age: number;
   season: number;
   club: CareerClub;
+  /** Club donde arrancó la carrera; permite ofrecer «volver a las raíces». */
+  originClubSlug: string;
   /** Media general del jugador, de 1 a 100. */
   overall: number;
   morale: number;

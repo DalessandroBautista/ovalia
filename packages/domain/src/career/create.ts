@@ -55,6 +55,7 @@ export function createCareer(input: CreateCareerInput, rng: Rng): CareerState {
     age: STARTING_AGE,
     season: 1,
     club,
+    originClubSlug: club.slug,
     overall,
     morale: 60,
     support: 20,

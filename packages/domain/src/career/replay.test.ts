@@ -20,9 +20,9 @@ function interactiva(input: { surname: string; position: 'centro'; clubSlug: str
   let state = createCareer({ surname: input.surname, position: input.position, clubSlug: input.clubSlug, catalog: input.catalog }, rng);
   for (const decision of input.decisions) {
     if (shouldRetire(state, rng)) break;
-    const prompt = pickScenario(state, rng);
+    const prompt = pickScenario(state, rng, input.catalog);
     if (!prompt) { state = simulateSeason(state, rng); continue; }
-    state = applyOption(state, prompt.options[Math.min(decision, prompt.options.length - 1)]!);
+    state = applyOption(state, prompt.options[Math.min(decision, prompt.options.length - 1)]!, input.catalog);
     state = simulateSeason(state, rng);
   }
   return state;

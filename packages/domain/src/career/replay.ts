@@ -28,13 +28,13 @@ export function replayCareer(input: CareerReplayInput): CareerState {
   );
   for (const decision of input.decisions) {
     if (shouldRetire(state, rng)) break;
-    const prompt = pickScenario(state, rng);
+    const prompt = pickScenario(state, rng, input.catalog);
     if (!prompt) {
       state = simulateSeason(state, rng);
       continue;
     }
     const option = prompt.options[Math.min(decision, prompt.options.length - 1)]!;
-    state = applyOption(state, option);
+    state = applyOption(state, option, input.catalog);
     state = simulateSeason(state, rng);
   }
   return state;
