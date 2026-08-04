@@ -206,6 +206,9 @@ export interface ApiCareerSummary {
   seasons: number;
   clubs: string[];
   peakLevel: number;
+  totalTries?: number;
+  totalMatches?: number;
+  caps?: number;
 }
 
 export interface ApiCareerSeasonRecord {
@@ -216,6 +219,10 @@ export interface ApiCareerSeasonRecord {
   level: number;
   rating: number;
   note: string;
+  tries?: number;
+  matchesPlayed?: number;
+  injury?: 'leve' | 'grave' | null;
+  selected?: boolean;
 }
 
 export interface ApiCareerEntry {

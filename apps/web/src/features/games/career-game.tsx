@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   FALLBACK_CATALOG,
+  effectTone,
   summarizeCareer,
   type CareerPosition,
   type CareerState,
@@ -37,8 +38,18 @@ function recordToApi(record: SeasonRecord): ApiCareerSeasonRecord {
     level: record.level,
     rating: record.rating,
     note: record.note,
+    tries: record.tries,
+    matchesPlayed: record.matchesPlayed,
+    injury: record.injury,
+    selected: record.selected,
   };
 }
+
+const EFFECT_ICON: Record<'positivo' | 'negativo' | 'neutro', string> = {
+  positivo: '▲',
+  negativo: '▼',
+  neutro: '●',
+};
 
 /**
  * Estado compacto y persistente durante la carrera: sin esto el jugador avanza
@@ -146,12 +157,22 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
         <h2>{prompt.title}</h2>
         <p>{prompt.subtitle}</p>
         <div>
-          {prompt.options.map((option, index) => (
-            <button key={option.label} className="career-option" onClick={() => choose(index)}>
-              <strong>{option.label}</strong>
-              <small>{option.description}</small>
-            </button>
-          ))}
+          {prompt.options.map((option, index) => {
+            const tone = effectTone(option.effect);
+            return (
+              <button
+                key={option.label}
+                className={`career-option career-option--${tone}`}
+                onClick={() => choose(index)}
+              >
+                <span className={`career-option__tag career-option__tag--${tone}`} aria-hidden="true">
+                  {EFFECT_ICON[tone]}
+                </span>
+                <strong>{option.label}</strong>
+                <small>{option.description}</small>
+              </button>
+            );
+          })}
         </div>
       </section>
     );
@@ -170,6 +191,10 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
             <strong>
               Rating {record.rating} · {record.age} años
             </strong>
+            <p>
+              {record.matchesPlayed} partidos · {record.tries} tries
+              {record.selected ? ' · Convocado a la selección' : ''}
+            </p>
             <p>{record.note}</p>
           </div>
         )}
