@@ -26,6 +26,7 @@ export interface CareerRun {
   input: CareerRunInput;
   decisions: number[];
   state: CareerState;
+  catalog: CareerCatalog;
 }
 
 export type CareerRunPhase = 'decision' | 'season' | 'retired';
@@ -35,6 +36,7 @@ interface StoredRun {
   input: CareerRunInput;
   decisions: number[];
   state: CareerState;
+  catalog: CareerCatalog;
   phase: CareerRunPhase;
 }
 
@@ -61,16 +63,23 @@ function isStoredRun(value: unknown): value is StoredRun {
     Array.isArray(candidate.decisions) &&
     typeof candidate.state === 'object' &&
     candidate.state !== null &&
+    typeof candidate.catalog === 'object' &&
+    candidate.catalog !== null &&
+    Array.isArray(candidate.catalog.clubs) &&
     (candidate.phase === 'decision' || candidate.phase === 'season' || candidate.phase === 'retired')
   );
 }
 
 /**
  * Reproduce el consumo de azar de la carrera (el mismo bucle que `replayCareer`)
- * para reubicar el RNG en el punto exacto en que quedó la sesión. El catálogo
- * no importa para el consumo: se usa el club ya resuelto en el estado guardado.
+ * para reubicar el RNG en el punto exacto en que quedó la sesión.
  */
-function rngAfterDecisions(seed: number, decisions: readonly number[], state: CareerState): Rng {
+function rngAfterDecisions(
+  seed: number,
+  decisions: readonly number[],
+  state: CareerState,
+  catalog: CareerCatalog,
+): Rng {
   const rng = createSeededRng(seed);
   let cursor = createCareer(
     { surname: 'x', position: state.position, clubSlug: state.club.slug, catalog: { clubs: [state.club] } },
@@ -78,14 +87,14 @@ function rngAfterDecisions(seed: number, decisions: readonly number[], state: Ca
   );
   for (const decision of decisions) {
     if (shouldRetire(cursor, rng)) break;
-    const prompt = pickScenario(cursor, rng);
+    const prompt = pickScenario(cursor, rng, catalog);
     if (!prompt) {
       cursor = simulateSeason(cursor, rng);
       continue;
     }
     const option = prompt.options[Math.min(decision, prompt.options.length - 1)];
     if (!option) return rng;
-    cursor = simulateSeason(applyOption(cursor, option), rng);
+    cursor = simulateSeason(applyOption(cursor, option, catalog), rng);
   }
   return rng;
 }
@@ -104,7 +113,14 @@ function readStoredRun(): StoredRun | null {
 
 function writeStoredRun(run: CareerRun, phase: CareerRunPhase): void {
   if (typeof window === 'undefined') return;
-  const stored: StoredRun = { seed: run.seed, input: run.input, decisions: run.decisions, state: run.state, phase };
+  const stored: StoredRun = {
+    seed: run.seed,
+    input: run.input,
+    decisions: run.decisions,
+    state: run.state,
+    catalog: run.catalog,
+    phase,
+  };
   window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 }
 
@@ -117,9 +133,9 @@ export function useCareerRun(): CareerRunApi {
   useEffect(() => {
     const stored = readStoredRun();
     if (!stored) return;
-    const rng = rngAfterDecisions(stored.seed, stored.decisions, stored.state);
+    const rng = rngAfterDecisions(stored.seed, stored.decisions, stored.state, stored.catalog);
     rngRef.current = rng;
-    setRun({ seed: stored.seed, input: stored.input, decisions: stored.decisions, state: stored.state });
+    setRun({ seed: stored.seed, input: stored.input, decisions: stored.decisions, state: stored.state, catalog: stored.catalog });
     if (stored.phase === 'retired') {
       setPhase('retired');
       return;
@@ -129,7 +145,7 @@ export function useCareerRun(): CareerRunApi {
       return;
     }
     setPhase(shouldRetire(stored.state, rng) ? 'retired' : 'decision');
-    setPrompt(pickScenario(stored.state, rng));
+    setPrompt(pickScenario(stored.state, rng, stored.catalog));
   }, []);
 
   useEffect(() => {
@@ -140,9 +156,9 @@ export function useCareerRun(): CareerRunApi {
     const rng = createSeededRng(seed);
     const state = createCareer({ surname: input.surname, position: input.position, clubSlug: input.clubSlug, catalog }, rng);
     rngRef.current = rng;
-    setRun({ seed, input, decisions: [], state });
+    setRun({ seed, input, decisions: [], state, catalog });
     if (!shouldRetire(state, rng)) {
-      setPrompt(pickScenario(state, rng));
+      setPrompt(pickScenario(state, rng, catalog));
       setPhase('decision');
     } else {
       setPrompt(null);
@@ -154,7 +170,7 @@ export function useCareerRun(): CareerRunApi {
     if (!run || !prompt || phase !== 'decision' || !rngRef.current) return;
     const option = prompt.options[Math.min(optionIndex, prompt.options.length - 1)];
     if (!option) return;
-    const state = simulateSeason(applyOption(run.state, option), rngRef.current);
+    const state = simulateSeason(applyOption(run.state, option, run.catalog), rngRef.current);
     const decision = Math.min(optionIndex, prompt.options.length - 1);
     const decisions = [...run.decisions, decision];
     setRun({ ...run, decisions, state });
@@ -168,7 +184,7 @@ export function useCareerRun(): CareerRunApi {
       setPhase('retired');
       return;
     }
-    const nextPrompt = pickScenario(run.state, rngRef.current);
+    const nextPrompt = pickScenario(run.state, rngRef.current, run.catalog);
     if (!nextPrompt) {
       // Sin escenario elegible no hay decisión que mostrar; el pool actual
       // siempre ofrece al menos «Otra temporada».

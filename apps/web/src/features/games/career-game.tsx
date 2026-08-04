@@ -5,9 +5,11 @@ import {
   FALLBACK_CATALOG,
   summarizeCareer,
   type CareerPosition,
+  type CareerState,
   type SeasonRecord,
 } from '@ovalia/domain';
 import type { ApiCareerEntry, ApiCareerSeasonRecord } from '../../lib/api/types';
+import { TeamBadge } from '../../components/team-badge';
 import { CareerCard } from './career-card';
 import { CareerRanking } from './career-ranking';
 import { useCareerClubs } from './use-career-clubs';
@@ -36,6 +38,40 @@ function recordToApi(record: SeasonRecord): ApiCareerSeasonRecord {
     rating: record.rating,
     note: record.note,
   };
+}
+
+/**
+ * Estado compacto y persistente durante la carrera: sin esto el jugador avanza
+ * a ciegas, sin saber su edad, club, división ni cómo lo ve la hinchada.
+ */
+function CareerHud({ state }: { state: CareerState }) {
+  return (
+    <div className="career-hud">
+      <TeamBadge name={state.club.name} shortCode={state.club.name} badgeUrl={state.club.badgeUrl ?? undefined} />
+      <div className="career-hud__club">
+        <strong>{state.club.name}</strong>
+        <small>División {state.club.level}</small>
+      </div>
+      <dl className="career-hud__stats">
+        <div>
+          <dt>Edad</dt>
+          <dd>{state.age}</dd>
+        </div>
+        <div>
+          <dt>Media</dt>
+          <dd>{state.overall}</dd>
+        </div>
+        <div>
+          <dt>Moral</dt>
+          <dd>{state.morale}</dd>
+        </div>
+        <div>
+          <dt>Hinchada</dt>
+          <dd>{state.support}</dd>
+        </div>
+      </dl>
+    </div>
+  );
 }
 
 export interface CareerGameProps {
@@ -106,11 +142,12 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
     return (
       <section className="game-stage">
         <p className="eyebrow">LA CARRERA DE {run.input.surname.toUpperCase()}</p>
+        <CareerHud state={run.state} />
         <h2>{prompt.title}</h2>
         <p>{prompt.subtitle}</p>
         <div>
           {prompt.options.map((option, index) => (
-            <button key={option.label} onClick={() => choose(index)}>
+            <button key={option.label} className="career-option" onClick={() => choose(index)}>
               <strong>{option.label}</strong>
               <small>{option.description}</small>
             </button>
@@ -125,6 +162,7 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
     return (
       <section className="game-stage">
         <p className="eyebrow">LA CARRERA DE {run.input.surname.toUpperCase()}</p>
+        <CareerHud state={run.state} />
         {record && (
           <div className="game-result compact">
             <small>TEMPORADA {record.season}</small>
