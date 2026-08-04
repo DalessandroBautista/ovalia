@@ -67,6 +67,18 @@ describe('summarizeCareer', () => {
     expect(Math.abs(a - b) / Math.max(a, b)).toBeLessThan(0.5);
   });
 
+  it('produce puntajes con dispersión amplia entre carreras muy distintas', () => {
+    let mediocre = baseState({ support: 10, fame: 0, overall: 30, morale: 30 });
+    for (let i = 0; i < 3; i += 1) mediocre = simulateSeason(mediocre, createSeededRng(i + 90));
+
+    let sobresaliente = baseState({ support: 95, fame: 90, overall: 95, morale: 90, everPro: true, pro: true });
+    for (let i = 0; i < 20; i += 1) sobresaliente = simulateSeason(sobresaliente, createSeededRng(i));
+
+    const low = summarizeCareer(mediocre).score;
+    const high = summarizeCareer(sobresaliente).score;
+    expect(high).toBeGreaterThan(low * 2);
+  });
+
   it('asigna una comparación con una figura', () => {
     let state = baseState();
     for (let i = 0; i < 10; i += 1) state = simulateSeason(state, createSeededRng(i));

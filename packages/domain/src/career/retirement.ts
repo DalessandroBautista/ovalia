@@ -40,11 +40,16 @@ function shapeOf(state: CareerState): CareerShape {
  * club es un final tan válido como emigrar.
  */
 function scoreOf(state: CareerState): number {
+  const seasons = state.history.length;
+  const avgRating = seasons > 0 ? state.history.reduce((sum, record) => sum + record.rating, 0) / seasons : 0;
+  const proBonus = state.everPro ? 200 : 0;
   return Math.round(
-    state.peakOverall * 3 +
-    state.history.length * 12 +
-    state.support * 2.5 +
-    state.fame * 2,
+    state.peakOverall * 7 +
+    avgRating * 6 +
+    seasons * 20 +
+    state.support * 3 +
+    state.fame * 3 +
+    proBonus,
   );
 }
 
