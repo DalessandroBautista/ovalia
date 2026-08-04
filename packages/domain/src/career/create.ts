@@ -90,6 +90,8 @@ export function createCareer(input: CreateCareerInput, rng: Rng): CareerState {
     pro: false,
     everPro: false,
     injured: false,
+    injurySeverity: null,
+    caps: 0,
     retired: false,
     peakOverall: overall,
     history: [],

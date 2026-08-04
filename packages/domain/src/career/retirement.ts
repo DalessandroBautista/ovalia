@@ -17,6 +17,9 @@ export interface CareerSummary {
   seasons: number;
   clubs: string[];
   peakLevel: number;
+  totalTries: number;
+  totalMatches: number;
+  caps: number;
 }
 
 export function shouldRetire(state: CareerState, rng: Rng): boolean {
@@ -107,10 +110,13 @@ export function summarizeCareer(state: CareerState): CareerSummary {
   const { tier, verdict } = verdictOf(state);
   const figure = figureForShape(shapeOf(state));
   const clubs = [...new Set(state.history.map((record) => record.clubName))];
+  const narrativeVerdict = state.caps > 0
+    ? `${verdict} Fuiste convocado a la selección en ${state.caps} ${state.caps === 1 ? 'oportunidad' : 'oportunidades'}.`
+    : verdict;
 
   return {
     tier,
-    verdict,
+    verdict: narrativeVerdict,
     score: scoreOf(state),
     comparison: {
       figure: figure.name,
@@ -119,5 +125,8 @@ export function summarizeCareer(state: CareerState): CareerSummary {
     seasons: state.history.length,
     clubs,
     peakLevel: state.history.reduce((best, record) => Math.min(best, record.level), 99),
+    totalTries: state.history.reduce((sum, record) => sum + record.tries, 0),
+    totalMatches: state.history.reduce((sum, record) => sum + record.matchesPlayed, 0),
+    caps: state.caps,
   };
 }

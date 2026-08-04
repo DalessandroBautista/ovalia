@@ -92,4 +92,48 @@ describe('simulateSeason', () => {
     expect(state.overall).toBeLessThanOrEqual(100);
     expect(state.overall).toBeGreaterThanOrEqual(1);
   });
+
+  it('registra tries y partidos jugados en cada temporada', () => {
+    const after = simulateSeason(baseState(), createSeededRng(10));
+    expect(after.history[0]?.tries).toBeGreaterThanOrEqual(0);
+    expect(after.history[0]?.matchesPlayed).toBeGreaterThan(0);
+  });
+
+  it('a lo largo de muchas temporadas, en algún momento aparece una lesión', () => {
+    let state = baseState({ age: 30 });
+    let sawInjury = false;
+    for (let i = 0; i < 40 && !sawInjury; i += 1) {
+      state = simulateSeason(state, createSeededRng(i));
+      if (state.history.at(-1)?.injury) sawInjury = true;
+    }
+    expect(sawInjury).toBe(true);
+  });
+
+  it('una lesión que se arrastra reduce el rating de la temporada siguiente', () => {
+    const lesionado = baseState({ injured: true, injurySeverity: 'grave' });
+    const sano = baseState({ injured: false, injurySeverity: null });
+    const conLesion = simulateSeason(lesionado, createSeededRng(50));
+    const sinLesion = simulateSeason(sano, createSeededRng(50));
+    expect(conLesion.history[0]!.rating).toBeLessThan(sinLesion.history[0]!.rating);
+  });
+
+  it('un jugador de media alta puede ser convocado a la selección', () => {
+    let state = baseState({ overall: 90, age: 24 });
+    let sawSelection = false;
+    for (let i = 0; i < 60 && !sawSelection; i += 1) {
+      state = simulateSeason(state, createSeededRng(i));
+      if (state.history.at(-1)?.selected) sawSelection = true;
+      state = { ...state, overall: 90 };
+    }
+    expect(sawSelection).toBe(true);
+  });
+
+  it('acumula convocatorias en el estado del jugador', () => {
+    let state = baseState({ overall: 90, age: 24 });
+    for (let i = 0; i < 60; i += 1) {
+      state = simulateSeason(state, createSeededRng(i));
+      state = { ...state, overall: 90 };
+    }
+    expect(state.caps).toBeGreaterThan(0);
+  });
 });

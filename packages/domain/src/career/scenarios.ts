@@ -297,6 +297,22 @@ const POOL: ScenarioDefinition[] = [
   },
 ];
 
+/**
+ * Sentido general del efecto de una opción, para que la interfaz lo comunique
+ * visualmente antes de avanzar (color, ícono) sin duplicar la lógica de puntaje.
+ */
+export function effectTone(effect: ScenarioEffect): 'positivo' | 'negativo' | 'neutro' {
+  const score =
+    (effect.overall ?? 0) +
+    (effect.morale ?? 0) * 0.5 +
+    (effect.support ?? 0) * 0.3 +
+    (effect.fame ?? 0) * 0.3 +
+    (effect.pro ? 5 : 0);
+  if (score > 0.5) return 'positivo';
+  if (score < -0.5) return 'negativo';
+  return 'neutro';
+}
+
 export function pickScenario(state: CareerState, rng: Rng, catalog: CareerCatalog): ScenarioPrompt | null {
   const eligible = POOL.filter((definition) => definition.isEligible(state, catalog));
   const chosen = pickWeighted(

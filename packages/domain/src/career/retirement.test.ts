@@ -104,6 +104,21 @@ describe('summarizeCareer', () => {
     expect(summarizeCareer(state)).toEqual(summarizeCareer(state));
   });
 
+  it('acumula tries, partidos y convocatorias de toda la carrera', () => {
+    let state = baseState({ overall: 90, age: 24 });
+    for (let i = 0; i < 15; i += 1) {
+      state = simulateSeason(state, createSeededRng(i));
+      state = { ...state, overall: 90 };
+    }
+    const summary = summarizeCareer(state);
+    const expectedTries = state.history.reduce((sum, r) => sum + r.tries, 0);
+    const expectedMatches = state.history.reduce((sum, r) => sum + r.matchesPlayed, 0);
+    expect(summary.totalTries).toBe(expectedTries);
+    expect(summary.totalMatches).toBe(expectedMatches);
+    expect(summary.caps).toBe(state.caps);
+    expect(summary.caps).toBeGreaterThan(0);
+  });
+
   it('aplica ponderación de posición al puntaje', () => {
     // Crea dos carreras idénticas salvo por la posición y comprueba que la
     // posición 'apertura' ponderada produce mayor puntaje que 'pilar'.

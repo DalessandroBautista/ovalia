@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSeededRng } from './rng';
 import { createCareer } from './create';
-import { applyOption, pickScenario } from './scenarios';
+import { applyOption, effectTone, pickScenario } from './scenarios';
 import { replayCareer } from './replay';
 import type { CareerCatalog, CareerState } from './types';
 
@@ -154,6 +154,24 @@ describe('applyOption', () => {
     );
     expect(after.club.slug).not.toBe(before.club.slug);
     expect(after.club.level).toBeLessThan(before.club.level);
+  });
+});
+
+describe('effectTone', () => {
+  it('marca positivo un efecto con ganancias netas', () => {
+    expect(effectTone({ overall: 2, morale: 4, note: 'x' })).toBe('positivo');
+  });
+
+  it('marca negativo un efecto con pérdidas netas', () => {
+    expect(effectTone({ overall: -2, support: -10, note: 'x' })).toBe('negativo');
+  });
+
+  it('marca neutro un efecto sin impacto relevante', () => {
+    expect(effectTone({ note: 'x' })).toBe('neutro');
+  });
+
+  it('considera pasar a profesional como un efecto positivo', () => {
+    expect(effectTone({ pro: true, note: 'x' })).toBe('positivo');
   });
 });
 
