@@ -123,7 +123,7 @@ export function fetchCompetitions(options?: ApiFetchOptions) {
 }
 
 export function fetchOrganizations(options?: ApiFetchOptions) {
-  return apiFetch<ApiOrganizationsResponse>('/v1/organizations?countryCode=AR&kind=union', options);
+  return apiFetch<ApiOrganizationsResponse>('/v1/organizations', options);
 }
 
 export function fetchHome(options?: ApiFetchOptions) {

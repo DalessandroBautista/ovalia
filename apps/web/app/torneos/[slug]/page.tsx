@@ -19,7 +19,14 @@ export async function generateMetadata({
   }
 }
 
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ temporada?: string }>;
+}) {
   const { slug } = await params;
-  return <TournamentPage slug={slug} />;
+  const { temporada } = await searchParams;
+  return <TournamentPage slug={slug} initialSeason={temporada} />;
 }

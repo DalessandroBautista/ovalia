@@ -25,8 +25,8 @@ export const standingsQuerySchema = z.object({
 });
 
 export const organizationsQuerySchema = z.object({
-  countryCode: z.string().regex(/^[A-Z]{2}$/).default('AR'),
-  kind: z.enum(['union', 'league', 'international', 'sevens']).default('union'),
+  countryCode: z.string().regex(/^[A-Z]{2}$/).optional(),
+  kind: z.enum(['union', 'league', 'international', 'sevens']).optional(),
 });
 
 /** Evento de analytics anónimo (sin PII). */

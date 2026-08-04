@@ -326,6 +326,8 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         gender: competition.gender,
         coverage: competition.coverage,
         familySlug: competition.familySlug,
+        countryCode: competition.countryCode,
+        organization: competition.organization ? { slug: competition.organization.slug, name: competition.organization.name } : null,
         seasons: seasons.map((s) => ({ year: s.year, name: s.name })),
       },
     };

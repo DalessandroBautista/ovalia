@@ -149,6 +149,8 @@ export interface ApiCompetitionDetail {
     gender: string;
     coverage: string;
     familySlug: string | null;
+    countryCode: string | null;
+    organization: { slug: string; name: string } | null;
     seasons: Array<{ year: number; name: string }>;
   };
 }

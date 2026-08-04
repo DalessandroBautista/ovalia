@@ -31,4 +31,31 @@ describe('team badge registry', () => {
   it('returns undefined when neither local nor remote asset exists', () => {
     expect(resolveTeamBadge({ name: 'Equipo sin registrar' })).toBeUndefined();
   });
+
+  it('finds SIC through its full name', () => {
+    expect(findTeamBadge({ name: 'San Isidro Club' })).toMatchObject({
+      slug: 'sic',
+      badgePath: '/teams/sic.svg',
+    });
+  });
+
+  it('prefers the local badge for URBA clubs over the remote URBA URL', () => {
+    expect(
+      resolveTeamBadge({
+        name: 'SIC',
+        remoteUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+      }),
+    ).toBe('/teams/sic.svg');
+  });
+
+  it('resolves Hindú without accent through a normalized alias', () => {
+    expect(resolveTeamBadge({ name: 'Hindu' })).toBe('/teams/hindu.svg');
+  });
+
+  it('resolves URBA CASI, Newman, Alumni and CUBA to local assets', () => {
+    expect(resolveTeamBadge({ name: 'CASI' })).toBe('/teams/casi.svg');
+    expect(resolveTeamBadge({ name: 'Newman' })).toBe('/teams/newman.png');
+    expect(resolveTeamBadge({ name: 'Alumni' })).toBe('/teams/alumni.svg');
+    expect(resolveTeamBadge({ name: 'CUBA' })).toBe('/teams/cuba.svg');
+  });
 });

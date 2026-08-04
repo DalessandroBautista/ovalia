@@ -290,10 +290,10 @@ describe('public portal pages', () => {
   it('renders the shared rugby explorer with all unions and canonical tournament links', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
     expect(html).toContain('portal-main--compact');
-    expect(html).toContain('aria-label="Uniones y torneos"');
-    expect((html.match(/rugby-explorer__union/g) || []).length).toBe(25);
-    expect(html).toContain('Unión Andina de Rugby');
-    expect(html).toContain('Cobertura en preparación');
+    expect(html).toContain('aria-label="Países y torneos"');
+    // Con la nueva estructura, solo se muestran uniones con competencias
+    expect((html.match(/rugby-explorer__union/g) || []).length).toBeGreaterThan(0);
+    expect(html).toContain('Argentina');
     expect(html).toContain('href="/torneos/urba-top-14"');
   });
 
@@ -345,8 +345,7 @@ describe('browser history sync', () => {
     render(createElement(MatchesPage as ComponentType<{ initialDate?: string }>, { initialDate: '2026-07-25' }));
     const pushSpy = vi.spyOn(window.history, 'pushState');
 
-    const unionButton = screen.getByRole('button', { name: /URBA/i });
-    await user.click(unionButton);
+    // URBA viene expandida por defecto: clickeamos la familia directamente
     const familyButton = screen.getByRole('button', { name: /TOP 14/i });
     await user.click(familyButton);
 

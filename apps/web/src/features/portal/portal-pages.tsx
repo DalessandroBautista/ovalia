@@ -1,6 +1,6 @@
 'use client';
 
-import { findTeamBadge } from '@ovalia/domain';
+import { findTeamBadge, findCountryByCode } from '@ovalia/domain';
 import { useEffect, useRef, useState } from 'react';
 
 import { ArrowLeftIcon, ArrowRightIcon, ClockIcon, DiamondIcon, HomeIcon, RugbyBallIcon, TargetIcon, UserIcon } from '../../components/icons';
@@ -118,19 +118,70 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
   const [selectedDate, setSelectedDate] = useState(() => initialDate ?? argentinaDateKey());
   const [selectedFamilyKey, setSelectedFamilyKey] = useState(initialFamily ?? '');
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialMatchId ?? null);
-  const [expandedUnionKey, setExpandedUnionKey] = useState('');
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
   const { status: organizationsStatus, organizations } = useOrganizations();
   const explorer = buildRugbyExplorer(organizations, competitions);
-  const selectedFamily = explorer.flatMap((union) => union.families).find((family) => family.key === selectedFamilyKey);
+  const allUnions = explorer.flatMap((country) => country.unions);
+  const selectedFamily = allUnions.flatMap((union) => union.families).find((family) => family.key === selectedFamilyKey);
   const activeFamilyKey = selectedFamily?.key ?? '';
-  const defaultExpandedUnionKey = explorer.find((union) => union.families.some((family) => family.key === activeFamilyKey))?.key
-    ?? explorer[0]?.key
-    ?? '';
-  const activeExpandedUnionKey = explorer.some((union) => union.key === expandedUnionKey)
-    ? expandedUnionKey
-    : defaultExpandedUnionKey;
+  
+  // Encontrar el país y unión que contiene la familia seleccionada
+  const containingCountry = explorer.find((country) => 
+    country.unions.some((union) => union.families.some((family) => family.key === activeFamilyKey))
+  );
+  const containingUnion = containingCountry?.unions.find((union) => 
+    union.families.some((family) => family.key === activeFamilyKey)
+  );
+
+  // Expansión por defecto: solo el primer país y su primera unión,
+  // o el país/uníón que contiene al torneo activo si viene en la URL.
+  const firstCountry = explorer[0];
+  const defaultCountryCode = containingCountry?.code ?? firstCountry?.code ?? '';
+  const defaultUnionKey = containingUnion?.key ?? containingCountry?.unions[0]?.key ?? firstCountry?.unions[0]?.key ?? '';
+  const [expandedCountryCodes, setExpandedCountryCodes] = useState<ReadonlySet<string>>(
+    () => new Set(defaultCountryCode ? [defaultCountryCode] : []),
+  );
+  const [expandedUnionKeys, setExpandedUnionKeys] = useState<ReadonlySet<string>>(
+    () => new Set(defaultUnionKey ? [defaultUnionKey] : []),
+  );
+
+  const toggleCountry = (countryCode: string) => {
+    setExpandedCountryCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(countryCode)) next.delete(countryCode);
+      else next.add(countryCode);
+      return next;
+    });
+  };
+
+  const toggleUnion = (unionKey: string) => {
+    setExpandedUnionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(unionKey)) next.delete(unionKey);
+      else next.add(unionKey);
+      return next;
+    });
+  };
+
+  // Si el catálogo llega después del primer render (datos asíncronos),
+  // inicializar la expansión por defecto sin pisar la interacción del usuario.
+  useEffect(() => {
+    if (!defaultCountryCode) return;
+    setExpandedCountryCodes((prev) => (prev.size > 0 ? prev : new Set([defaultCountryCode])));
+    setExpandedUnionKeys((prev) => (prev.size > 0 || !defaultUnionKey ? prev : new Set([defaultUnionKey])));
+  }, [defaultCountryCode, defaultUnionKey]);
+
+  // Si el torneo activo viene de la URL, autoexpandir el país y la unión que lo contienen
+  useEffect(() => {
+    if (!activeFamilyKey) return;
+    if (containingCountry?.code) {
+      setExpandedCountryCodes((prev) => (prev.has(containingCountry.code) ? prev : new Set(prev).add(containingCountry.code)));
+    }
+    if (containingUnion?.key) {
+      setExpandedUnionKeys((prev) => (prev.has(containingUnion.key) ? prev : new Set(prev).add(containingUnion.key)));
+    }
+  }, [activeFamilyKey, containingCountry?.code, containingUnion?.key]);
   const isSyncingFromHistory = useRef(false);
 
   useEffect(() => {
@@ -195,14 +246,16 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
           <p className="portal-live-status portal-live-status--error">No pudimos cargar el catálogo de torneos. La agenda sigue disponible sin el explorador.</p>
         ) : (
           <RugbyExplorer
-            unions={explorer}
-            expandedUnionKey={activeExpandedUnionKey}
+            countries={explorer}
+            expandedCountryCodes={expandedCountryCodes}
+            expandedUnionKeys={expandedUnionKeys}
             selectedFamilyKey={activeFamilyKey}
             mode="matches"
-            onUnionSelect={setExpandedUnionKey}
+            onCountrySelect={toggleCountry}
+            onUnionSelect={toggleUnion}
             onFamilySelect={(family, unionKey) => {
               setSelectedFamilyKey(family.key);
-              setExpandedUnionKey(unionKey);
+              setExpandedUnionKeys((prev) => new Set(prev).add(unionKey));
             }}
             onClearFamily={() => setSelectedFamilyKey('')}
           />
@@ -265,17 +318,69 @@ function tournamentCountLabel(count: number): string {
 
 // Lee el estado de /torneos representado en la URL. Igual que en /partidos,
 // sumar un parámetro nuevo más adelante sólo requiere extender esta función.
-function readTournamentsUrlState(search: string): { unionKey: string } {
+function readTournamentsUrlState(search: string): { countryCode: string; unionKey: string } {
   const params = new URLSearchParams(search);
-  return { unionKey: params.get('union') ?? '' };
+  return {
+    countryCode: params.get('pais') ?? '',
+    unionKey: params.get('union') ?? '',
+  };
 }
 
-export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}) {
+export function TournamentsPage({ initialCountry, initialUnion }: { initialCountry?: string; initialUnion?: string } = {}) {
   const { status, competitions } = useCompetitions();
   const { status: organizationsStatus, organizations } = useOrganizations();
   const explorer = buildRugbyExplorer(organizations, competitions);
+  // Selección (parametros de la URL + panel derecho)
+  const [selectedCountryCode, setSelectedCountryCode] = useState(initialCountry ?? '');
   const [selectedUnionKey, setSelectedUnionKey] = useState(initialUnion ?? '');
-  const selectedUnion = explorer.find((union) => union.key === selectedUnionKey) ?? explorer[0];
+  
+  const allUnions = explorer.flatMap((country) => country.unions);
+  const selectedUnion = allUnions.find((union) => union.key === selectedUnionKey) ?? allUnions[0];
+  
+  // Encontrar el país que contiene la unión seleccionada
+  const containingCountry = explorer.find((country) => 
+    country.unions.some((union) => union.key === selectedUnion?.key)
+  );
+  
+  const activeCountryCode = containingCountry?.code ?? explorer.find((c) => c.code === selectedCountryCode)?.code ?? explorer[0]?.code ?? 'AR';
+  const selectedCountry = explorer.find((country) => country.code === activeCountryCode);
+
+  // Expansión por defecto: solo el primer país (Argentina) y su primera unión
+  const firstCountryCode = explorer[0]?.code ?? '';
+  const firstUnionKey = explorer[0]?.unions[0]?.key ?? '';
+  // Expansión visual (acumulativa, no afecta la URL)
+  const [expandedCountryCodes, setExpandedCountryCodes] = useState<ReadonlySet<string>>(
+    () => new Set(firstCountryCode ? [firstCountryCode] : []),
+  );
+  const [expandedUnionKeys, setExpandedUnionKeys] = useState<ReadonlySet<string>>(
+    () => new Set(firstUnionKey ? [firstUnionKey] : []),
+  );
+
+  const toggleCountry = (countryCode: string) => {
+    setExpandedCountryCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(countryCode)) next.delete(countryCode);
+      else next.add(countryCode);
+      return next;
+    });
+  };
+
+  const toggleUnion = (unionKey: string) => {
+    setExpandedUnionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(unionKey)) next.delete(unionKey);
+      else next.add(unionKey);
+      return next;
+    });
+  };
+
+  // Si el catálogo llega después del primer render (datos asíncronos),
+  // inicializar la expansión por defecto sin pisar la interacción del usuario.
+  useEffect(() => {
+    if (!firstCountryCode) return;
+    setExpandedCountryCodes((prev) => (prev.size > 0 ? prev : new Set([firstCountryCode])));
+    setExpandedUnionKeys((prev) => (prev.size > 0 || !firstUnionKey ? prev : new Set([firstUnionKey])));
+  }, [firstCountryCode, firstUnionKey]);
 
   useEffect(() => {
     if (selectedUnion && selectedUnion.key !== selectedUnionKey) {
@@ -286,12 +391,21 @@ export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const syncFromUrl = () => {
-      const { unionKey } = readTournamentsUrlState(window.location.search);
+      const { countryCode, unionKey } = readTournamentsUrlState(window.location.search);
+      setSelectedCountryCode(countryCode);
       setSelectedUnionKey(unionKey);
     };
     window.addEventListener('popstate', syncFromUrl);
     return () => window.removeEventListener('popstate', syncFromUrl);
   }, []);
+
+  const selectCountry = (countryCode: string) => {
+    setSelectedCountryCode(countryCode);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('pais', countryCode);
+    window.history.pushState(null, '', url.toString());
+  };
 
   const selectUnion = (unionKey: string) => {
     setSelectedUnionKey(unionKey);
@@ -301,22 +415,39 @@ export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}
     window.history.pushState(null, '', url.toString());
   };
   return (
-    <Frame className="portal-main--compact" eyebrow="COBERTURA" title="Todos los torneos" intro="Elegí una unión y después el torneo que querés consultar.">
+    <Frame className="portal-main--compact" eyebrow="COBERTURA GLOBAL" title="Todos los torneos" intro="Elegí un país, una organización y después el torneo que querés consultar.">
       {status === 'loading' || organizationsStatus === 'loading' ? <p className="portal-live-status">Cargando torneos…</p> : null}
       {status === 'error' || organizationsStatus === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar todo el catálogo.</p> : null}
       {explorer.length > 0 ? (
         <div className="rugby-catalog-layout">
           <RugbyExplorer
-            unions={explorer}
-            expandedUnionKey={selectedUnion?.key ?? ''}
+            countries={explorer}
+            expandedCountryCodes={expandedCountryCodes}
+            expandedUnionKeys={expandedUnionKeys}
             mode="catalog"
-            onUnionSelect={selectUnion}
+            onCountrySelect={(countryCode) => {
+              toggleCountry(countryCode);
+              selectCountry(countryCode);
+            }}
+            onUnionSelect={(unionKey) => {
+              toggleUnion(unionKey);
+              selectUnion(unionKey);
+            }}
           />
           <section className="rugby-union-overview">
+            {selectedCountry ? (
+              <header className="rugby-country-header">
+                <div>
+                  <small>{selectedCountry.flag} País</small>
+                  <h2>{selectedCountry.name}</h2>
+                </div>
+                <span>{selectedCountry.unions.length} {selectedCountry.unions.length === 1 ? 'organización' : 'organizaciones'}</span>
+              </header>
+            ) : null}
             {selectedUnion ? (
               <>
                 <header>
-                  <div><small>Unión</small><h2>{selectedUnion.label}</h2></div>
+                  <div><small>Organización</small><h2>{selectedUnion.label}</h2></div>
                   <span>{tournamentCountLabel(selectedUnion.families.length)}</span>
                 </header>
                 {selectedUnion.families.length > 0 ? (
@@ -329,7 +460,7 @@ export function TournamentsPage({ initialUnion }: { initialUnion?: string } = {}
                     ))}
                   </div>
                 ) : (
-                  <div className="rugby-catalog-empty"><small>Próximamente</small><h3>Cobertura en preparación</h3><p>La unión ya forma parte del catálogo. Sus torneos se publicarán cuando estén verificados.</p></div>
+                  <div className="rugby-catalog-empty"><small>Próximamente</small><h3>Cobertura en preparación</h3><p>La organización ya forma parte del catálogo. Sus torneos se publicarán cuando estén verificados.</p></div>
                 )}
               </>
             ) : null}
@@ -350,8 +481,12 @@ export function PredictionPage() {
 
 type TournamentTab = 'posiciones' | 'resultados' | 'calendario';
 
-export function TournamentPage({ slug, initialTab = 'posiciones' }: { slug: string; initialTab?: TournamentTab }) {
-  const [season, setSeason] = useState<number | undefined>(undefined);
+export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason }: { slug: string; initialTab?: TournamentTab; initialSeason?: string }) {
+  const [season, setSeason] = useState<number | undefined>(() => {
+    if (!initialSeason) return undefined;
+    const parsed = Number(initialSeason);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  });
   const [tab, setTab] = useState<TournamentTab>(initialTab);
   const [roundIndex, setRoundIndex] = useState(0);
   const { status, competition, standings, matches } = useTournament(slug, season);
@@ -364,6 +499,15 @@ export function TournamentPage({ slug, initialTab = 'posiciones' }: { slug: stri
   useEffect(() => {
     track('view_tournament', { slug });
   }, [slug]);
+
+  // Persistir la temporada elegida en la URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (season) url.searchParams.set('temporada', String(season));
+    else url.searchParams.delete('temporada');
+    window.history.replaceState(null, '', url.toString());
+  }, [season]);
 
   if (status === 'loading' && !competition) {
     return <Frame eyebrow="TORNEO" title="Cargando…" intro="Consultando los datos verificados del torneo."><p className="portal-live-status">Cargando…</p></Frame>;
@@ -385,8 +529,18 @@ export function TournamentPage({ slug, initialTab = 'posiciones' }: { slug: stri
   const activeRoundIndex = Math.min(roundIndex, Math.max(rounds.length - 1, 0));
   const activeRound = rounds[activeRoundIndex];
 
+  // Determinar el país/organización para el eyebrow
+  const organizationName = competition.organization?.name ?? '';
+  const countryCode = competition.countryCode;
+  const country = countryCode ? findCountryByCode(countryCode) : undefined;
+  const eyebrowText = country 
+    ? `${country.flag} ${country.name.toUpperCase()}${organizationName ? ` · ${organizationName}` : ''}`
+    : organizationName 
+      ? organizationName.toUpperCase()
+      : 'TORNEO';
+
   return (
-    <Frame className="tournament-detail" eyebrow="ARGENTINA · BUENOS AIRES" title={competition.name} intro={`Temporada ${activeSeason ?? ''} · posiciones, resultados y calendario reales.`}>
+    <Frame className="tournament-detail" eyebrow={eyebrowText} title={competition.name} intro={`Temporada ${activeSeason ?? ''} · posiciones, resultados y calendario reales.`}>
       {competition.seasons.length > 1 ? (
         <label className="season-picker">Temporada
           <select value={activeSeason} onChange={(e) => setSeason(Number(e.target.value))}>

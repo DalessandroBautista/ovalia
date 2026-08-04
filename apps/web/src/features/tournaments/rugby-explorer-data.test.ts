@@ -17,24 +17,31 @@ const competitions: ApiCompetition[] = [
 ];
 
 describe('buildRugbyExplorer', () => {
-  it('conserva uniones sin torneos y prioriza las que tienen cobertura', () => {
+  it('agrupa uniones por país y prioriza las que tienen cobertura', () => {
     const explorer = buildRugbyExplorer(organizations, competitions);
-    expect(explorer.map((union) => union.key)).toEqual(['urba', 'rosario', 'santa-fe', 'andina']);
-    expect(explorer.find((union) => union.key === 'urba')?.shortLabel).toBe('URBA');
-    expect(explorer.find((union) => union.key === 'andina')?.families).toEqual([]);
+    // Solo Argentina tiene organizaciones con competencias
+    expect(explorer.length).toBe(1);
+    const argentina = explorer.find((country) => country.code === 'AR');
+    expect(argentina).toBeDefined();
+    expect(argentina?.unions.map((union) => union.key)).toEqual(['urba', 'rosario', 'santa-fe']);
+    expect(argentina?.unions.find((union) => union.key === 'urba')?.shortLabel).toBe('URBA');
+    // Andina no tiene competencias, no aparece
+    expect(argentina?.unions.find((union) => union.key === 'andina')).toBeUndefined();
   });
 
   it('agrupa todas las divisiones de una familia y elige senior como destino canónico', () => {
-    const top14 = buildRugbyExplorer(organizations, competitions)
-      .find((union) => union.key === 'urba')?.families[0];
+    const explorer = buildRugbyExplorer(organizations, competitions);
+    const argentina = explorer.find((country) => country.code === 'AR');
+    const top14 = argentina?.unions.find((union) => union.key === 'urba')?.families[0];
     expect(top14?.divisions.map((division) => division.slug)).toEqual(['urba-top-14', 'top-14-intermedia']);
     expect(top14?.canonicalSlug).toBe('urba-top-14');
   });
 
   it('presenta una competencia regional bajo cada unión asociada sin duplicarla dentro de ellas', () => {
     const explorer = buildRugbyExplorer(organizations, competitions);
-    expect(explorer.find((union) => union.key === 'rosario')?.families.map((family) => family.key)).toEqual(['regional-del-litoral']);
-    expect(explorer.find((union) => union.key === 'santa-fe')?.families.map((family) => family.key)).toEqual(['regional-del-litoral']);
+    const argentina = explorer.find((country) => country.code === 'AR');
+    expect(argentina?.unions.find((union) => union.key === 'rosario')?.families.map((family) => family.key)).toEqual(['regional-del-litoral']);
+    expect(argentina?.unions.find((union) => union.key === 'santa-fe')?.families.map((family) => family.key)).toEqual(['regional-del-litoral']);
   });
 });
 
