@@ -6,14 +6,52 @@ import { replayCareer } from './replay';
 import type { CareerCatalog, CareerState } from './types';
 
 const catalog: CareerCatalog = {
-  clubs: [{ slug: 'bajo', name: 'Bajo', level: 4, badgeUrl: null }],
+  clubs: [
+    {
+      slug: 'bajo',
+      name: 'Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+  ],
 };
 
 const multiCatalog: CareerCatalog = {
   clubs: [
-    { slug: 'bajo', name: 'Bajo', level: 4, badgeUrl: null },
-    { slug: 'medio', name: 'Medio', level: 2, badgeUrl: null },
-    { slug: 'alto', name: 'Alto', level: 1, badgeUrl: null },
+    {
+      slug: 'bajo',
+      name: 'Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+    {
+      slug: 'medio',
+      name: 'Medio',
+      level: 2,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-a',
+      divisionName: 'Primera A',
+    },
+    {
+      slug: 'alto',
+      name: 'Alto',
+      level: 1,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-top-14',
+      divisionName: 'Top 14',
+    },
   ],
 };
 

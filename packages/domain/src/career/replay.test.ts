@@ -9,8 +9,26 @@ import type { CareerCatalog, CareerState } from './types';
 
 const catalog: CareerCatalog = {
   clubs: [
-    { slug: 'bajo', name: 'Bajo', level: 4, badgeUrl: null },
-    { slug: 'alto', name: 'Alto', level: 1, badgeUrl: null },
+    {
+      slug: 'bajo',
+      name: 'Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+    {
+      slug: 'alto',
+      name: 'Alto',
+      level: 1,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-top-14',
+      divisionName: 'Top 14',
+    },
   ],
 };
 

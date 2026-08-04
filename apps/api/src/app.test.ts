@@ -741,6 +741,17 @@ describe.skipIf(!available)('API real', () => {
   });
 
   describe('career', () => {
+    interface CareerClubApiRow {
+      slug: string;
+      name: string;
+      level: number;
+      badgeUrl: string | null;
+      unionSlug: string;
+      unionName: string;
+      divisionSlug: string;
+      divisionName: string;
+    }
+
     it('arma el catálogo de clubes con su división desde las competencias', async () => {
       const { db } = handle;
       const top14 = await makeCompetition(db, { slug: 'urba-top-14', name: 'URBA Top 14' });
@@ -755,9 +766,39 @@ describe.skipIf(!available)('API real', () => {
       const app = makeAppFor();
       const res = await app.inject({ method: 'GET', url: '/v1/career/clubs' });
       expect(res.statusCode).toBe(200);
-      const clubs = res.json().clubs;
-      expect(clubs).toContainEqual({ slug: 'sic', name: 'SIC', level: 1, badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png' });
-      expect(clubs).toContainEqual({ slug: 'club-bajo', name: 'Club Bajo', level: 3, badgeUrl: null });
+      const clubs: CareerClubApiRow[] = res.json().clubs;
+      expect(clubs).toContainEqual({
+        slug: 'sic',
+        name: 'SIC',
+        level: 1,
+        badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+        unionSlug: 'urba',
+        unionName: 'Unión de Rugby de Buenos Aires',
+        divisionSlug: 'urba-top-14',
+        divisionName: 'Top 14',
+      });
+      expect(clubs).toContainEqual({
+        slug: 'club-bajo',
+        name: 'Club Bajo',
+        level: 3,
+        badgeUrl: null,
+        unionSlug: 'urba',
+        unionName: 'Unión de Rugby de Buenos Aires',
+        divisionSlug: 'urba-primera-b',
+        divisionName: 'Primera B',
+      });
+
+      // Cada club trae unión y división legibles, no solo el nivel numérico.
+      expect(clubs.length).toBeGreaterThan(0);
+      for (const club of clubs) {
+        expect(club.unionSlug.length).toBeGreaterThan(0);
+        expect(club.unionName.length).toBeGreaterThan(0);
+        expect(club.divisionSlug.length).toBeGreaterThan(0);
+        expect(club.divisionName.length).toBeGreaterThan(0);
+      }
+      // El club de la división más alta se muestra con su nombre real.
+      const top = clubs.find((club) => club.level === 1);
+      expect(top?.divisionName).toBe('Top 14');
     });
 
     it('publica una entrada al ranking con apodo', async () => {

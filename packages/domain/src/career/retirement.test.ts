@@ -6,7 +6,18 @@ import { shouldRetire, summarizeCareer } from './retirement';
 import type { CareerCatalog, CareerState } from './types';
 
 const catalog: CareerCatalog = {
-  clubs: [{ slug: 'bajo', name: 'Bajo', level: 4, badgeUrl: null }],
+  clubs: [
+    {
+      slug: 'bajo',
+      name: 'Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+  ],
 };
 
 function baseState(overrides: Partial<CareerState> = {}): CareerState {

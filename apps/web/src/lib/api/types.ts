@@ -190,6 +190,10 @@ export interface ApiCareerClub {
   name: string;
   level: number;
   badgeUrl: string | null;
+  unionSlug: string;
+  unionName: string;
+  divisionSlug: string;
+  divisionName: string;
 }
 
 export interface ApiCareerSummary {

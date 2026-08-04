@@ -15,6 +15,12 @@ export interface CareerClub {
   /** Nivel de división: 1 es el más alto. */
   level: number;
   badgeUrl: string | null;
+  /** Unión a la que pertenece el club. */
+  unionSlug: string;
+  unionName: string;
+  /** Competencia/división por la que el club entró al catálogo. */
+  divisionSlug: string;
+  divisionName: string;
 }
 
 export interface CareerCatalog {

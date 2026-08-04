@@ -97,14 +97,19 @@ function serializeMatch(row: NonNullable<MatchRow>) {
 
 // --- Simulador de carrera ---
 
-const URBA_DIVISION_LEVEL: Record<string, number> = {
-  'urba-top-14': 1,
-  'urba-primera-a': 2,
-  'urba-primera-b': 3,
-  'urba-primera-c': 4,
-  'urba-segunda': 5,
-  'urba-tercera': 6,
-  'urba-desarrollo': 7,
+interface UrbaDivision {
+  level: number;
+  name: string;
+}
+
+const URBA_DIVISIONS: Record<string, UrbaDivision> = {
+  'urba-top-14': { level: 1, name: 'Top 14' },
+  'urba-primera-a': { level: 2, name: 'Primera A' },
+  'urba-primera-b': { level: 3, name: 'Primera B' },
+  'urba-primera-c': { level: 4, name: 'Primera C' },
+  'urba-segunda': { level: 5, name: 'Segunda' },
+  'urba-tercera': { level: 6, name: 'Tercera' },
+  'urba-desarrollo': { level: 7, name: 'Desarrollo' },
 };
 
 const CAREER_PUBLISH_LIMIT = 3;
@@ -606,8 +611,20 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   // --- Simulador de carrera ---
 
   app.get('/v1/career/clubs', async () => {
-    const byLevel = new Map<string, { slug: string; name: string; level: number; badgeUrl: string | null }>();
-    for (const [slug, level] of Object.entries(URBA_DIVISION_LEVEL)) {
+    const byLevel = new Map<
+      string,
+      {
+        slug: string;
+        name: string;
+        level: number;
+        badgeUrl: string | null;
+        unionSlug: string;
+        unionName: string;
+        divisionSlug: string;
+        divisionName: string;
+      }
+    >();
+    for (const [slug, division] of Object.entries(URBA_DIVISIONS)) {
       const competition = await findCompetitionBySlug(db, slug);
       if (!competition) continue;
       const season = await getLatestSeason(db, competition.id);
@@ -615,8 +632,19 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       const rows = await getStandingsForSeason(db, season.id);
       for (const row of rows) {
         const current = byLevel.get(row.teamSlug);
-        if (!current || level < current.level) {
-          byLevel.set(row.teamSlug, { slug: row.teamSlug, name: row.teamName, level, badgeUrl: row.teamBadgeUrl });
+        // El club se queda con su división MÁS ALTA (número de nivel más chico);
+        // si aparece en varias competencias, conserva el nombre de esa división.
+        if (!current || division.level < current.level) {
+          byLevel.set(row.teamSlug, {
+            slug: row.teamSlug,
+            name: row.teamName,
+            level: division.level,
+            badgeUrl: row.teamBadgeUrl,
+            unionSlug: 'urba',
+            unionName: 'Unión de Rugby de Buenos Aires',
+            divisionSlug: slug,
+            divisionName: division.name,
+          });
         }
       }
     }
