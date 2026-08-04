@@ -164,8 +164,8 @@ await upsertSource(db, {
   priority: 90,
   baseUrl: 'https://fixture.urba.org.ar',
   capabilities: ['catalog', 'fixtures', 'results', 'standings'],
-  automationAllowed: false,
-  active: false,
+  automationAllowed: true,
+  active: true,
   attribution: 'URBA — urba.org.ar',
 });
 await upsertSource(db, {
