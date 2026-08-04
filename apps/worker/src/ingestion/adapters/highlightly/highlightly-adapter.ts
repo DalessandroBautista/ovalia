@@ -22,7 +22,10 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
   async fetchCatalog(_ctx: FetchContext) {
     void _ctx;
     const currentYear = new Date().getFullYear();
-    const competitions = HIGHLIGHTLY_COMPETITIONS.map((c) => {
+    // Los externalId 'PENDIENTE-*' aún no tienen leagueId real de Highlightly:
+    // se excluyen del catálogo para no llamar a la API con Number(...) = NaN.
+    const readyCompetitions = HIGHLIGHTLY_COMPETITIONS.filter((c) => !c.externalId.startsWith('PENDIENTE-'));
+    const competitions = readyCompetitions.map((c) => {
       const format: 'xv' | 'sevens' = c.tier === 'sevens' ? 'sevens' : 'xv';
       return {
         externalId: c.externalId,
@@ -35,7 +38,7 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
       };
     });
     const allMatchesRaw = await Promise.all(
-      HIGHLIGHTLY_COMPETITIONS.map((c) => this.client.matches({ leagueId: Number(c.externalId) })),
+      readyCompetitions.map((c) => this.client.matches({ leagueId: Number(c.externalId) })),
     );
     const teams = allMatchesRaw.flatMap((raw) => parseMatchesAsTeams(raw));
     const uniqueTeams = [...new Map(teams.map((t) => [t.externalId, t])).values()];

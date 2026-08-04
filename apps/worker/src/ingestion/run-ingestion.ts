@@ -259,6 +259,16 @@ async function persistMatches(
     const seasonId = await resolveSeasonId(db, match, sourceId);
     const home = resolveEntity({ externalId: match.homeTeamExternalId, name: match.homeTeamExternalId }, lookups);
     const away = resolveEntity({ externalId: match.awayTeamExternalId, name: match.awayTeamExternalId }, lookups);
+    if (!match.startsAt) {
+      await createConflict(db, {
+        sourceId,
+        entityType: 'match',
+        candidates: [match],
+        reason: 'horario no informado',
+      });
+      conflicts += 1;
+      continue;
+    }
     if (!seasonId || home.kind !== 'valid' || away.kind !== 'valid') {
       await createConflict(db, {
         sourceId,

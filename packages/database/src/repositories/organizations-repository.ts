@@ -45,12 +45,12 @@ export async function linkCompetitionOrganization(
 
 export async function listOrganizationsWithCompetitionSlugs(
   db: Database,
-  filters: { countryCode: string; kind: string },
+  filters: { countryCode?: string; kind?: string },
 ) {
-  const where = and(
-    eq(organizations.countryCode, filters.countryCode),
-    eq(organizations.kind, filters.kind),
-  );
+  const conditions = [];
+  if (filters.countryCode) conditions.push(eq(organizations.countryCode, filters.countryCode));
+  if (filters.kind) conditions.push(eq(organizations.kind, filters.kind));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
   const organizationRows = await db
     .select({
       id: organizations.id,
@@ -62,17 +62,18 @@ export async function listOrganizationsWithCompetitionSlugs(
     .from(organizations)
     .where(where)
     .orderBy(asc(organizations.name));
+  const organizationFilter = conditions.length > 0 ? and(...conditions) : undefined;
   const primaryRows = await db
     .select({ organizationId: organizations.id, competitionSlug: competitions.slug })
     .from(organizations)
     .innerJoin(competitions, eq(competitions.organizationId, organizations.id))
-    .where(where);
+    .where(organizationFilter);
   const linkedRows = await db
     .select({ organizationId: organizations.id, competitionSlug: competitions.slug })
     .from(organizations)
     .innerJoin(competitionOrganizations, eq(competitionOrganizations.organizationId, organizations.id))
     .innerJoin(competitions, eq(competitions.id, competitionOrganizations.competitionId))
-    .where(where);
+    .where(organizationFilter);
   const slugsByOrganization = new Map<string, Set<string>>();
   for (const row of [...primaryRows, ...linkedRows]) {
     const slugs = slugsByOrganization.get(row.organizationId) ?? new Set<string>();

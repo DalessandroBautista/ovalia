@@ -6,7 +6,7 @@ import type {
   ExternalTeam,
 } from '@ovalia/domain';
 import { localWallClockToUtc } from '../../normalization/dates';
-import { deriveUrbaTaxonomy } from './urba-taxonomy';
+import { deriveUrbaTaxonomy, type UrbaTier } from './urba-taxonomy';
 
 export const URBA_PARSER_VERSION = 'urba-1';
 
@@ -149,12 +149,30 @@ function isBye(team: z.infer<typeof rawMatchTeamSchema>): boolean {
   return /^bye$/i.test(team.name.trim()) || /^bye$/i.test(team.club.name.trim());
 }
 
+/**
+ * Regla de negocio para el kickoff de un partido URBA:
+ * - Playdate 00:00:00 en competencias senior → 15:30 hora local de Argentina
+ *   (las primeras divisiones juegan a esa hora; el API devuelve medianoche).
+ * - Playdate 00:00:00 en el resto de categorías (intermediate, youth, women,
+ *   university) → null: no hay horario informado, cada club define el suyo.
+ * - Playdate con hora real distinta de 00:00 → se respeta tal cual.
+ */
+function resolveStartsAt(playdate: string, tier: UrbaTier): string | null {
+  const iso = playdate.replace(' ', 'T');
+  const [datePart, timePart] = iso.split('T');
+  const atMidnight = timePart === '00:00' || timePart === '00:00:00';
+  if (atMidnight && tier !== 'senior') return null;
+  const wallClock = atMidnight ? `${datePart}T15:30:00` : iso;
+  return localWallClockToUtc(wallClock, AR_OFFSET_MINUTES).toISOString();
+}
+
 export function parseFixtures(raw: unknown): ExternalMatch[] {
   const data = parseOrThrow(rawChampionshipDetailSchema, raw, 'championship detail');
   const championship = data.championship[0];
   if (!championship) throw new Error('URBA parser: championship vacío');
   const competitionExternalId = String(championship.id);
   const seasonYear = championship.season.id;
+  const tier = deriveUrbaTaxonomy(championship.name).tier;
   const matches: ExternalMatch[] = [];
   for (const round of championship.rounds) {
     for (const m of round.matches) {
@@ -167,7 +185,7 @@ export function parseFixtures(raw: unknown): ExternalMatch[] {
         competitionExternalId,
         seasonYear,
         round: round.name,
-        startsAt: localWallClockToUtc(m.playdate.replace(' ', 'T'), AR_OFFSET_MINUTES).toISOString(),
+        startsAt: resolveStartsAt(m.playdate, tier),
         homeTeamExternalId: String(m.local_team.club.id),
         awayTeamExternalId: String(m.visit_team.club.id),
         status: matchStatus(m),
