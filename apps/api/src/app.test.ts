@@ -809,7 +809,7 @@ describe.skipIf(!available)('API real', () => {
         payload: {
           displayName: 'TercerTiempo',
           score: 850,
-          summary: { tier: 'Gloria amateur', verdict: 'V', score: 850, comparison: { figure: 'Hugo Porta', reason: 'R' }, seasons: 14, clubs: ['SIC'], peakLevel: 1 },
+          summary: { tier: 'Gloria amateur', verdict: 'V', score: 850, comparison: { figure: 'Hugo Porta', reason: 'R' }, seasons: 14, clubs: ['SIC'], peakLevel: 1, totalTries: 0, totalMatches: 0, caps: 0 },
           history: [],
           surname: 'Pérez',
           position: 'centro',
@@ -831,7 +831,7 @@ describe.skipIf(!available)('API real', () => {
         payload: {
           displayName: '  ',
           score: 1,
-          summary: { tier: 't', verdict: 'v', score: 1, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 },
+          summary: { tier: 't', verdict: 'v', score: 1, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 },
           history: [],
           surname: 'Pérez',
           position: 'centro',
@@ -849,7 +849,7 @@ describe.skipIf(!available)('API real', () => {
       const app = makeAppFor();
       const base = {
         score: 100, displayName: 'X', originKey: 'b'.repeat(64),
-        summary: { tier: 't', verdict: 'v', score: 100, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 },
+        summary: { tier: 't', verdict: 'v', score: 100, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 },
         history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 1, decisions: [],
       };
       for (let i = 0; i < 3; i += 1) {
@@ -863,7 +863,7 @@ describe.skipIf(!available)('API real', () => {
 
     it('lista el ranking ordenado por puntaje', async () => {
       const app = makeAppFor();
-      const entry = { displayName: 'Pibe', score: 700, originKey: 'c'.repeat(64), summary: { tier: 't', verdict: 'v', score: 700, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 1, decisions: [] };
+      const entry = { displayName: 'Pibe', score: 700, originKey: 'c'.repeat(64), summary: { tier: 't', verdict: 'v', score: 700, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 1, decisions: [] };
       await app.inject({ method: 'POST', url: '/v1/career/entries', payload: entry });
       await app.inject({ method: 'POST', url: '/v1/career/entries', payload: { ...entry, displayName: 'Duro', score: 900 } });
       const res = await app.inject({ method: 'GET', url: '/v1/career/entries?limit=10' });
@@ -873,7 +873,7 @@ describe.skipIf(!available)('API real', () => {
 
     it('devuelve el detalle de una entrada para la tarjeta compartible', async () => {
       const app = makeAppFor();
-      const created = await app.inject({ method: 'POST', url: '/v1/career/entries', payload: { displayName: 'Ídolo', score: 800, originKey: 'd'.repeat(64), summary: { tier: 't', verdict: 'v', score: 800, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 42, decisions: [0, 1] } });
+      const created = await app.inject({ method: 'POST', url: '/v1/career/entries', payload: { displayName: 'Ídolo', score: 800, originKey: 'd'.repeat(64), summary: { tier: 't', verdict: 'v', score: 800, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 42, decisions: [0, 1] } });
       const id = created.json().entry.id;
       const res = await app.inject({ method: 'GET', url: `/v1/career/entries/${id}` });
       expect(res.statusCode).toBe(200);
