@@ -123,16 +123,25 @@ export function CareerGame({ initialSeed, initialPosition }: CareerGameProps) {
             <span>Apellido</span>
             <input value={surname} onChange={(event) => setSurname(event.target.value)} />
           </label>
-          <label className="attribute">
-            <span>Club</span>
-            <select value={effectiveClubSlug} onChange={(event) => setClubSlug(event.target.value)}>
+          <fieldset className="club-offer">
+            <legend>Club</legend>
+            <div className="club-offer__grid" role="radiogroup" aria-label="Elegí el club donde empezás">
               {catalogClubs.map((club) => (
-                <option key={club.slug} value={club.slug}>
-                  {club.name}
-                </option>
+                <button
+                  key={club.slug}
+                  type="button"
+                  className={`club-offer__card${club.slug === effectiveClubSlug ? ' is-selected' : ''}`}
+                  role="radio"
+                  aria-checked={club.slug === effectiveClubSlug}
+                  onClick={() => setClubSlug(club.slug)}
+                >
+                  <TeamBadge name={club.name} shortCode={club.name} badgeUrl={club.badgeUrl ?? undefined} />
+                  <strong>{club.name}</strong>
+                  <small>División {club.level}</small>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
           <label className="attribute">
             <span>Posición</span>
             <select value={position} onChange={(event) => setPosition(event.target.value as CareerPosition)}>

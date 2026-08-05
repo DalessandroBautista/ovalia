@@ -316,6 +316,29 @@ function tournamentCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'torneo' : 'torneos'}`;
 }
 
+function teamsFromMatches(matches: AgendaMatch[]): Array<{ name: string; badgeUrl: string | null }> {
+  const byName = new Map<string, string | null>();
+  for (const match of matches) {
+    if (!byName.has(match.homeTeam)) byName.set(match.homeTeam, match.homeBadgeUrl);
+    if (!byName.has(match.awayTeam)) byName.set(match.awayTeam, match.awayBadgeUrl);
+  }
+  return [...byName.entries()]
+    .map(([name, badgeUrl]) => ({ name, badgeUrl }))
+    .sort((left, right) => left.name.localeCompare(right.name, 'es'));
+}
+
+function formatRoundDateRange(matches: AgendaMatch[]): string {
+  const dates = matches
+    .map((match) => new Date(match.startsAt))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((left, right) => left.getTime() - right.getTime());
+  if (dates.length === 0) return '';
+  const format = (date: Date) => date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' });
+  const first = format(dates[0]!);
+  const last = format(dates.at(-1)!);
+  return first === last ? first : `${first} – ${last}`;
+}
+
 // Lee el estado de /torneos representado en la URL. Igual que en /partidos,
 // sumar un parámetro nuevo más adelante sólo requiere extender esta función.
 function readTournamentsUrlState(search: string): { countryCode: string; unionKey: string } {
@@ -471,10 +494,59 @@ export function TournamentsPage({ initialCountry, initialUnion }: { initialCount
   );
 }
 
+const PRODE_COMPETITION_SLUG = 'urba-top-14';
+
 export function PredictionPage() {
+  const { matches, competition } = useTournament(PRODE_COMPETITION_SLUG);
+  const [guesses, setGuesses] = useState<Record<string, { home: string; away: string }>>({});
+  const [saved, setSaved] = useState(false);
+
+  const scheduled = matches.filter((match) => match.status === 'scheduled');
+  const rounds = groupMatchesByRound(scheduled);
+  const nextRound = rounds[0];
+  const roundMatches = nextRound?.matches ?? [];
+  const closesAt = roundMatches.length > 0
+    ? roundMatches.map((match) => match.startsAt).sort()[0]
+    : null;
+
+  const setGuess = (matchId: string, side: 'home' | 'away', value: string) => {
+    setSaved(false);
+    setGuesses((prev) => ({
+      ...prev,
+      [matchId]: { home: prev[matchId]?.home ?? '0', away: prev[matchId]?.away ?? '0', [side]: value },
+    }));
+  };
+
   return (
     <Frame eyebrow="JUGÁ LA FECHA" title="Prode Ovalia" intro="Pronosticá resultados, sumá puntos y competí en rankings generales o privados.">
-      <section className="prediction-panel"><div className="prediction-heading"><div><small>URBA TOP 14</small><h2>Fecha 12</h2></div><span>Cierra el sábado · 15:25</span></div>{[['SIC','Hindú'],['CASI','Newman'],['Alumni','CUBA']].map(([home,away]) => <div className="prediction-row" key={home}><b>{home}</b><label><span>Local</span><input aria-label={`Goles de ${home}`} inputMode="numeric" defaultValue="0" /></label><em>—</em><label><span>Visitante</span><input aria-label={`Goles de ${away}`} inputMode="numeric" defaultValue="0" /></label><b>{away}</b></div>)}<button className="primary-action" type="button">Guardar pronósticos</button><p className="fine-print">5 pts resultado exacto · 3 pts diferencia exacta · 1 pt ganador</p></section>
+      <section className="prediction-panel">
+        <div className="prediction-heading">
+          <div><small>{competition?.name ?? 'URBA TOP 14'}</small><h2>{nextRound?.label ?? 'Sin fecha próxima'}</h2></div>
+          {closesAt ? <span>Cierra {formatMatchTime(closesAt)}</span> : null}
+        </div>
+        {roundMatches.length === 0 ? (
+          <p className="portal-live-status">No hay partidos programados para pronosticar todavía.</p>
+        ) : (
+          roundMatches.map((match) => {
+            const guess = guesses[match.id] ?? { home: '0', away: '0' };
+            const homeCode = findTeamBadge({ name: match.homeTeam })?.shortCode ?? match.homeTeam.slice(0, 3).toUpperCase();
+            const awayCode = findTeamBadge({ name: match.awayTeam })?.shortCode ?? match.awayTeam.slice(0, 3).toUpperCase();
+            return (
+              <div className="prediction-row" key={match.id}>
+                <b><TeamBadge name={match.homeTeam} shortCode={homeCode} badgeUrl={match.homeBadgeUrl ?? undefined} size="small" />{match.homeTeam}</b>
+                <label><span>Local</span><input aria-label={`Goles de ${match.homeTeam}`} inputMode="numeric" value={guess.home} onChange={(e) => setGuess(match.id, 'home', e.target.value)} /></label>
+                <em>—</em>
+                <label><span>Visitante</span><input aria-label={`Goles de ${match.awayTeam}`} inputMode="numeric" value={guess.away} onChange={(e) => setGuess(match.id, 'away', e.target.value)} /></label>
+                <b>{match.awayTeam}<TeamBadge name={match.awayTeam} shortCode={awayCode} badgeUrl={match.awayBadgeUrl ?? undefined} size="small" /></b>
+              </div>
+            );
+          })
+        )}
+        <button className="primary-action" type="button" disabled={roundMatches.length === 0} onClick={() => setSaved(true)}>
+          {saved ? 'Pronósticos guardados' : 'Guardar pronósticos'}
+        </button>
+        <p className="fine-print">5 pts resultado exacto · 3 pts diferencia exacta · 1 pt ganador</p>
+      </section>
     </Frame>
   );
 }
@@ -589,14 +661,36 @@ export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason 
               })}
               <DataProvenance source={standings.source} freshness={standings.freshness} />
             </>
-          ) : <p className="portal-live-status">Todavía no hay posiciones para esta temporada.</p>}
+          ) : (
+            <>
+              {teamsFromMatches(matches).length > 0 ? (
+                <>
+                  <p className="table-card__note">Todavía no hay tabla oficial para esta temporada. Estos son los equipos confirmados, en 0.</p>
+                  <div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>
+                  {teamsFromMatches(matches).map((team, index) => {
+                    const shortCode = findTeamBadge({ name: team.name })?.shortCode ?? team.name.slice(0, 3).toUpperCase();
+                    return (
+                      <div className="standing-row standing-row--placeholder" key={team.name}>
+                        <span>{index + 1}</span>
+                        <span className="standing-team">
+                          <TeamBadge name={team.name} shortCode={shortCode} badgeUrl={team.badgeUrl ?? undefined} size="small" />
+                          {team.name}
+                        </span>
+                        <span>0</span><span>0</span>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : <p className="portal-live-status">Todavía no hay posiciones para esta temporada.</p>}
+            </>
+          )}
         </section>
       ) : null}
 
       {tab === 'resultados' ? (
         <section className="tournament-round-panel">
           {results.length === 0 ? <p className="portal-live-status">Sin resultados todavía.</p> : null}
-          {activeRound ? <RoundNavigation index={activeRoundIndex} total={rounds.length} label={activeRound.label} onChange={setRoundIndex} /> : null}
+          {activeRound ? <RoundNavigation index={activeRoundIndex} total={rounds.length} label={activeRound.label} dateLabel={formatRoundDateRange(activeRound.matches)} onChange={setRoundIndex} /> : null}
           {activeRound ? <section className="portal-list tournament-results">{activeRound.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}</section> : null}
         </section>
       ) : null}
@@ -604,7 +698,7 @@ export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason 
       {tab === 'calendario' ? (
         <section className="tournament-round-panel">
           {upcoming.length === 0 ? <p className="portal-live-status">Sin próximos partidos programados.</p> : null}
-          {activeRound ? <RoundNavigation index={activeRoundIndex} total={rounds.length} label={activeRound.label} onChange={setRoundIndex} /> : null}
+          {activeRound ? <RoundNavigation index={activeRoundIndex} total={rounds.length} label={activeRound.label} dateLabel={formatRoundDateRange(activeRound.matches)} onChange={setRoundIndex} /> : null}
           {activeRound ? <section className="portal-list tournament-results">{activeRound.matches.map((match) => <PortalMatchRow match={match} key={match.id} />)}</section> : null}
         </section>
       ) : null}
@@ -612,11 +706,11 @@ export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason 
   );
 }
 
-function RoundNavigation({ index, total, label, onChange }: { index: number; total: number; label: string; onChange: (index: number) => void }) {
+function RoundNavigation({ index, total, label, dateLabel, onChange }: { index: number; total: number; label: string; dateLabel?: string; onChange: (index: number) => void }) {
   return (
     <div className="round-toolbar" aria-label="Navegación de fechas">
       <button type="button" aria-label="Fecha anterior" disabled={index === 0} onClick={() => onChange(index - 1)}><ArrowLeftIcon /></button>
-      <span><small>JORNADA</small><strong>{label}</strong><em>{index + 1} / {total}</em></span>
+      <span><small>JORNADA</small><strong>{label}</strong>{dateLabel ? <b className="round-toolbar__date">{dateLabel}</b> : null}<em>{index + 1} / {total}</em></span>
       <button type="button" aria-label="Siguiente fecha" disabled={index === total - 1} onClick={() => onChange(index + 1)}><ArrowRightIcon /></button>
     </div>
   );
@@ -643,23 +737,36 @@ export function MatchDetailPage({ matchId }: { matchId: string }) {
   const awayScore = live?.awayScore ?? match.awayScore;
   const homeCode = findTeamBadge({ name: match.home.name })?.shortCode ?? match.home.shortName;
   const awayCode = findTeamBadge({ name: match.away.name })?.shortCode ?? match.away.shortName;
-  const title = isScored
-    ? `${match.home.name} ${homeScore ?? 0} — ${awayScore ?? 0} ${match.away.name}`
-    : `${match.home.name} vs ${match.away.name}`;
-  const intro = live
+  const title = `${match.home.name} vs ${match.away.name}`;
+  const statusLabel = live
     ? `EN VIVO · ${live.minute ? `${live.minute} min` : live.phase}`
-    : `${match.round} · ${formatMatchTime(match.startsAt)}`;
+    : match.status === 'final'
+      ? 'RESULTADO FINAL'
+      : 'PRÓXIMO PARTIDO';
+  const intro = `${match.round} · ${formatMatchTime(match.startsAt)}`;
 
   return (
     <Frame eyebrow={match.competition.name.toUpperCase()} title={title} intro={intro}>
-      <section className="match-detail">
-        <div className="live-detail-teams">
-          <TeamBadge name={match.home.name} shortCode={homeCode} badgeUrl={match.home.badgeUrl ?? undefined} size="large" />
-          <strong>{isScored ? `${homeScore ?? 0} — ${awayScore ?? 0}` : '—'}</strong>
-          <TeamBadge name={match.away.name} shortCode={awayCode} badgeUrl={match.away.badgeUrl ?? undefined} size="large" />
+      <section className="match-hero">
+        <p className={`match-hero__status${live ? ' match-hero__status--live' : ''}`}>{statusLabel}</p>
+        <div className="match-hero__teams">
+          <div className="match-hero__team">
+            <TeamBadge name={match.home.name} shortCode={homeCode} badgeUrl={match.home.badgeUrl ?? undefined} size="large" />
+            <strong>{match.home.name}</strong>
+          </div>
+          <div className="match-hero__center">
+            {isScored ? (
+              <div className="match-hero__score"><b>{homeScore ?? 0}</b><i>—</i><b>{awayScore ?? 0}</b></div>
+            ) : (
+              <span className="match-hero__vs">VS</span>
+            )}
+          </div>
+          <div className="match-hero__team match-hero__team--away">
+            <TeamBadge name={match.away.name} shortCode={awayCode} badgeUrl={match.away.badgeUrl ?? undefined} size="large" />
+            <strong>{match.away.name}</strong>
+          </div>
         </div>
-        <h2>{live ? 'Actualización en vivo' : match.status === 'final' ? 'Resultado final' : 'Próximo partido'}</h2>
-        {match.venue ? <p>Sede: {match.venue}</p> : null}
+        {match.venue ? <p className="match-hero__venue">Sede: {match.venue}</p> : null}
         <DataProvenance source={live ? 'highlightly' : match.source} freshness={match.freshness} />
       </section>
     </Frame>
