@@ -163,4 +163,27 @@ describe.skipIf(!available)('runIngestion', () => {
     const rows = await db.query.standings.findMany();
     expect(rows).toHaveLength(2);
   });
+
+  it('resuelve y crea equipos no catalogados en standings mediante teamName', async () => {
+    const { db } = handle;
+    const source = await makeSource(db, { slug: 'fake' });
+    const standings: ExternalStandings = {
+      competitionExternalId: 'c1',
+      seasonYear: 2026,
+      rows: [
+        { teamExternalId: 't1', teamName: 'Alfa RC', played: 1, won: 1, drawn: 0, lost: 0, pointsFor: 30, pointsAgainst: 10, bonus: 1, points: 5 },
+        { teamExternalId: 't3', teamName: 'Gamma University', played: 1, won: 0, drawn: 0, lost: 1, pointsFor: 10, pointsAgainst: 30, bonus: 0, points: 0 },
+      ],
+    };
+    const adapter = fakeAdapter({ fetchStandings: async () => standings });
+    await runIngestion({ db, sourceId: source.id, adapter, capability: 'catalog', parserVersion: 'v1' });
+    const result = await runIngestion({ db, sourceId: source.id, adapter, capability: 'standings', parserVersion: 'v1' });
+    expect(result.persisted).toBe(2);
+    expect(result.conflicts).toBe(0);
+    const rows = await db.query.standings.findMany();
+    expect(rows).toHaveLength(2);
+    const gamma = await db.query.teams.findFirst({ where: (t, { eq }) => eq(t.slug, 'gamma-university') });
+    expect(gamma).toBeDefined();
+    expect(gamma?.name).toBe('Gamma University');
+  });
 });

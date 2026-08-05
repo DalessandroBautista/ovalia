@@ -208,6 +208,7 @@ export function parseStandings(
     seasonYear,
     rows: data.positions.map((p) => ({
       teamExternalId: String(p.team.club.id),
+      teamName: p.team.club.name || p.team.name,
       position: p.position,
       played: p.played,
       won: p.won,

@@ -177,6 +177,7 @@ describe('URBA parser (contract)', () => {
     expect(leader.points).toBeGreaterThan(0);
     expect(leader.bonus).toBeGreaterThanOrEqual(0);
     expect(leader.teamExternalId).toMatch(/^\d+$/);
+    expect(leader.teamName).toBe('Newman');
   });
 
   it('falla explícitamente ante una respuesta rota', () => {

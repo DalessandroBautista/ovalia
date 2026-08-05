@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const externalStandingRowSchema = z.object({
   teamExternalId: z.string().min(1),
+  teamName: z.string().optional(),
   position: z.number().int().positive().optional(),
   played: z.number().int().nonnegative(),
   won: z.number().int().nonnegative(),
