@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, notInArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import { competitions, matches, seasons, standings, teams } from '../schema.js';
 
@@ -171,20 +171,18 @@ export async function listTeamsForCompetition(
     }
   }
 
+  // Un slug canónico por selección: la base tiene alias duplicados (ej. 'pumas'
+  // y 'argentina', 'nueva-zelanda' y 'new-zealand') de distintas fuentes de datos;
+  // listamos solo el slug con badge real de Highlightly para no duplicar filas.
+  // También sirve para excluir selecciones nacionales de ligas domésticas cuando
+  // el fallback por país sería demasiado amplio (ej. Argentina en el Top 10 de Córdoba).
+  const nationalSlugs = ['argentina', 'australia', 'new-zealand', 'south-africa'];
+
   if (
     comp.category === 'national-teams' ||
     comp.organization?.kind === 'international' ||
     comp.familySlug === 'rugby-championship'
   ) {
-    const nationalSlugs = [
-      'argentina',
-      'australia',
-      'nueva-zelanda',
-      'sudafrica',
-      'pumas',
-      'new-zealand',
-      'south-africa',
-    ];
     const intlTeams = await db
       .select({
         id: teams.id,
@@ -201,16 +199,7 @@ export async function listTeamsForCompetition(
   }
 
   if (comp.organization) {
-    const conditions = [
-      eq(teams.active, true),
-      or(
-        eq(teams.union, comp.organization.name),
-        eq(teams.union, comp.organization.slug),
-        comp.countryCode ? eq(teams.countryCode, comp.countryCode) : undefined,
-      ),
-    ].filter((c): c is NonNullable<typeof c> => c != null);
-
-    const orgTeams = await db
+    const unionTeams = await db
       .select({
         id: teams.id,
         slug: teams.slug,
@@ -219,10 +208,35 @@ export async function listTeamsForCompetition(
         badgeUrl: teams.badgeUrl,
       })
       .from(teams)
-      .where(and(...conditions))
+      .where(and(
+        eq(teams.active, true),
+        or(eq(teams.union, comp.organization.name), eq(teams.union, comp.organization.slug)),
+      ))
       .orderBy(asc(teams.name));
 
-    return orgTeams;
+    if (unionTeams.length > 0) return unionTeams;
+
+    // Sin equipos vinculados a la unión: el fallback por país excluye selecciones
+    // nacionales (nationalSlugs) para no mezclar, ej., a Argentina en una liga provincial.
+    if (comp.countryCode) {
+      const countryTeams = await db
+        .select({
+          id: teams.id,
+          slug: teams.slug,
+          name: teams.name,
+          shortName: teams.shortName,
+          badgeUrl: teams.badgeUrl,
+        })
+        .from(teams)
+        .where(and(
+          eq(teams.active, true),
+          eq(teams.countryCode, comp.countryCode),
+          notInArray(teams.slug, nationalSlugs),
+        ))
+        .orderBy(asc(teams.name));
+
+      return countryTeams;
+    }
   }
 
   return [];
