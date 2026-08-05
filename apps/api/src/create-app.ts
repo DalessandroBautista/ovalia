@@ -43,6 +43,7 @@ import {
   listCompetitions,
   listOrganizationsWithCompetitionSlugs,
   listSeasons,
+  listTeamsForCompetition,
   pingDatabase,
   replaceLineup,
   type Database,
@@ -342,11 +343,11 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     const season = parsed.data.season
       ? await findSeason(db, competition.id, parsed.data.season)
       : await getLatestSeason(db, competition.id);
-    if (!season) return reply.code(404).send({ error: 'season_not_found' });
-    const rows = await getStandingsForSeason(db, season.id);
+    const rows = season ? await getStandingsForSeason(db, season.id) : [];
+    const fallbackTeams = rows.length === 0 ? await listTeamsForCompetition(db, competition.id) : [];
     return {
       competition: { slug: competition.slug, name: competition.name },
-      season: season.year,
+      season: season?.year ?? null,
       rows: rows.map((r, index) => ({
         position: index + 1,
         team: { slug: r.teamSlug, name: r.teamName, badgeUrl: r.teamBadgeUrl },
@@ -358,6 +359,11 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         pointsAgainst: r.pointsAgainst,
         bonus: r.bonus,
         points: r.points,
+      })),
+      fallbackTeams: fallbackTeams.map((t) => ({
+        slug: t.slug,
+        name: t.name,
+        badgeUrl: t.badgeUrl,
       })),
       source: rows[0]?.source ?? null,
       freshness: freshness(rows[0]?.fetchedAt),

@@ -36,6 +36,7 @@ import {
   upsertPrediction,
   upsertTeams,
   findPlayerBySlug,
+  listTeamsForCompetition,
 } from './repositories';
 import { predictions } from './schema';
 import { eq } from 'drizzle-orm';
@@ -792,5 +793,27 @@ describe.skipIf(!available)('repositories', () => {
     });
 
     expect(await hasLineup(db, match.id)).toBe(true);
+  });
+
+  it('listTeamsForCompetition obtiene equipos por standings, partidos u organización', async () => {
+    const { db } = handle;
+    const org = await upsertOrganization(db, { slug: 'cordoba', name: 'Unión Cordobesa de Rugby', kind: 'union', countryCode: 'AR' });
+    const comp = await upsertCompetition(db, {
+      slug: 'cordoba-top-10',
+      name: 'Top 10 Cordoba',
+      category: 'clubs',
+      gender: 'male',
+      countryCode: 'AR',
+      organizationId: org.id,
+    });
+
+    await upsertTeams(db, [
+      { slug: 'tala', name: 'Tala RC', shortName: 'TAL', countryCode: 'AR', union: 'cordoba' },
+      { slug: 'tablada', name: 'La Tablada', shortName: 'TAB', countryCode: 'AR', union: 'Unión Cordobesa de Rugby' },
+    ]);
+
+    const fallback = await listTeamsForCompetition(db, comp.id);
+    expect(fallback).toHaveLength(2);
+    expect(fallback.map((t) => t.name)).toEqual(['La Tablada', 'Tala RC']);
   });
 });

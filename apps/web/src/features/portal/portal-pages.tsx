@@ -663,25 +663,33 @@ export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason 
             </>
           ) : (
             <>
-              {teamsFromMatches(matches).length > 0 ? (
-                <>
-                  <p className="table-card__note">Todavía no hay tabla oficial para esta temporada. Estos son los equipos confirmados, en 0.</p>
-                  <div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>
-                  {teamsFromMatches(matches).map((team, index) => {
-                    const shortCode = findTeamBadge({ name: team.name })?.shortCode ?? team.name.slice(0, 3).toUpperCase();
-                    return (
-                      <div className="standing-row standing-row--placeholder" key={team.name}>
-                        <span>{index + 1}</span>
-                        <span className="standing-team">
-                          <TeamBadge name={team.name} shortCode={shortCode} badgeUrl={team.badgeUrl ?? undefined} size="small" />
-                          {team.name}
-                        </span>
-                        <span>0</span><span>0</span>
-                      </div>
-                    );
-                  })}
-                </>
-              ) : <p className="portal-live-status">Todavía no hay posiciones para esta temporada.</p>}
+              {(() => {
+                const fallbackTeams = standings?.fallbackTeams && standings.fallbackTeams.length > 0
+                  ? standings.fallbackTeams
+                  : teamsFromMatches(matches);
+                if (fallbackTeams.length === 0) {
+                  return <p className="portal-live-status">Todavía no hay posiciones para esta temporada.</p>;
+                }
+                return (
+                  <>
+                    <p className="table-card__note">Todavía no hay tabla oficial para esta temporada. Estos son los equipos confirmados, en 0.</p>
+                    <div className="standing-row standing-head"><span>#</span><span>Equipo</span><span>PJ</span><span>PTS</span></div>
+                    {fallbackTeams.map((team, index) => {
+                      const shortCode = findTeamBadge({ name: team.name })?.shortCode ?? team.name.slice(0, 3).toUpperCase();
+                      return (
+                        <div className="standing-row standing-row--placeholder" key={team.name}>
+                          <span>{index + 1}</span>
+                          <span className="standing-team">
+                            <TeamBadge name={team.name} shortCode={shortCode} badgeUrl={team.badgeUrl ?? undefined} size="small" />
+                            {team.name}
+                          </span>
+                          <span>0</span><span>0</span>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </>
           )}
         </section>

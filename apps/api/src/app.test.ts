@@ -341,6 +341,29 @@ describe.skipIf(!available)('API real', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('devuelve fallbackTeams cuando una competencia no tiene posiciones ni partidos', async () => {
+    const { db } = handle;
+    const org = await upsertOrganization(db, { slug: 'cordoba', name: 'Unión Cordobesa de Rugby', kind: 'union', countryCode: 'AR' });
+    await upsertCompetition(db, {
+      slug: 'cordoba-top-10-a-primera',
+      name: 'TOP 10 A - Primera',
+      category: 'clubs',
+      gender: 'male',
+      countryCode: 'AR',
+      organizationId: org.id,
+    });
+    await makeTeam(db, { slug: 'tala', name: 'Tala RC', union: 'cordoba' });
+    await makeTeam(db, { slug: 'tablada', name: 'La Tablada', union: 'Unión Cordobesa de Rugby' });
+
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/competitions/cordoba-top-10-a-primera/standings' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.rows).toHaveLength(0);
+    expect(body.fallbackTeams).toHaveLength(2);
+    expect(body.fallbackTeams.map((t: { name: string }) => t.name)).toEqual(['La Tablada', 'Tala RC']);
+  });
+
   it('el filtro status=live nunca devuelve partidos demo', async () => {
     await seedCompetition();
     const app = makeAppFor();

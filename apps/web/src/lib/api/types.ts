@@ -81,10 +81,17 @@ export interface ApiStandingRow {
   points: number;
 }
 
+export interface ApiFallbackTeam {
+  slug: string;
+  name: string;
+  badgeUrl: string | null;
+}
+
 export interface ApiStandingsResponse {
   competition: { slug: string; name: string };
-  season: number;
+  season: number | null;
   rows: ApiStandingRow[];
+  fallbackTeams?: ApiFallbackTeam[];
   source: string | null;
   freshness: Freshness;
 }
