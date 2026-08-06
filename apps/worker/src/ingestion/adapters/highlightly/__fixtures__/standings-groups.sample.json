@@ -1,0 +1,32 @@
+{
+  "groups": [
+    {
+      "name": "Group A",
+      "standings": [
+        {
+          "team": { "id": 392244, "logo": "https://highlightly.net/rugby/images/teams/392244.png", "name": "Argentina" },
+          "wins": 3,
+          "loses": 1,
+          "draws": 0,
+          "position": 1,
+          "points": 9,
+          "gamesPlayed": 4,
+          "scoredPoints": 216,
+          "receivedPoints": 95
+        },
+        {
+          "team": { "id": 398201, "logo": "https://highlightly.net/rugby/images/teams/398201.png", "name": "South Africa" },
+          "wins": 2,
+          "loses": 1,
+          "draws": 1,
+          "position": 2,
+          "points": 7,
+          "gamesPlayed": 4,
+          "scoredPoints": 146,
+          "receivedPoints": 112
+        }
+      ]
+    }
+  ],
+  "league": { "id": 73119, "logo": "https://highlightly.net/rugby/images/leagues/73119.png", "name": "Rugby Championship", "season": 2026 }
+}

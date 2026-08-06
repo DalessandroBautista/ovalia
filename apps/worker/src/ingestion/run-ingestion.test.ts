@@ -145,6 +145,34 @@ describe.skipIf(!available)('runIngestion', () => {
     expect(conflicts).toHaveLength(1);
   });
 
+  it('crea conflicto cuando local y visitante resuelven al mismo equipo', async () => {
+    const { db } = handle;
+    const source = await makeSource(db, { slug: 'fake' });
+    const adapter = fakeAdapter({
+      fetchFixtures: async (): Promise<ExternalMatch[]> => [
+        {
+          competitionExternalId: 'c1',
+          seasonYear: 2026,
+          round: 'Fecha 1',
+          startsAt: '2026-08-01T15:00:00-03:00',
+          homeTeamExternalId: 't1',
+          awayTeamExternalId: 't1', // mismo equipo local y visitante
+          status: 'scheduled',
+        },
+      ],
+    });
+    await runIngestion({ db, sourceId: source.id, adapter, capability: 'catalog', parserVersion: 'v1' });
+    const result = await runIngestion({ db, sourceId: source.id, adapter, capability: 'fixtures', parserVersion: 'v1' });
+    // No debe lanzar, no debe persistir un match inválido (CHECK home <> away) y debe registrar conflicto
+    expect(result.status).toBe('success');
+    expect(result.persisted).toBe(0);
+    expect(result.conflicts).toBe(1);
+    const matches = await db.query.matches.findMany();
+    expect(matches).toHaveLength(0);
+    const conflicts = await db.query.ingestionConflicts.findMany();
+    expect(conflicts).toHaveLength(1);
+  });
+
   it('persiste standings resueltos', async () => {
     const { db } = handle;
     const source = await makeSource(db, { slug: 'fake' });

@@ -41,8 +41,8 @@ export function CsvImporter() {
     try {
       const result = await ingestMatchesCsv(token, selectedCompetition, csvContent, true);
       setReport(result);
-    } catch (err: any) {
-      setError(err?.message || 'Error al validar el archivo CSV.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al validar el archivo CSV.');
     } finally {
       setLoading(false);
     }
@@ -58,8 +58,8 @@ export function CsvImporter() {
       setSuccess(`Importación exitosa: se persistieron ${result.persisted} partidos.`);
       setReport(null);
       setCsvContent('');
-    } catch (err: any) {
-      setError(err?.message || 'Error al confirmar la importación.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al confirmar la importación.');
     } finally {
       setLoading(false);
     }

@@ -39,4 +39,22 @@ describe('Highlightly parser (contrato)', () => {
     const standings = parseStandingsPayload(loadFixture('standings-empty.sample.json'), '73119', 2025);
     expect(standings.rows).toEqual([]);
   });
+
+  it('parsea las filas de standings desde los groups', () => {
+    const standings = parseStandingsPayload(loadFixture('standings-groups.sample.json'), '73119', 2026);
+    expect(standings.rows).toHaveLength(2);
+    const first = standings.rows[0]!;
+    expect(first.teamExternalId).toBe('392244');
+    expect(first.teamName).toBe('Argentina');
+    expect(first.position).toBe(1);
+    expect(first.played).toBe(4);
+    expect(first.won).toBe(3);
+    expect(first.drawn).toBe(0);
+    expect(first.lost).toBe(1);
+    expect(first.pointsFor).toBe(216);
+    expect(first.pointsAgainst).toBe(95);
+    expect(first.points).toBe(9);
+    expect(standings.competitionExternalId).toBe('73119');
+    expect(standings.seasonYear).toBe(2026);
+  });
 });

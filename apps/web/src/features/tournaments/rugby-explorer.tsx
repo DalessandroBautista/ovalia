@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/use-focus-trap';
-import type { RugbyExplorerCountry, RugbyExplorerFamily, RugbyExplorerUnion } from './rugby-explorer-data';
+import type { RugbyExplorerCountry, RugbyExplorerFamily } from './rugby-explorer-data';
 
 interface RugbyExplorerProps {
   countries: RugbyExplorerCountry[];

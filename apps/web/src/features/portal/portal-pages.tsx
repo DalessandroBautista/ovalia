@@ -240,7 +240,6 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
     if (divisionMatchDates.includes(selectedDate)) return;
     const next = nearestMatchDate(divisionMatchDates, selectedDate);
     if (next) setSelectedDate(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFamily?.key, activeDivisionSlug, divisionMatchDates.join(',')]);
 
   const slugByName = new Map(competitions.map((competition) => [competition.name, competition.slug]));

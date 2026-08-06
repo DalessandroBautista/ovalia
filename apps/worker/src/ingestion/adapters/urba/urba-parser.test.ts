@@ -83,6 +83,12 @@ describe('URBA parser (contract)', () => {
     expect(matches.some((m) => m.status === 'postponed')).toBe(true);
   });
 
+  it('etiqueta fixtures con el id de competencia solicitado, no el del payload', () => {
+    const matches = parseFixtures(loadFixture('championship-detail.sample.json'), '7000');
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches.every((m) => m.competitionExternalId === '7000')).toBe(true);
+  });
+
   it('senior con playdate 00:00 → 15:30 local (-03:00) = 18:30Z', () => {
     const matches = parseFixtures(loadFixture('championship-detail.sample.json'));
     // El fixture es "TOP 14 - Superior" (senior) con playdates 00:00:00.

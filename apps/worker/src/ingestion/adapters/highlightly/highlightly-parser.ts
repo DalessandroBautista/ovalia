@@ -18,8 +18,25 @@ const matchSchema = z.object({
 
 const matchesResponseSchema = z.object({ data: z.array(matchSchema) });
 
+const standingsGroupSchema = z.object({
+  name: z.string().optional(),
+  standings: z.array(
+    z.object({
+      team: z.object({ id: z.number(), name: z.string(), logo: z.string().nullable().optional() }),
+      wins: z.number().int().default(0),
+      loses: z.number().int().default(0),
+      draws: z.number().int().default(0),
+      position: z.number().int().optional(),
+      points: z.number().int().default(0),
+      gamesPlayed: z.number().int().default(0),
+      scoredPoints: z.number().int().default(0),
+      receivedPoints: z.number().int().default(0),
+    }),
+  ),
+});
+
 const standingsResponseSchema = z.object({
-  groups: z.array(z.unknown()),
+  groups: z.array(standingsGroupSchema),
   league: z.object({ id: z.number(), season: z.number() }),
 });
 
@@ -88,13 +105,29 @@ export function parseMatchesAsTeams(raw: unknown): ExternalTeam[] {
   return [...byId.values()];
 }
 
-/** Tabla de posiciones de Highlightly. Algunas competencias (series de tests, por
- * ejemplo) devuelven `groups: []` — se persiste como "sin filas todavía", no como error. */
+/** Tabla de posiciones de Highlightly. Puede venir en uno o varios grupos
+ * (conferencias/zonas). Algunas competencias (series de tests, por ejemplo)
+ * devuelven `groups: []` — se persiste como "sin filas todavía", no como error. */
 export function parseStandingsPayload(raw: unknown, competitionExternalId: string, seasonYear: number): ExternalStandings {
-  parseOrThrow(standingsResponseSchema, raw, 'standings');
+  const data = parseOrThrow(standingsResponseSchema, raw, 'standings');
+  const rows = data.groups.flatMap((group) =>
+    group.standings.map((entry): ExternalStandings['rows'][number] => ({
+      teamExternalId: String(entry.team.id),
+      teamName: entry.team.name,
+      position: entry.position,
+      played: entry.gamesPlayed,
+      won: entry.wins,
+      drawn: entry.draws,
+      lost: entry.loses,
+      pointsFor: entry.scoredPoints,
+      pointsAgainst: entry.receivedPoints,
+      bonus: 0,
+      points: entry.points,
+    })),
+  );
   return {
     competitionExternalId,
     seasonYear,
-    rows: [],
+    rows,
   };
 }

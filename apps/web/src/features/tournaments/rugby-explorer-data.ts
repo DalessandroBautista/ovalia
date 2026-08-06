@@ -1,5 +1,4 @@
 import {
-  type RugbyCountryDefinition,
   listCountries,
   resolveCountryForOrganization,
 } from '@ovalia/domain';

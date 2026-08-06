@@ -55,7 +55,7 @@ export class UrbaAdapter implements SportsDataAdapter {
     const all: ExternalMatch[] = [];
     for (const id of ids) {
       const raw = await this.client.championship(id);
-      all.push(...parseFixtures(raw));
+      all.push(...parseFixtures(raw, id));
     }
     return all;
   }

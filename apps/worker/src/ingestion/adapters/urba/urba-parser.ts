@@ -166,11 +166,14 @@ function resolveStartsAt(playdate: string, tier: UrbaTier): string | null {
   return localWallClockToUtc(wallClock, AR_OFFSET_MINUTES).toISOString();
 }
 
-export function parseFixtures(raw: unknown): ExternalMatch[] {
+export function parseFixtures(raw: unknown, expectedCompetitionExternalId?: string): ExternalMatch[] {
   const data = parseOrThrow(rawChampionshipDetailSchema, raw, 'championship detail');
   const championship = data.championship[0];
   if (!championship) throw new Error('URBA parser: championship vacío');
-  const competitionExternalId = String(championship.id);
+  // Etiquetamos con el id que se solicitó (competencia del catálogo), no con el id
+  // que la API repita en el payload: URBA puede responder un detalle cuyo id difiere
+  // del pedido (por ejemplo wrappers de fase/rueda), lo que corrompe el fixture.
+  const competitionExternalId = expectedCompetitionExternalId ?? String(championship.id);
   const seasonYear = championship.season.id;
   const tier = deriveUrbaTaxonomy(championship.name).tier;
   const matches: ExternalMatch[] = [];
