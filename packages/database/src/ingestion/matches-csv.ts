@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { Database } from '@ovalia/database';
+import type { Database } from '../client.js';
 import {
   createConflict,
   findCompetitionBySlug,
@@ -9,8 +9,8 @@ import {
   recordArtifact,
   recordAudit,
   upsertMatchByNaturalKey,
-} from '@ovalia/database';
-import { normalizeName, parseOffsetDateTime } from '../normalization';
+} from '../repositories/index.js';
+import { normalizeTeamName } from '@ovalia/domain';
 
 export const MATCHES_CSV_HEADER = [
   'competition_slug',
@@ -45,7 +45,6 @@ export interface CsvImportReport {
   checksum: string;
 }
 
-/** Neutraliza fórmulas de CSV (previene ejecución en planillas). */
 function sanitize(value: string): string {
   return /^[=+\-@]/.test(value) ? `'${value}` : value;
 }
@@ -65,7 +64,7 @@ async function buildAliasIndex(db: Database): Promise<Map<string, string[]>> {
   const teams = await listTeams(db);
   const index = new Map<string, string[]>();
   const add = (name: string, id: string) => {
-    const key = normalizeName(name);
+    const key = normalizeTeamName(name);
     index.set(key, [...(index.get(key) ?? []), id]);
   };
   for (const team of teams) {
@@ -77,17 +76,21 @@ async function buildAliasIndex(db: Database): Promise<Map<string, string[]>> {
   return index;
 }
 
-/**
- * Importa partidos desde CSV con validación, dry-run y trazabilidad.
- * Preserva archivo (checksum), usuario y conserva la misma identidad natural que
- * el pipeline automático, de modo que ambos son intercambiables.
- */
+function parseOffsetDateTime(iso: string): Date {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid datetime: ${iso}`);
+  }
+  return date;
+}
+
 export async function importMatchesCsv(options: {
   db: Database;
   sourceId: string;
   content: string;
   actorId?: string | null;
   dryRun?: boolean;
+  targetCompetitionSlug?: string;
 }): Promise<CsvImportReport> {
   const { db, sourceId } = options;
   const checksum = createHash('sha256').update(options.content).digest('hex');
@@ -108,7 +111,7 @@ export async function importMatchesCsv(options: {
 
   const aliasIndex = await buildAliasIndex(db);
   const resolveTeam = (name: string): string | null | 'ambiguous' => {
-    const matches = Array.from(new Set(aliasIndex.get(normalizeName(name)) ?? []));
+    const matches = Array.from(new Set(aliasIndex.get(normalizeTeamName(name)) ?? []));
     if (matches.length === 1) return matches[0]!;
     if (matches.length > 1) return 'ambiguous';
     return null;
@@ -126,6 +129,10 @@ export async function importMatchesCsv(options: {
       continue;
     }
     const row = parsed.data;
+    if (options.targetCompetitionSlug && row.competition_slug !== options.targetCompetitionSlug) {
+      errors.push({ line, message: `competencia no coincide con la seleccionada: ${row.competition_slug}` });
+      continue;
+    }
     const competition = await findCompetitionBySlug(db, row.competition_slug);
     if (!competition) {
       errors.push({ line, message: `competencia desconocida: ${row.competition_slug}` });

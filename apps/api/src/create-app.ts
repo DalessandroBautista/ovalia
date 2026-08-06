@@ -24,6 +24,9 @@ import {
   recordFeedback,
   resolveConflict,
   findCompetitionBySlug,
+  findSourceBySlug,
+  upsertSource,
+  importMatchesCsv,
   findMatchById,
   findMatchesByCompetition,
   findMatchesInRange,
@@ -58,6 +61,7 @@ import {
 import {
   adminConflictResolutionSchema,
   adminLineupSchema,
+  adminIngestCsvSchema,
   analyticsEventSchema,
   careerEntryInputSchema,
   careerListQuerySchema,
@@ -614,6 +618,44 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     });
 
     return { ok: true, matchId: id, side: parsed.data.side };
+  });
+
+  // --- Admin: Ingestión CSV ---
+
+  app.post('/admin/ingest/csv', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+
+    const parsed = adminIngestCsvSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_payload', issues: parsed.error.issues });
+    }
+
+    const { competitionSlug, csvContent, dryRun } = parsed.data;
+
+    const competition = await findCompetitionBySlug(db, competitionSlug);
+    if (!competition) {
+      return reply.code(404).send({ error: 'competition_not_found' });
+    }
+
+    let source = await findSourceBySlug(db, 'manual');
+    if (!source) {
+      source = await upsertSource(db, {
+        slug: 'manual',
+        name: 'Manual CSV Ingestion',
+        active: true,
+        capabilities: ['fixtures'],
+      });
+    }
+
+    const report = await importMatchesCsv({
+      db,
+      sourceId: source.id,
+      content: csvContent,
+      dryRun,
+      targetCompetitionSlug: competitionSlug,
+    });
+
+    return report;
   });
 
   // --- Simulador de carrera ---

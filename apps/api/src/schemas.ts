@@ -158,3 +158,11 @@ export type CareerEntryInput = z.infer<typeof careerEntryInputSchema>;
 export const careerListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+
+export const adminIngestCsvSchema = z.object({
+  competitionSlug: z.string().min(1),
+  csvContent: z.string().min(1),
+  dryRun: z.boolean().default(false),
+});
+export type AdminIngestCsvInput = z.infer<typeof adminIngestCsvSchema>;
+

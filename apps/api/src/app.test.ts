@@ -703,6 +703,59 @@ describe.skipIf(!available)('API real', () => {
     delete process.env.ADMIN_TOKEN;
   });
 
+  it('POST /admin/ingest/csv importa CSV de partidos', async () => {
+    const { db } = handle;
+    const comp = await makeCompetition(db, { slug: 'liga-x' });
+    await makeSeason(db, comp.id, { year: 2026 });
+    await makeTeam(db, { slug: 'sic', name: 'SIC' });
+    await makeTeam(db, { slug: 'casi', name: 'CASI' });
+    const header = 'competition_slug,season_year,round,starts_at,home_team,away_team,status,home_score,away_score';
+    const csv = `${header}\nliga-x,2026,Fecha 1,2026-08-01T15:00:00-03:00,SIC,CASI,final,20,17`;
+
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+
+    // 1. Rechaza sin token
+    const resNoToken = await app.inject({
+      method: 'POST',
+      url: '/admin/ingest/csv',
+      payload: { competitionSlug: 'liga-x', csvContent: csv, dryRun: true },
+    });
+    expect(resNoToken.statusCode).toBe(401);
+
+    // 2. Ejecuta dry-run
+    const resDry = await app.inject({
+      method: 'POST',
+      url: '/admin/ingest/csv',
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { competitionSlug: 'liga-x', csvContent: csv, dryRun: true },
+    });
+    expect(resDry.statusCode).toBe(200);
+    const reportDry = resDry.json();
+    expect(reportDry.persisted).toBe(1);
+    expect(reportDry.dryRun).toBe(true);
+
+    const matchesBefore = await db.query.matches.findMany();
+    expect(matchesBefore).toHaveLength(0);
+
+    // 3. Ejecuta importación real
+    const resReal = await app.inject({
+      method: 'POST',
+      url: '/admin/ingest/csv',
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { competitionSlug: 'liga-x', csvContent: csv, dryRun: false },
+    });
+    expect(resReal.statusCode).toBe(200);
+    const reportReal = resReal.json();
+    expect(reportReal.persisted).toBe(1);
+    expect(reportReal.dryRun).toBe(false);
+
+    const matchesAfter = await db.query.matches.findMany();
+    expect(matchesAfter).toHaveLength(1);
+
+    delete process.env.ADMIN_TOKEN;
+  });
+
   // --- Players search API ---
 
   it('GET /v1/players/search devuelve jugadores por nombre normalizado', async () => {
