@@ -256,3 +256,26 @@ export function fetchCareerRanking(limit = 20, options?: ApiFetchOptions) {
 export function fetchCareerEntry(id: string, options?: ApiFetchOptions) {
   return apiFetch<{ entry: ApiCareerEntry }>(`/v1/career/entries/${encodeURIComponent(id)}`, options);
 }
+
+export interface ApiCsvImportReport {
+  totalRows: number;
+  persisted: number;
+  conflicts: number;
+  errors: Array<{ line: number; message: string }>;
+  dryRun: boolean;
+  checksum: string;
+}
+
+export function ingestMatchesCsv(
+  token: string,
+  competitionSlug: string,
+  csvContent: string,
+  dryRun = false,
+) {
+  return apiFetch<ApiCsvImportReport>('/admin/ingest/csv', {
+    method: 'POST',
+    headers: { 'x-admin-token': token },
+    body: { competitionSlug, csvContent, dryRun },
+  });
+}
+
