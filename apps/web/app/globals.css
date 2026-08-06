@@ -450,6 +450,9 @@ body::before {
 .tournament-segment-selector button { display: grid; gap: 4px; padding: 12px; text-align: left; }
 .tournament-segment-selector strong { font-size: 10px; text-transform: uppercase; }
 .tournament-segment-selector span { color: inherit; opacity: .7; font-size: 8px; font-weight: 700; }
+.tournament-segment-selector a { display: grid; gap: 4px; padding: 12px; text-align: left; border: 1px solid var(--line); color: var(--mist); background: transparent; cursor: pointer; text-decoration: none; }
+.tournament-segment-selector a:hover { border-color: #415647; color: #dfe8e1; }
+.tournament-segment-selector a.is-active { color: var(--ink); background: var(--lime); border-color: var(--lime); }
 .tournament-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 10px; }
 .tournament-family { min-width: 0; padding: 15px; background: rgba(24,39,30,.72); border: 1px solid var(--line); }
 .tournament-family--choice { display: block; width: 100%; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }

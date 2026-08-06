@@ -22,8 +22,9 @@ import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
 import { useCompetitions, useOrganizations, useTournament } from '../tournaments/use-tournaments';
 import { RugbyExplorer } from '../tournaments/rugby-explorer';
-import { buildRugbyExplorer, splitCompetitionName } from '../tournaments/rugby-explorer-data';
+import { buildRugbyExplorer, sortDivisions, splitCompetitionName } from '../tournaments/rugby-explorer-data';
 import { track } from '../../lib/analytics';
+import type { ApiCompetition } from '../../lib/api/types';
 
 export function PortalHeader() {
   return (
@@ -667,10 +668,20 @@ export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason 
   const activeSeason = season ?? competition.seasons[0]?.year;
 
   const familyTitle = splitCompetitionName(competition.name).familyTitle.toLowerCase();
-  const siblings = competitions.filter((c) => {
+  const siblings = sortDivisions(competitions.filter((c) => {
     if (competition.familySlug && c.familySlug) return c.familySlug === competition.familySlug;
     return splitCompetitionName(c.name).familyTitle.toLowerCase() === familyTitle;
-  });
+  }));
+  // Agrupar las divisiones hermanas por categoría real (sin la letra de variante):
+  // "Preintermedia B/C/D..." comparten la pill de nivel 1 "Preintermedia".
+  const segments: Array<{ key: string; slug: string; divisions: ApiCompetition[] }> = [];
+  for (const sibling of siblings) {
+    const key = splitCompetitionName(sibling.name).divisionLabel.replace(/\s+[A-Z]$/, '').trim();
+    const last = segments[segments.length - 1];
+    if (last && last.key === key) last.divisions.push(sibling);
+    else segments.push({ key, slug: sibling.slug, divisions: [sibling] });
+  }
+  const currentSegment = segments.find((segment) => segment.divisions.some((division) => division.slug === slug)) ?? segments[0];
   const rounds = groupMatchesByRound(tab === 'resultados' ? results : upcoming);
   const activeRoundIndex = Math.min(roundIndex, Math.max(rounds.length - 1, 0));
   const activeRound = rounds[activeRoundIndex];
@@ -700,15 +711,28 @@ export function TournamentPage({ slug, initialTab = 'posiciones', initialSeason 
         <button type="button" className={tab === 'calendario' ? 'active' : ''} onClick={() => setTab('calendario')}>Calendario</button>
       </nav>
 
-      {siblings.length > 1 ? (
-        <nav className="family-selector" aria-label="Otras categorías de este torneo">
-          {siblings.map((s) => (
+      {segments.length > 1 ? (
+        <nav className="tournament-segment-selector" aria-label="Otras categorías de este torneo">
+          {segments.map((segment) => (
             <a
-              key={s.slug}
-              href={`/torneos/${s.slug}`}
-              className={s.slug === slug ? 'active' : ''}
+              key={segment.slug}
+              href={`/torneos/${segment.slug}`}
+              className={segment === currentSegment ? 'is-active' : ''}
             >
-              {s.name.split(' - ').at(-1) ?? s.name}
+              <strong>{segment.key}</strong>
+            </a>
+          ))}
+        </nav>
+      ) : null}
+      {currentSegment && currentSegment.divisions.length > 1 ? (
+        <nav className="family-selector" aria-label="Variantes de la categoría activa">
+          {currentSegment.divisions.map((division) => (
+            <a
+              key={division.slug}
+              href={`/torneos/${division.slug}`}
+              className={division.slug === slug ? 'active' : ''}
+            >
+              {splitCompetitionName(division.name).divisionLabel}
             </a>
           ))}
         </nav>
