@@ -1,7 +1,7 @@
 'use client';
 
 import { findTeamBadge, findCountryByCode } from '@ovalia/domain';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ArrowLeftIcon, ArrowRightIcon, ClockIcon, DiamondIcon, HomeIcon, RugbyBallIcon, TargetIcon, UserIcon } from '../../components/icons';
 import { type LiveFeedMatch, useLiveFeed } from '../../components/live-rail';
@@ -22,7 +22,7 @@ import { useAgendaMatches } from '../matches/use-agenda';
 import { useMatchDetail } from '../matches/use-match-detail';
 import { useCompetitions, useOrganizations, useTournament } from '../tournaments/use-tournaments';
 import { RugbyExplorer } from '../tournaments/rugby-explorer';
-import { buildRugbyExplorer, filterMatchesByFamily, splitCompetitionName } from '../tournaments/rugby-explorer-data';
+import { buildRugbyExplorer, splitCompetitionName } from '../tournaments/rugby-explorer-data';
 import { track } from '../../lib/analytics';
 
 export function PortalHeader() {
@@ -113,10 +113,17 @@ function readMatchesUrlState(search: string): { date: string; familyKey: string;
   };
 }
 
+function nearestMatchDate(dates: string[], reference: string): string | undefined {
+  if (dates.length === 0) return undefined;
+  const future = dates.filter((date) => date >= reference);
+  return future.length > 0 ? future[0] : dates[dates.length - 1];
+}
+
 export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { initialDate?: string; initialFamily?: string; initialMatchId?: string } = {}) {
   const feed = useLiveFeed();
   const [selectedDate, setSelectedDate] = useState(() => initialDate ?? argentinaDateKey());
   const [selectedFamilyKey, setSelectedFamilyKey] = useState(initialFamily ?? '');
+  const [selectedDivisionSlug, setSelectedDivisionSlug] = useState('');
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialMatchId ?? null);
   const agenda = useAgendaMatches(selectedDate);
   const { competitions } = useCompetitions();
@@ -125,6 +132,16 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
   const allUnions = explorer.flatMap((country) => country.unions);
   const selectedFamily = allUnions.flatMap((union) => union.families).find((family) => family.key === selectedFamilyKey);
   const activeFamilyKey = selectedFamily?.key ?? '';
+  // Categoría activa dentro del torneo elegido (Superior por defecto): si la selección
+  // manual no pertenece a la familia actual, se cae al canonicalSlug (primera división).
+  const activeDivisionSlug = selectedFamily
+    ? (selectedFamily.divisions.some((division) => division.slug === selectedDivisionSlug) ? selectedDivisionSlug : selectedFamily.canonicalSlug)
+    : '';
+  const divisionTournament = useTournament(activeDivisionSlug);
+  const divisionMatchDates = useMemo(
+    () => [...new Set(divisionTournament.matches.map((match) => argentinaDateKey(match.startsAt)))].sort(),
+    [divisionTournament.matches],
+  );
   
   // Encontrar el país y unión que contiene la familia seleccionada
   const containingCountry = explorer.find((country) => 
@@ -215,21 +232,53 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
     track('view_date', { date: selectedDate });
   }, [selectedDate]);
 
+  // Al elegir un torneo (o cambiar de categoría), saltar directo a la fecha real más
+  // cercana en vez de quedarse en un día de calendario sin partidos programados.
+  useEffect(() => {
+    if (!selectedFamily || divisionMatchDates.length === 0) return;
+    if (divisionMatchDates.includes(selectedDate)) return;
+    const next = nearestMatchDate(divisionMatchDates, selectedDate);
+    if (next) setSelectedDate(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFamily?.key, activeDivisionSlug, divisionMatchDates.join(',')]);
+
   const slugByName = new Map(competitions.map((competition) => [competition.name, competition.slug]));
   const priorityBySlug = new Map(competitions.map((competition) => [competition.slug, competition.priority]));
-  const liveMatches = feed.matches.filter((match) => argentinaDateKey(match.startsAt) === selectedDate);
+  const liveMatchesRaw = feed.matches
+    .filter((match) => argentinaDateKey(match.startsAt) === selectedDate)
+    .map((match) => liveToAgendaMatch(match, slugByName.get(match.competition)));
+  const liveMatches = selectedFamily
+    ? liveMatchesRaw.filter((match) => match.competitionSlug === activeDivisionSlug)
+    : liveMatchesRaw;
   const liveIds = new Set(liveMatches.map((match) => match.id));
-  const scheduledMatches = filterMatchesByDate(agenda.matches, selectedDate).filter((match) => !liveIds.has(match.id));
-  const combinedMatches = [
-    ...liveMatches.map((match) => liveToAgendaMatch(match, slugByName.get(match.competition))),
-    ...scheduledMatches,
-  ];
-  const visibleMatches = filterMatchesByFamily(combinedMatches, activeFamilyKey, competitions);
-  const visibleScheduledMatches = filterMatchesByFamily(scheduledMatches, activeFamilyKey, competitions);
+  const scheduleSource = selectedFamily ? divisionTournament.matches : agenda.matches;
+  const scheduledMatches = filterMatchesByDate(scheduleSource, selectedDate).filter((match) => !liveIds.has(match.id));
+  const combinedMatches = [...liveMatches, ...scheduledMatches];
+  const visibleMatches = combinedMatches;
+  const visibleScheduledMatches = scheduledMatches;
   const matchGroups = sortAgendaGroups(
     groupMatchesByCompetition(visibleMatches),
     priorityBySlug,
   );
+  const scheduleStatus = selectedFamily ? divisionTournament.status : agenda.status;
+  const provenanceSource = selectedFamily ? (scheduledMatches[0]?.source ?? null) : agenda.source;
+  const provenanceFreshness = selectedFamily
+    ? (scheduledMatches.some((match) => match.freshness === 'stale') ? 'stale' : (scheduledMatches[0]?.freshness ?? 'unknown'))
+    : agenda.freshness;
+  const divisionDateIndex = divisionMatchDates.indexOf(selectedDate);
+  const goToAdjacentDate = (direction: 1 | -1) => {
+    if (selectedFamily && divisionMatchDates.length > 0) {
+      if (divisionDateIndex === -1) {
+        const next = nearestMatchDate(divisionMatchDates, selectedDate);
+        if (next) setSelectedDate(next);
+        return;
+      }
+      const nextIndex = divisionDateIndex + direction;
+      if (nextIndex >= 0 && nextIndex < divisionMatchDates.length) setSelectedDate(divisionMatchDates[nextIndex]!);
+      return;
+    }
+    setSelectedDate((date) => shiftDateKey(date, direction));
+  };
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId) ?? null;
   const selectMatch = (matchId: string | null) => {
     setSelectedMatchId(matchId);
@@ -255,32 +304,57 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
             onUnionSelect={toggleUnion}
             onFamilySelect={(family, unionKey) => {
               setSelectedFamilyKey(family.key);
+              setSelectedDivisionSlug(family.canonicalSlug);
               setExpandedUnionKeys((prev) => new Set(prev).add(unionKey));
             }}
-            onClearFamily={() => setSelectedFamilyKey('')}
+            onClearFamily={() => { setSelectedFamilyKey(''); setSelectedDivisionSlug(''); }}
           />
         )}
         <section className="rugby-match-center">
           {selectedFamily ? (
             <header className="rugby-match-filter">
               <div><small>Torneo seleccionado</small><h2>Partidos de {selectedFamily.title}</h2></div>
-              <a href={`/torneos/${selectedFamily.canonicalSlug}`}>Ver torneo <span aria-hidden="true">→</span></a>
+              <a href={`/torneos/${activeDivisionSlug}`}>Ver torneo <span aria-hidden="true">→</span></a>
             </header>
           ) : (
             <header className="rugby-match-filter rugby-match-filter--all">
               <div><small>Agenda completa</small><h2>Todos los partidos</h2></div>
             </header>
           )}
+          {selectedFamily && selectedFamily.divisions.length > 1 ? (
+            <nav className="family-selector" aria-label="Categorías del torneo">
+              {selectedFamily.divisions.map((division) => (
+                <button
+                  key={division.slug}
+                  type="button"
+                  className={division.slug === activeDivisionSlug ? 'active' : ''}
+                  onClick={() => setSelectedDivisionSlug(division.slug)}
+                >
+                  {splitCompetitionName(division.name).divisionLabel}
+                </button>
+              ))}
+            </nav>
+          ) : null}
           <div className="portal-toolbar">
-            <button type="button" aria-label="Día anterior" onClick={() => setSelectedDate((date) => shiftDateKey(date, -1))}><ArrowLeftIcon /></button>
+            <button
+              type="button"
+              aria-label="Fecha anterior"
+              disabled={Boolean(selectedFamily) && divisionMatchDates.length > 0 && divisionDateIndex === 0}
+              onClick={() => goToAdjacentDate(-1)}
+            ><ArrowLeftIcon /></button>
             <strong aria-live="polite">{formatAgendaDateLabel(selectedDate)}</strong>
-            <button type="button" aria-label="Día siguiente" onClick={() => setSelectedDate((date) => shiftDateKey(date, 1))}><ArrowRightIcon /></button>
+            <button
+              type="button"
+              aria-label="Fecha siguiente"
+              disabled={Boolean(selectedFamily) && divisionMatchDates.length > 0 && divisionDateIndex === divisionMatchDates.length - 1}
+              onClick={() => goToAdjacentDate(1)}
+            ><ArrowRightIcon /></button>
           </div>
           <div className="portal-list portal-list--grouped">
             {feed.status === 'loading' ? <p className="portal-live-status">Consultando partidos en vivo…</p> : null}
-            {agenda.status === 'loading' ? <p className="portal-live-status">Cargando la agenda…</p> : null}
-            {agenda.status === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los partidos de esta fecha.</p> : null}
-            {agenda.status === 'ready' && visibleMatches.length === 0 ? <p className="portal-live-status">No hay partidos programados para esta fecha{selectedFamily ? ' en este torneo' : ''}.</p> : null}
+            {scheduleStatus === 'loading' ? <p className="portal-live-status">Cargando la agenda…</p> : null}
+            {scheduleStatus === 'error' ? <p className="portal-live-status portal-live-status--error">No pudimos cargar los partidos de esta fecha.</p> : null}
+            {scheduleStatus === 'ready' && visibleMatches.length === 0 ? <p className="portal-live-status">No hay partidos programados para esta fecha{selectedFamily ? ' en este torneo' : ''}.</p> : null}
             {matchGroups.map((group) => (
               <section className="portal-competition-group" key={`${group.competition}-${group.round}`}>
                 <header>
@@ -291,7 +365,7 @@ export function MatchesPage({ initialDate, initialFamily, initialMatchId }: { in
               </section>
             ))}
           </div>
-          {agenda.status === 'ready' && visibleScheduledMatches.length > 0 ? <DataProvenance source={agenda.source} freshness={agenda.freshness} /> : null}
+          {scheduleStatus === 'ready' && visibleScheduledMatches.length > 0 ? <DataProvenance source={provenanceSource} freshness={provenanceFreshness} /> : null}
         </section>
       </div>
     </Frame>{selectedMatch ? <MatchModal match={selectedMatch} onClose={() => selectMatch(null)} /> : null}</>

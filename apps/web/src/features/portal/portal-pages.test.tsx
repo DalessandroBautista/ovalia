@@ -139,8 +139,8 @@ describe('public portal pages', () => {
     const html = renderToStaticMarkup(createElement(MatchesPage));
     expect(html).toContain('Centro de partidos');
     expect(html).toContain('Volver al inicio');
-    expect(html).toContain('Día anterior');
-    expect(html).toContain('Día siguiente');
+    expect(html).toContain('Fecha anterior');
+    expect(html).toContain('Fecha siguiente');
   });
 
   it('keeps the agenda visible with a non-blocking notice when the tournament catalog fails', () => {
@@ -237,29 +237,8 @@ describe('public portal pages', () => {
     expect(html).toContain('portal-competition-group');
   });
 
-  it('filters the match center by tournament family before opening its detail', () => {
-    agendaState = {
-      status: 'ready',
-      source: 'urba',
-      freshness: 'fresh',
-      matches: [
-        {
-          id: 'top-14-superior', competition: 'TOP 14 - Superior', competitionSlug: 'urba-top-14', round: 'Fecha 1',
-          startsAt: '2026-07-25T17:00:00.000Z', status: 'scheduled', homeTeam: 'Newman', awayTeam: 'CUBA',
-          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
-        },
-        {
-          id: 'top-14-intermedia', competition: 'TOP 14 - Intermedia', competitionSlug: 'top-14-intermedia', round: 'Fecha 1',
-          startsAt: '2026-07-25T15:00:00.000Z', status: 'scheduled', homeTeam: 'Newman I', awayTeam: 'CUBA I',
-          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
-        },
-        {
-          id: 'primera-a', competition: 'PRIMERA A - Superior', competitionSlug: 'urba-primera-a', round: 'Fecha 1',
-          startsAt: '2026-07-25T18:00:00.000Z', status: 'scheduled', homeTeam: 'Los Matreros', awayTeam: 'San Cirano',
-          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
-        },
-      ],
-    };
+  it('filters the match center by tournament family, defaulting to its top division, with a category selector', () => {
+    agendaState = { status: 'ready', source: 'urba', freshness: 'fresh', matches: [] };
 
     const html = renderToStaticMarkup(createElement(
       MatchesPage as ComponentType<{ initialDate?: string; initialFamily?: string }>,
@@ -267,12 +246,31 @@ describe('public portal pages', () => {
     ));
 
     expect(html).toContain('Partidos de TOP 14');
+    // Por defecto solo se ve la división principal (Superior), no todas apiladas.
     expect(html).toContain('TOP 14 - Superior');
-    expect(html).toContain('TOP 14 - Intermedia');
+    expect(html).not.toContain('TOP 14 - Intermedia');
     expect(html).not.toContain('PRIMERA A - Superior');
     expect(html).toContain('href="/torneos/urba-top-14"');
     expect(html).toContain('Ver torneo');
     expect(html).toContain('aria-pressed="true"');
+    // Selector de categorías del torneo (Superior/Intermedia/Preintermedia/Menores de 22).
+    expect(html).toContain('Categorías del torneo');
+    expect(html).toContain('>Superior<');
+    expect(html).toContain('>Intermedia<');
+    expect(html).toContain('>Preintermedia<');
+  });
+
+  it('switches the visible division when a different category is selected', async () => {
+    agendaState = { status: 'ready', source: 'urba', freshness: 'fresh', matches: [] };
+
+    render(createElement(
+      MatchesPage as ComponentType<{ initialDate?: string; initialFamily?: string }>,
+      { initialDate: '2026-07-25', initialFamily: 'top-14' },
+    ));
+
+    expect(screen.getByText('TOP 14 - Superior')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Intermedia' }));
+    expect(screen.queryByText('TOP 14 - Superior')).toBeNull();
   });
 
   it('renders the tournament catalog with union and family hierarchy', () => {

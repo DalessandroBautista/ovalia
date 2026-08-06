@@ -74,6 +74,10 @@ export function useTournament(slug: string, season?: number): TournamentState {
   });
 
   useEffect(() => {
+    if (!slug) {
+      setState({ status: 'ready', competition: null, standings: null, matches: [] });
+      return;
+    }
     const controller = new AbortController();
     const opts = { signal: controller.signal };
     setState((prev) => ({ ...prev, status: 'loading' }));
