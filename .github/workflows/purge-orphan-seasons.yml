@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
     environment: production
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL_DIRECT }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,7 +34,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Require the direct production database URL
+      - name: Require the production database URL
         run: test -n "$DATABASE_URL"
       - name: Build database package
         run: pnpm --filter @ovalia/database build
