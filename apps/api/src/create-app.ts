@@ -167,6 +167,23 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       .send({ error: status === 500 ? 'internal_error' : error.message, reqId: request.id });
   });
 
+  // Cache HTTP corto para lecturas públicas (GET /v1/*): la ingesta refresca cada
+  // ~10 min, así que 30s de cache + revalidación en segundo plano evita que cada
+  // navegación repita el viaje completo a la base sin servir datos desactualizados
+  // por más de medio minuto. /v1/live queda afuera porque ya tiene su propio TTL
+  // interno (readLiveFeedCacheTtl) con semántica de frescura distinta.
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (
+      request.method === 'GET' &&
+      request.url.startsWith('/v1/') &&
+      !request.url.startsWith('/v1/live') &&
+      reply.statusCode === 200
+    ) {
+      reply.header('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    }
+    return payload;
+  });
+
   // --- Salud ---
   app.get('/health', async () => ({ service: 'ovalia-api', status: 'ok' }));
   app.get('/ready', async (request, reply) => {

@@ -54,7 +54,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   try {
     const response = await fetch(`${baseUrl()}${path}`, {
       signal: controller.signal,
-      cache: options.cache ?? 'no-store',
+      // 'default' respeta el Cache-Control que manda la API (30s + SWR en GET /v1/*)
+      // en vez de forzar un viaje completo a la base en cada navegación.
+      cache: options.cache ?? 'default',
       method: options.method ?? 'GET',
       headers: {
         accept: 'application/json',
