@@ -35,6 +35,26 @@ describe('Highlightly parser (contrato)', () => {
     expect(matches[0]!.status).toBe('scheduled');
   });
 
+  it('tolera groups con name null (Highlightly no siempre nombra el grupo) sin lanzar', () => {
+    const standings = parseStandingsPayload(
+      {
+        groups: [
+          {
+            name: null,
+            standings: [
+              { team: { id: 1, name: 'France' }, wins: 4, loses: 0, draws: 0, position: 1, points: 19, gamesPlayed: 4, scoredPoints: 120, receivedPoints: 40 },
+            ],
+          },
+        ],
+        league: { id: 44185, season: 2026 },
+      },
+      '44185',
+      2026,
+    );
+    expect(standings.rows).toHaveLength(1);
+    expect(standings.rows[0]!.teamName).toBe('France');
+  });
+
   it('devuelve rows vacío sin lanzar cuando standings no tiene groups', () => {
     const standings = parseStandingsPayload(loadFixture('standings-empty.sample.json'), '73119', 2025);
     expect(standings.rows).toEqual([]);

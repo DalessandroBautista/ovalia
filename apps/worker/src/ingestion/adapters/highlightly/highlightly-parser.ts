@@ -19,7 +19,7 @@ const matchSchema = z.object({
 const matchesResponseSchema = z.object({ data: z.array(matchSchema) });
 
 const standingsGroupSchema = z.object({
-  name: z.string().optional(),
+  name: z.string().nullable().optional(),
   standings: z.array(
     z.object({
       team: z.object({ id: z.number(), name: z.string(), logo: z.string().nullable().optional() }),
