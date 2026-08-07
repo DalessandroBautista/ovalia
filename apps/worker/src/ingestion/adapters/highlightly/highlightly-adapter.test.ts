@@ -16,9 +16,12 @@ const LEAGUES = [
  * /leagues, en vez de fijar siempre el año actual (causa de 404 en ligas cuya
  * temporada más reciente no es el año corriente, p.ej. Rugby Championship 2025).
  */
-function makeAdapter(clientStub?: Partial<Pick<HighlightlyClient, 'leagues' | 'matches'>>): HighlightlyIngestAdapter {
+function makeAdapter(
+  leaguesResponse: unknown = { data: LEAGUES },
+  clientStub?: Partial<Pick<HighlightlyClient, 'matches'>>,
+): HighlightlyIngestAdapter {
   const client = {
-    leagues: async () => LEAGUES,
+    leagues: async () => leaguesResponse,
     matches: async () => ({ data: [] }),
     ...clientStub,
   } as unknown as HighlightlyClient;

@@ -33,7 +33,8 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
   /** Mapa leagueId → temporada más reciente, cacheado por instancia. */
   private async seasonByLeague(): Promise<Map<number, number>> {
     const raw = await this.client.leagues();
-    const leagues = raw as LeagueRef[];
+    // La API envuelve la lista en { data: [...] } (igual que /matches).
+    const leagues = (Array.isArray(raw) ? raw : (raw as { data?: LeagueRef[] }).data) ?? [];
     const map = new Map<number, number>();
     for (const league of leagues) {
       const latest = latestSeasonOf(league);
