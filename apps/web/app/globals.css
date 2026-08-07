@@ -161,9 +161,9 @@ body::before {
 .site-footer .ball-mark { width: 23px; height: 15px; }
 .bottom-nav { display: none; }
 
-.team-badge { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center; overflow: visible; filter: drop-shadow(0 3px 5px rgba(0,0,0,.24)); }
-.team-badge--small { width: 34px; height: 34px; }.team-badge--large { width: 62px; height: 62px; }
-.team-badge svg,.team-badge img { width: 100%; height: 100%; object-fit: contain; }
+.team-badge { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; overflow: visible; filter: drop-shadow(0 3px 5px rgba(0,0,0,.24)); }
+.team-badge--small { width: 28px; height: 28px; }.team-badge--large { width: 62px; height: 62px; }
+.team-badge svg,.team-badge img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .team-badge svg path:first-child { fill: #2b4936; stroke: #6e8b77; stroke-width: 1.5; }.team-badge svg path:nth-child(2) { fill: #14241a; }.team-badge svg text { fill: var(--lime); font: 900 9px var(--body); letter-spacing: -.04em; }
 .team-badge img { display: block; background: transparent; }
 .team-badge[data-code="SIC"] svg path:first-child,.team-badge[data-code="CAS"] svg path:first-child { fill: #70bfe6; }.team-badge[data-code="SIC"] svg path:nth-child(2) { fill: #102b53; }.team-badge[data-code="HIN"] svg path:first-child { fill: #e8c63f; }.team-badge[data-code="HIN"] svg path:nth-child(2),.team-badge[data-code="CUB"] svg path:nth-child(2) { fill: #182949; }.team-badge[data-code="NEW"] svg path:first-child { fill: #b04b55; }.team-badge[data-code="NEW"] svg path:nth-child(2) { fill: #1b2743; }.team-badge[data-code="ALU"] svg path:first-child { fill: #e8e8df; }.team-badge[data-code="ALU"] svg path:nth-child(2) { fill: #b92c31; }.team-badge[data-code="ARG"] svg path:first-child { fill: #80c9ed; }.team-badge[data-code="ARG"] svg path:nth-child(2) { fill: #f8fff9; }.team-badge[data-code="ARG"] svg text { fill: #17354b; }
