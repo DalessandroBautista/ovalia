@@ -55,6 +55,27 @@ describe('Highlightly parser (contrato)', () => {
     expect(standings.rows[0]!.teamName).toBe('France');
   });
 
+  it('tolera scoredPoints/receivedPoints null (Seven WC no los publica) sin lanzar', () => {
+    const standings = parseStandingsPayload(
+      {
+        groups: [
+          {
+            name: null,
+            standings: [
+              { team: { id: 7, name: 'Fiji' }, wins: 5, loses: 1, draws: 0, position: 1, points: 20, gamesPlayed: 6, scoredPoints: null, receivedPoints: null },
+            ],
+          },
+        ],
+        league: { id: 73970, season: 2026 },
+      },
+      '73970',
+      2026,
+    );
+    expect(standings.rows).toHaveLength(1);
+    expect(standings.rows[0]!.pointsFor).toBe(0);
+    expect(standings.rows[0]!.pointsAgainst).toBe(0);
+  });
+
   it('devuelve rows vacío sin lanzar cuando standings no tiene groups', () => {
     const standings = parseStandingsPayload(loadFixture('standings-empty.sample.json'), '73119', 2025);
     expect(standings.rows).toEqual([]);
