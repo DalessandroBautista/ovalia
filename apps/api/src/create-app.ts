@@ -167,16 +167,29 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       .send({ error: status === 500 ? 'internal_error' : error.message, reqId: request.id });
   });
 
-  // Cache HTTP corto para lecturas públicas (GET /v1/*): la ingesta refresca cada
+  // Cache HTTP corto para lecturas verificadamente públicas: la ingesta refresca cada
   // ~10 min, así que 30s de cache + revalidación en segundo plano evita que cada
   // navegación repita el viaje completo a la base sin servir datos desactualizados
-  // por más de medio minuto. /v1/live queda afuera porque ya tiene su propio TTL
-  // interno (readLiveFeedCacheTtl) con semántica de frescura distinta.
+  // por más de medio minuto.
+  //
+  // Lista explícita en vez de "todo /v1/* menos live": el roadmap ya prevé endpoints
+  // personalizados (favoritos, prode por usuario) bajo /v1/*, y un patrón amplio con
+  // Cache-Control: public terminaría cacheando en CDNs/proxies compartidos una
+  // respuesta pensada para un solo usuario. Cada endpoint nuevo que sea público debe
+  // sumarse acá a propósito, no heredar el cache por accidente.
+  const PUBLIC_CACHEABLE_PREFIXES = [
+    '/v1/matches',
+    '/v1/organizations',
+    '/v1/competitions',
+    '/v1/teams',
+    '/v1/articles',
+    '/v1/players/search',
+    '/v1/home',
+  ];
   app.addHook('onSend', async (request, reply, payload) => {
     if (
       request.method === 'GET' &&
-      request.url.startsWith('/v1/') &&
-      !request.url.startsWith('/v1/live') &&
+      PUBLIC_CACHEABLE_PREFIXES.some((prefix) => request.url === prefix || request.url.startsWith(`${prefix}?`) || request.url.startsWith(`${prefix}/`)) &&
       reply.statusCode === 200
     ) {
       reply.header('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
