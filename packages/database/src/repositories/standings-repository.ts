@@ -48,8 +48,15 @@ export async function replaceStandings(
   await db.transaction(async (tx) => {
     await tx.delete(standings).where(eq(standings.seasonId, seasonId));
     if (rows.length === 0) return;
+    const uniqueMap = new Map<string, StandingRow>();
+    for (const row of rows) {
+      if (!uniqueMap.has(row.teamId)) {
+        uniqueMap.set(row.teamId, row);
+      }
+    }
+    const uniqueRows = [...uniqueMap.values()];
     await tx.insert(standings).values(
-      rows.map((row) => ({
+      uniqueRows.map((row) => ({
         seasonId,
         teamId: row.teamId,
         played: row.played,

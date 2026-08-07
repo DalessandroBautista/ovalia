@@ -5,9 +5,36 @@ import type { CareerCatalog } from './types';
 
 const catalog: CareerCatalog = {
   clubs: [
-    { slug: 'club-bajo', name: 'Club Bajo', level: 4, badgeUrl: null },
-    { slug: 'club-medio', name: 'Club Medio', level: 2, badgeUrl: null },
-    { slug: 'club-alto', name: 'Club Alto', level: 1, badgeUrl: null },
+    {
+      slug: 'club-bajo',
+      name: 'Club Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+    {
+      slug: 'club-medio',
+      name: 'Club Medio',
+      level: 2,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-a',
+      divisionName: 'Primera A',
+    },
+    {
+      slug: 'club-alto',
+      name: 'Club Alto',
+      level: 1,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-top-14',
+      divisionName: 'Top 14',
+    },
   ],
 };
 

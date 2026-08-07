@@ -123,6 +123,7 @@ export function AdminPage() {
           <>
             <nav className="admin-nav">
               <a href="/admin/lineups">Cargar formaciones</a>
+              <a href="/admin/importar-csv">Importar partidos (CSV)</a>
             </nav>
             <div className="admin-grid">
               <section><small>CONFLICTOS</small><strong>{summary?.openConflicts ?? 0}</strong><span>en cuarentena</span></section>

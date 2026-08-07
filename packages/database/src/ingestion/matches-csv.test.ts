@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import type { DatabaseHandle } from '@ovalia/database';
+import type { DatabaseHandle } from '../client.js';
 import {
   getTestDatabase,
   isDatabaseAvailable,
@@ -8,8 +8,8 @@ import {
   makeSource,
   makeTeam,
   truncateAll,
-} from '@ovalia/database/test-support';
-import { importMatchesCsv, MATCHES_CSV_HEADER } from './matches-csv';
+} from '../test-support/index.js';
+import { importMatchesCsv, MATCHES_CSV_HEADER } from './matches-csv.js';
 
 const available = await isDatabaseAvailable();
 const HEADER = MATCHES_CSV_HEADER.join(',');

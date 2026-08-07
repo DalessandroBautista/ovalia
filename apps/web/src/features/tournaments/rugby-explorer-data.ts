@@ -1,3 +1,7 @@
+import {
+  listCountries,
+  resolveCountryForOrganization,
+} from '@ovalia/domain';
 import type { ApiCompetition, ApiOrganization } from '../../lib/api/types';
 import type { AgendaMatch } from '../matches/agenda-data';
 
@@ -16,15 +20,24 @@ export interface RugbyExplorerUnion {
   families: RugbyExplorerFamily[];
 }
 
+export interface RugbyExplorerCountry {
+  code: string;
+  name: string;
+  shortName: string;
+  flag: string;
+  priority: number;
+  unions: RugbyExplorerUnion[];
+}
+
 const unionShortLabels: Record<string, string> = {
   'alto-valle': 'Alto Valle',
   andina: 'Andina',
   austral: 'Austral',
   urba: 'URBA',
   'valle-del-chubut': 'Valle del Chubut',
-  cordoba: 'Córdoba',
+  cordoba: 'C\u00f3rdoba',
   cuyo: 'Cuyo',
-  entrerriana: 'Entre Ríos',
+  entrerriana: 'Entre R\u00edos',
   formosa: 'Formosa',
   jujuy: 'Jujuy',
   'lagos-del-sur': 'Lagos del Sur',
@@ -41,7 +54,10 @@ const unionShortLabels: Record<string, string> = {
   'santiago-del-estero': 'Santiago del Estero',
   sur: 'Sur',
   'tierra-del-fuego': 'Tierra del Fuego',
-  tucuman: 'Tucumán',
+  tucuman: 'Tucum\u00e1n',
+  'super-rugby': 'Super Rugby',
+  'rugby-internacional': 'Internacional',
+  'rugby-seven': 'Seven',
 };
 
 export function splitCompetitionName(name: string): { familyTitle: string; divisionLabel: string } {
@@ -89,47 +105,104 @@ export function sortDivisions(competitions: ApiCompetition[]): ApiCompetition[] 
   });
 }
 
+function buildUnionFamilies(
+  organization: ApiOrganization,
+  competitionsBySlug: Map<string, ApiCompetition>,
+): RugbyExplorerFamily[] {
+  const families = new Map<string, Omit<RugbyExplorerFamily, 'canonicalSlug'>>();
+  for (const competitionSlug of new Set(organization.competitionSlugs)) {
+    const competition = competitionsBySlug.get(competitionSlug);
+    if (!competition) continue;
+    const key = normalizedFamilyKey(competition);
+    const current = families.get(key) ?? {
+      key,
+      title: splitCompetitionName(competition.name).familyTitle,
+      priority: competition.priority,
+      divisions: [],
+    };
+    current.priority = Math.max(current.priority, competition.priority);
+    current.divisions.push(competition);
+    families.set(key, current);
+  }
+  return [...families.values()]
+    .map((family) => {
+      const divisions = sortDivisions(family.divisions);
+      return { ...family, canonicalSlug: divisions[0]!.slug, divisions };
+    })
+    .sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title, 'es'));
+}
+
+function buildUnion(organization: ApiOrganization, competitionsBySlug: Map<string, ApiCompetition>): RugbyExplorerUnion {
+  return {
+    key: organization.slug,
+    label: organization.name,
+    shortLabel: unionShortLabels[organization.slug] ?? organization.name,
+    families: buildUnionFamilies(organization, competitionsBySlug),
+  };
+}
+
+/**
+ * Construye la estructura completa del explorador de torneos:
+ * Pa\u00eds > Uni\u00f3n/Organizaci\u00f3n > Familia de torneo > Divisi\u00f3n/Categor\u00eda.
+ *
+ * Agrupa organizaciones por pa\u00eds seg\u00fan `resolveCountryForOrganization` del domain.
+ * Solo incluye pa\u00edses que tienen al menos una organizaci\u00f3n con torneos.
+ */
 export function buildRugbyExplorer(
   organizations: ApiOrganization[],
   competitions: ApiCompetition[],
-): RugbyExplorerUnion[] {
+): RugbyExplorerCountry[] {
   const competitionsBySlug = new Map(competitions.map((competition) => [competition.slug, competition]));
-  return organizations
-    .filter((organization) => organization.kind === 'union' && organization.countryCode === 'AR')
-    .map((organization) => {
-      const families = new Map<string, Omit<RugbyExplorerFamily, 'canonicalSlug'>>();
-      for (const competitionSlug of new Set(organization.competitionSlugs)) {
-        const competition = competitionsBySlug.get(competitionSlug);
-        if (!competition) continue;
-        const key = normalizedFamilyKey(competition);
-        const current = families.get(key) ?? {
-          key,
-          title: splitCompetitionName(competition.name).familyTitle,
-          priority: competition.priority,
-          divisions: [],
-        };
-        current.priority = Math.max(current.priority, competition.priority);
-        current.divisions.push(competition);
-        families.set(key, current);
-      }
-      const orderedFamilies = [...families.values()]
-        .map((family) => {
-          const divisions = sortDivisions(family.divisions);
-          return { ...family, canonicalSlug: divisions[0]!.slug, divisions };
-        })
-        .sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title, 'es'));
-      return {
-        key: organization.slug,
-        label: organization.name,
-        shortLabel: unionShortLabels[organization.slug] ?? organization.name,
-        families: orderedFamilies,
-      };
-    })
-    .sort((left, right) => {
-      const leftPriority = left.families[0]?.priority ?? -1;
-      const rightPriority = right.families[0]?.priority ?? -1;
-      return rightPriority - leftPriority || left.label.localeCompare(right.label, 'es');
+
+  // Agrupar organizaciones por pa\u00eds
+  const organizationsByCountry = new Map<string, ApiOrganization[]>();
+  for (const organization of organizations) {
+    // Solo incluir organizaciones que tienen al menos una competencia
+    if (organization.competitionSlugs.length === 0) continue;
+    const country = resolveCountryForOrganization(organization);
+    const list = organizationsByCountry.get(country.code) ?? [];
+    list.push(organization);
+    organizationsByCountry.set(country.code, list);
+  }
+
+  // Construir estructura de pa\u00edses
+  const countries = listCountries();
+  const result: RugbyExplorerCountry[] = [];
+
+  for (const country of countries) {
+    const countryOrganizations = organizationsByCountry.get(country.code);
+    if (!countryOrganizations || countryOrganizations.length === 0) continue;
+
+    const unions = countryOrganizations
+      .map((organization) => buildUnion(organization, competitionsBySlug))
+      .sort((left, right) => {
+        const leftPriority = left.families[0]?.priority ?? -1;
+        const rightPriority = right.families[0]?.priority ?? -1;
+        return rightPriority - leftPriority || left.label.localeCompare(right.label, 'es');
+      });
+
+    result.push({
+      code: country.code,
+      name: country.name,
+      shortName: country.shortName,
+      flag: country.flag,
+      priority: country.priority,
+      unions,
     });
+  }
+
+  return result;
+}
+
+/**
+ * Versi\u00f3n legacy: devuelve todas las uniones de todos los pa\u00edses en una lista plana.
+ * \u00datil para componentes que a\u00fan no soportan la jerarqu\u00eda de pa\u00edses.
+ */
+export function buildRugbyExplorerFlat(
+  organizations: ApiOrganization[],
+  competitions: ApiCompetition[],
+): RugbyExplorerUnion[] {
+  return buildRugbyExplorer(organizations, competitions).flatMap((country) => country.unions);
 }
 
 export function filterMatchesByFamily(

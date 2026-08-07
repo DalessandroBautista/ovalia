@@ -10,6 +10,17 @@ const DESCRIPTOR: SourceDescriptor = {
   capabilities: ['catalog', 'fixtures', 'results', 'standings'],
 };
 
+interface LeagueRef {
+  id: number;
+  seasons: Array<{ season: number }>;
+}
+
+/** Temporada más reciente disponible de una liga, o null si no expone seasons. */
+function latestSeasonOf(league: LeagueRef): number | null {
+  const seasons = league.seasons.map((s) => s.season);
+  return seasons.length > 0 ? Math.max(...seasons) : null;
+}
+
 export class HighlightlyIngestAdapter implements SportsDataAdapter {
   readonly descriptor = DESCRIPTOR;
 
@@ -19,11 +30,32 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
     return this.descriptor.capabilities.includes(capability);
   }
 
+  /** Mapa leagueId → temporada más reciente, cacheado por instancia. */
+  private async seasonByLeague(): Promise<Map<number, number>> {
+    const raw = await this.client.leagues();
+    // La API envuelve la lista en { data: [...] } (igual que /matches).
+    const leagues = (Array.isArray(raw) ? raw : (raw as { data?: LeagueRef[] }).data) ?? [];
+    const map = new Map<number, number>();
+    for (const league of leagues) {
+      const latest = latestSeasonOf(league);
+      if (latest !== null) map.set(league.id, latest);
+    }
+    return map;
+  }
+
   async fetchCatalog(_ctx: FetchContext) {
     void _ctx;
     const currentYear = new Date().getFullYear();
-    const competitions = HIGHLIGHTLY_COMPETITIONS.map((c) => {
+    // Resolvemos la temporada real de cada liga: fijar el año actual hace que las
+    // ligas cuya temporada vigente es otra (p.ej. Rugby Championship 2025, World
+    // Cup 2027) devuelvan 404 al pedir fixtures/standings de un año inexistente.
+    const seasonByLeague = await this.seasonByLeague();
+    // Los externalId 'PENDIENTE-*' aún no tienen leagueId real de Highlightly:
+    // se excluyen del catálogo para no llamar a la API con Number(...) = NaN.
+    const readyCompetitions = HIGHLIGHTLY_COMPETITIONS.filter((c) => !c.externalId.startsWith('PENDIENTE-'));
+    const competitions = readyCompetitions.map((c) => {
       const format: 'xv' | 'sevens' = c.tier === 'sevens' ? 'sevens' : 'xv';
+      const year = seasonByLeague.get(Number(c.externalId)) ?? currentYear;
       return {
         externalId: c.externalId,
         name: c.name,
@@ -31,11 +63,11 @@ export class HighlightlyIngestAdapter implements SportsDataAdapter {
         category: 'clubs' as const,
         gender: 'male' as const,
         format,
-        season: { externalId: String(currentYear), name: String(currentYear), year: currentYear },
+        season: { externalId: String(year), name: String(year), year },
       };
     });
     const allMatchesRaw = await Promise.all(
-      HIGHLIGHTLY_COMPETITIONS.map((c) => this.client.matches({ leagueId: Number(c.externalId) })),
+      readyCompetitions.map((c) => this.client.matches({ leagueId: Number(c.externalId) })),
     );
     const teams = allMatchesRaw.flatMap((raw) => parseMatchesAsTeams(raw));
     const uniqueTeams = [...new Map(teams.map((t) => [t.externalId, t])).values()];

@@ -1,0 +1,45 @@
+name: Purge orphan (phantom) seasons
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Borrar temporadas fantasma (false = solo listar/dry-run)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-migration
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require the production database URL
+        run: test -n "$DATABASE_URL"
+      - name: Build database package
+        run: pnpm --filter @ovalia/database build
+      - name: List orphan seasons (dry-run)
+        run: pnpm --filter @ovalia/database exec tsx scripts/purge-orphan-seasons.ts --dry-run
+      - name: Apply purge
+        if: ${{ github.event.inputs.apply == 'true' }}
+        run: pnpm --filter @ovalia/database exec tsx scripts/purge-orphan-seasons.ts

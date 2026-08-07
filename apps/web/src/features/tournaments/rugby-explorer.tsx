@@ -2,23 +2,27 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/use-focus-trap';
-import type { RugbyExplorerFamily, RugbyExplorerUnion } from './rugby-explorer-data';
+import type { RugbyExplorerCountry, RugbyExplorerFamily } from './rugby-explorer-data';
 
 interface RugbyExplorerProps {
-  unions: RugbyExplorerUnion[];
-  expandedUnionKey: string;
+  countries: RugbyExplorerCountry[];
+  expandedCountryCodes: ReadonlySet<string>;
+  expandedUnionKeys: ReadonlySet<string>;
   selectedFamilyKey?: string;
   mode: 'catalog' | 'matches';
+  onCountrySelect: (countryCode: string) => void;
   onUnionSelect: (unionKey: string) => void;
   onFamilySelect?: (family: RugbyExplorerFamily, unionKey: string) => void;
   onClearFamily?: () => void;
 }
 
 function ExplorerNavigation({
-  unions,
-  expandedUnionKey,
+  countries,
+  expandedCountryCodes,
+  expandedUnionKeys,
   selectedFamilyKey,
   mode,
+  onCountrySelect,
   onUnionSelect,
   onFamilySelect,
   onClearFamily,
@@ -28,12 +32,12 @@ function ExplorerNavigation({
     onFamilySelect?.(family, unionKey);
     closeDrawer?.();
   };
-  const navLabel = mode === 'matches' ? 'Uniones y partidos' : 'Uniones y torneos';
+  const navLabel = mode === 'matches' ? 'Países y partidos' : 'Países y torneos';
   return (
     <nav className="rugby-explorer__nav" aria-label={navLabel}>
       <header>
-        <span>Uniones</span>
-        <strong>{unions.length}</strong>
+        <span>Países</span>
+        <strong>{countries.length}</strong>
       </header>
       {mode === 'matches' && selectedFamilyKey ? (
         <button type="button" className="rugby-explorer__clear" onClick={() => { onClearFamily?.(); closeDrawer?.(); }}>
@@ -41,38 +45,60 @@ function ExplorerNavigation({
         </button>
       ) : null}
       <div className="rugby-explorer__list">
-        {unions.map((union) => {
-          const expanded = union.key === expandedUnionKey;
+        {countries.map((country) => {
+          const countryExpanded = expandedCountryCodes.has(country.code);
           return (
-            <section className={`rugby-explorer__item${expanded ? ' is-expanded' : ''}`} key={union.key}>
+            <section className={`rugby-explorer__country${countryExpanded ? ' is-expanded' : ''}`} key={country.code}>
               <button
                 type="button"
-                className="rugby-explorer__union"
-                aria-expanded={expanded}
-                onClick={() => onUnionSelect(union.key)}
+                className="rugby-explorer__country-btn"
+                aria-expanded={countryExpanded}
+                onClick={() => onCountrySelect(country.code)}
               >
-                <span title={union.label}>{union.shortLabel}</span>
-                <small>{union.families.length > 0 ? `${union.families.length} ${union.families.length === 1 ? 'torneo' : 'torneos'}` : 'Cobertura en preparación'}</small>
-                <i aria-hidden="true">{expanded ? '−' : '+'}</i>
+                <span className="rugby-explorer__flag" aria-hidden="true">{country.flag}</span>
+                <span className="rugby-explorer__country-name">{country.shortName}</span>
+                <small>{country.unions.length} {country.unions.length === 1 ? 'organización' : 'organizaciones'}</small>
+                <i aria-hidden="true">{countryExpanded ? '−' : '+'}</i>
               </button>
-              {expanded ? (
-                <div className="rugby-explorer__families">
-                  {union.families.length === 0 ? <p>Cobertura en preparación</p> : null}
-                  {union.families.map((family) => mode === 'catalog' ? (
-                    <a href={`/torneos/${family.canonicalSlug}`} key={family.key}>
-                      <span>{family.title}</span><i aria-hidden="true">→</i>
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      className={family.key === selectedFamilyKey ? 'is-active' : ''}
-                      aria-pressed={family.key === selectedFamilyKey}
-                      onClick={() => selectFamily(family, union.key)}
-                      key={family.key}
-                    >
-                      <span>{family.title}</span>{family.key === selectedFamilyKey ? <i aria-hidden="true">✓</i> : null}
-                    </button>
-                  ))}
+              {countryExpanded ? (
+                <div className="rugby-explorer__unions">
+                  {country.unions.map((union) => {
+                    const unionExpanded = expandedUnionKeys.has(union.key);
+                    return (
+                      <section className={`rugby-explorer__item${unionExpanded ? ' is-expanded' : ''}`} key={union.key}>
+                        <button
+                          type="button"
+                          className="rugby-explorer__union"
+                          aria-expanded={unionExpanded}
+                          onClick={() => onUnionSelect(union.key)}
+                        >
+                          <span title={union.label}>{union.shortLabel}</span>
+                          <small>{union.families.length > 0 ? `${union.families.length} ${union.families.length === 1 ? 'torneo' : 'torneos'}` : 'Cobertura en preparación'}</small>
+                          <i aria-hidden="true">{unionExpanded ? '−' : '+'}</i>
+                        </button>
+                        {unionExpanded ? (
+                          <div className="rugby-explorer__families">
+                            {union.families.length === 0 ? <p>Cobertura en preparación</p> : null}
+                            {union.families.map((family) => mode === 'catalog' ? (
+                              <a href={`/torneos/${family.canonicalSlug}`} key={family.key}>
+                                <span>{family.title}</span><i aria-hidden="true">→</i>
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                className={family.key === selectedFamilyKey ? 'is-active' : ''}
+                                aria-pressed={family.key === selectedFamilyKey}
+                                onClick={() => selectFamily(family, union.key)}
+                                key={family.key}
+                              >
+                                <span>{family.title}</span>{family.key === selectedFamilyKey ? <i aria-hidden="true">✓</i> : null}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </section>
+                    );
+                  })}
                 </div>
               ) : null}
             </section>
@@ -103,17 +129,17 @@ export function RugbyExplorer(props: RugbyExplorerProps) {
         onClick={() => setDrawerOpen(true)}
         ref={triggerRef}
       >
-        <span>Uniones y torneos</span><i aria-hidden="true">☰</i>
+        <span>Países y torneos</span><i aria-hidden="true">☰</i>
       </button>
       {drawerOpen ? (
         <div
           className="rugby-explorer-drawer"
           role="dialog"
           aria-modal="true"
-          aria-label={props.mode === 'matches' ? 'Uniones y partidos' : 'Uniones y torneos'}
+          aria-label={props.mode === 'matches' ? 'Países y partidos' : 'Países y torneos'}
           ref={drawerRef}
         >
-          <header><strong>Uniones y torneos</strong><button type="button" aria-label="Cerrar explorador" onClick={closeDrawer}>×</button></header>
+          <header><strong>Países y torneos</strong><button type="button" aria-label="Cerrar explorador" onClick={closeDrawer}>×</button></header>
           <ExplorerNavigation {...props} closeDrawer={closeDrawer} />
         </div>
       ) : null}

@@ -15,6 +15,12 @@ export interface CareerClub {
   /** Nivel de división: 1 es el más alto. */
   level: number;
   badgeUrl: string | null;
+  /** Unión a la que pertenece el club. */
+  unionSlug: string;
+  unionName: string;
+  /** Competencia/división por la que el club entró al catálogo. */
+  divisionSlug: string;
+  divisionName: string;
 }
 
 export interface CareerCatalog {
@@ -29,6 +35,12 @@ export interface SeasonRecord {
   level: number;
   rating: number;
   note: string;
+  tries: number;
+  matchesPlayed: number;
+  /** Lesión sufrida en esta temporada, si la hubo. Afecta la disponibilidad de la siguiente. */
+  injury: 'leve' | 'grave' | null;
+  /** Si en esta temporada llegó una convocatoria a la selección. */
+  selected: boolean;
 }
 
 export interface CareerState {
@@ -38,6 +50,8 @@ export interface CareerState {
   age: number;
   season: number;
   club: CareerClub;
+  /** Club donde arrancó la carrera; permite ofrecer «volver a las raíces». */
+  originClubSlug: string;
   /** Media general del jugador, de 1 a 100. */
   overall: number;
   morale: number;
@@ -47,6 +61,10 @@ export interface CareerState {
   pro: boolean;
   everPro: boolean;
   injured: boolean;
+  /** Severidad de la lesión que arrastra a la próxima temporada, si hay alguna. */
+  injurySeverity: 'leve' | 'grave' | null;
+  /** Cantidad de convocatorias a la selección a lo largo de la carrera. */
+  caps: number;
   retired: boolean;
   peakOverall: number;
   history: SeasonRecord[];

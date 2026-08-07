@@ -9,8 +9,26 @@ import type { CareerCatalog, CareerState } from './types';
 
 const catalog: CareerCatalog = {
   clubs: [
-    { slug: 'bajo', name: 'Bajo', level: 4, badgeUrl: null },
-    { slug: 'alto', name: 'Alto', level: 1, badgeUrl: null },
+    {
+      slug: 'bajo',
+      name: 'Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+    {
+      slug: 'alto',
+      name: 'Alto',
+      level: 1,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-top-14',
+      divisionName: 'Top 14',
+    },
   ],
 };
 
@@ -20,9 +38,9 @@ function interactiva(input: { surname: string; position: 'centro'; clubSlug: str
   let state = createCareer({ surname: input.surname, position: input.position, clubSlug: input.clubSlug, catalog: input.catalog }, rng);
   for (const decision of input.decisions) {
     if (shouldRetire(state, rng)) break;
-    const prompt = pickScenario(state, rng);
+    const prompt = pickScenario(state, rng, input.catalog);
     if (!prompt) { state = simulateSeason(state, rng); continue; }
-    state = applyOption(state, prompt.options[Math.min(decision, prompt.options.length - 1)]!);
+    state = applyOption(state, prompt.options[Math.min(decision, prompt.options.length - 1)]!, input.catalog);
     state = simulateSeason(state, rng);
   }
   return state;

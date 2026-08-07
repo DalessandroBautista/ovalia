@@ -81,10 +81,17 @@ export interface ApiStandingRow {
   points: number;
 }
 
+export interface ApiFallbackTeam {
+  slug: string;
+  name: string;
+  badgeUrl: string | null;
+}
+
 export interface ApiStandingsResponse {
   competition: { slug: string; name: string };
-  season: number;
+  season: number | null;
   rows: ApiStandingRow[];
+  fallbackTeams?: ApiFallbackTeam[];
   source: string | null;
   freshness: Freshness;
 }
@@ -186,6 +193,8 @@ export interface ApiCompetitionDetail {
     gender: string;
     coverage: string;
     familySlug: string | null;
+    countryCode: string | null;
+    organization: { slug: string; name: string } | null;
     seasons: Array<{ year: number; name: string }>;
   };
 }
@@ -227,6 +236,10 @@ export interface ApiCareerClub {
   name: string;
   level: number;
   badgeUrl: string | null;
+  unionSlug: string;
+  unionName: string;
+  divisionSlug: string;
+  divisionName: string;
 }
 
 export interface ApiCareerSummary {
@@ -237,6 +250,9 @@ export interface ApiCareerSummary {
   seasons: number;
   clubs: string[];
   peakLevel: number;
+  totalTries?: number;
+  totalMatches?: number;
+  caps?: number;
 }
 
 export interface ApiCareerSeasonRecord {
@@ -247,6 +263,10 @@ export interface ApiCareerSeasonRecord {
   level: number;
   rating: number;
   note: string;
+  tries?: number;
+  matchesPlayed?: number;
+  injury?: 'leve' | 'grave' | null;
+  selected?: boolean;
 }
 
 export interface ApiCareerEntry {

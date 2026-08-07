@@ -145,6 +145,34 @@ describe.skipIf(!available)('runIngestion', () => {
     expect(conflicts).toHaveLength(1);
   });
 
+  it('crea conflicto cuando local y visitante resuelven al mismo equipo', async () => {
+    const { db } = handle;
+    const source = await makeSource(db, { slug: 'fake' });
+    const adapter = fakeAdapter({
+      fetchFixtures: async (): Promise<ExternalMatch[]> => [
+        {
+          competitionExternalId: 'c1',
+          seasonYear: 2026,
+          round: 'Fecha 1',
+          startsAt: '2026-08-01T15:00:00-03:00',
+          homeTeamExternalId: 't1',
+          awayTeamExternalId: 't1', // mismo equipo local y visitante
+          status: 'scheduled',
+        },
+      ],
+    });
+    await runIngestion({ db, sourceId: source.id, adapter, capability: 'catalog', parserVersion: 'v1' });
+    const result = await runIngestion({ db, sourceId: source.id, adapter, capability: 'fixtures', parserVersion: 'v1' });
+    // No debe lanzar, no debe persistir un match inválido (CHECK home <> away) y debe registrar conflicto
+    expect(result.status).toBe('success');
+    expect(result.persisted).toBe(0);
+    expect(result.conflicts).toBe(1);
+    const matches = await db.query.matches.findMany();
+    expect(matches).toHaveLength(0);
+    const conflicts = await db.query.ingestionConflicts.findMany();
+    expect(conflicts).toHaveLength(1);
+  });
+
   it('persiste standings resueltos', async () => {
     const { db } = handle;
     const source = await makeSource(db, { slug: 'fake' });
@@ -162,5 +190,28 @@ describe.skipIf(!available)('runIngestion', () => {
     expect(result.persisted).toBe(2);
     const rows = await db.query.standings.findMany();
     expect(rows).toHaveLength(2);
+  });
+
+  it('resuelve y crea equipos no catalogados en standings mediante teamName', async () => {
+    const { db } = handle;
+    const source = await makeSource(db, { slug: 'fake' });
+    const standings: ExternalStandings = {
+      competitionExternalId: 'c1',
+      seasonYear: 2026,
+      rows: [
+        { teamExternalId: 't1', teamName: 'Alfa RC', played: 1, won: 1, drawn: 0, lost: 0, pointsFor: 30, pointsAgainst: 10, bonus: 1, points: 5 },
+        { teamExternalId: 't3', teamName: 'Gamma University', played: 1, won: 0, drawn: 0, lost: 1, pointsFor: 10, pointsAgainst: 30, bonus: 0, points: 0 },
+      ],
+    };
+    const adapter = fakeAdapter({ fetchStandings: async () => standings });
+    await runIngestion({ db, sourceId: source.id, adapter, capability: 'catalog', parserVersion: 'v1' });
+    const result = await runIngestion({ db, sourceId: source.id, adapter, capability: 'standings', parserVersion: 'v1' });
+    expect(result.persisted).toBe(2);
+    expect(result.conflicts).toBe(0);
+    const rows = await db.query.standings.findMany();
+    expect(rows).toHaveLength(2);
+    const gamma = await db.query.teams.findFirst({ where: (t, { eq }) => eq(t.slug, 'gamma-university') });
+    expect(gamma).toBeDefined();
+    expect(gamma?.name).toBe('Gamma University');
   });
 });

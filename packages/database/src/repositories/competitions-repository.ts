@@ -25,7 +25,10 @@ export function countCoveredCompetitions(db: Database): Promise<number> {
 }
 
 export function findCompetitionBySlug(db: Database, slug: string) {
-  return db.query.competitions.findFirst({ where: eq(competitions.slug, slug) });
+  return db.query.competitions.findFirst({ 
+    where: eq(competitions.slug, slug),
+    with: { organization: true },
+  });
 }
 
 export async function upsertCompetition(db: Database, input: CompetitionInput) {

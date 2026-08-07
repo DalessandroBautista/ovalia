@@ -58,7 +58,7 @@ describe('api client', () => {
     );
   });
 
-  it('consulta el catálogo de uniones argentinas', async () => {
+  it('consulta el catálogo de organizaciones (todos los países y tipos)', async () => {
     const fetchOrganizations = (apiClient as typeof apiClient & {
       fetchOrganizations?: () => Promise<{ organizations: unknown[] }>;
     }).fetchOrganizations;
@@ -67,7 +67,7 @@ describe('api client', () => {
     const spy = mockFetch({ ok: true, json: { organizations: [] } });
     await fetchOrganizations();
     expect((spy as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toBe(
-      'http://localhost:4000/v1/organizations?countryCode=AR&kind=union',
+      'http://localhost:4000/v1/organizations',
     );
   });
 

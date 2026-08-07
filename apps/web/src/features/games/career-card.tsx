@@ -81,6 +81,12 @@ export function CareerCard({ entry, summary, history, displayName, position, sha
       )}
       {effectiveSummary.clubs.length > 0 && <p>Clubes: {effectiveSummary.clubs.join(', ')}.</p>}
       <p>Categoría máxima: {levelLabel(effectiveSummary.peakLevel)}.</p>
+      {(effectiveSummary.totalTries !== undefined || effectiveSummary.totalMatches !== undefined) && (
+        <p>
+          {effectiveSummary.totalMatches ?? 0} partidos jugados · {effectiveSummary.totalTries ?? 0} tries
+          {effectiveSummary.caps ? ` · ${effectiveSummary.caps} convocatorias a la selección` : ''}.
+        </p>
+      )}
       <p>{effectiveSummary.comparison.reason}</p>
       {url && (
         <button onClick={share}>{copied ? 'Enlace copiado' : 'Compartir'}</button>

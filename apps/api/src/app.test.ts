@@ -341,6 +341,29 @@ describe.skipIf(!available)('API real', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('devuelve fallbackTeams cuando una competencia no tiene posiciones ni partidos', async () => {
+    const { db } = handle;
+    const org = await upsertOrganization(db, { slug: 'cordoba', name: 'Unión Cordobesa de Rugby', kind: 'union', countryCode: 'AR' });
+    await upsertCompetition(db, {
+      slug: 'cordoba-top-10-a-primera',
+      name: 'TOP 10 A - Primera',
+      category: 'clubs',
+      gender: 'male',
+      countryCode: 'AR',
+      organizationId: org.id,
+    });
+    await makeTeam(db, { slug: 'tala', name: 'Tala RC', union: 'cordoba' });
+    await makeTeam(db, { slug: 'tablada', name: 'La Tablada', union: 'Unión Cordobesa de Rugby' });
+
+    const app = makeAppFor();
+    const res = await app.inject({ method: 'GET', url: '/v1/competitions/cordoba-top-10-a-primera/standings' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.rows).toHaveLength(0);
+    expect(body.fallbackTeams).toHaveLength(2);
+    expect(body.fallbackTeams.map((t: { name: string }) => t.name)).toEqual(['La Tablada', 'Tala RC']);
+  });
+
   it('el filtro status=live nunca devuelve partidos demo', async () => {
     await seedCompetition();
     const app = makeAppFor();
@@ -707,6 +730,59 @@ describe.skipIf(!available)('API real', () => {
     delete process.env.ADMIN_TOKEN;
   });
 
+  it('POST /admin/ingest/csv importa CSV de partidos', async () => {
+    const { db } = handle;
+    const comp = await makeCompetition(db, { slug: 'liga-x' });
+    await makeSeason(db, comp.id, { year: 2026 });
+    await makeTeam(db, { slug: 'sic', name: 'SIC' });
+    await makeTeam(db, { slug: 'casi', name: 'CASI' });
+    const header = 'competition_slug,season_year,round,starts_at,home_team,away_team,status,home_score,away_score';
+    const csv = `${header}\nliga-x,2026,Fecha 1,2026-08-01T15:00:00-03:00,SIC,CASI,final,20,17`;
+
+    process.env.ADMIN_TOKEN = 'secreto';
+    const app = makeAppFor();
+
+    // 1. Rechaza sin token
+    const resNoToken = await app.inject({
+      method: 'POST',
+      url: '/admin/ingest/csv',
+      payload: { competitionSlug: 'liga-x', csvContent: csv, dryRun: true },
+    });
+    expect(resNoToken.statusCode).toBe(401);
+
+    // 2. Ejecuta dry-run
+    const resDry = await app.inject({
+      method: 'POST',
+      url: '/admin/ingest/csv',
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { competitionSlug: 'liga-x', csvContent: csv, dryRun: true },
+    });
+    expect(resDry.statusCode).toBe(200);
+    const reportDry = resDry.json();
+    expect(reportDry.persisted).toBe(1);
+    expect(reportDry.dryRun).toBe(true);
+
+    const matchesBefore = await db.query.matches.findMany();
+    expect(matchesBefore).toHaveLength(0);
+
+    // 3. Ejecuta importación real
+    const resReal = await app.inject({
+      method: 'POST',
+      url: '/admin/ingest/csv',
+      headers: { 'x-admin-token': 'secreto' },
+      payload: { competitionSlug: 'liga-x', csvContent: csv, dryRun: false },
+    });
+    expect(resReal.statusCode).toBe(200);
+    const reportReal = resReal.json();
+    expect(reportReal.persisted).toBe(1);
+    expect(reportReal.dryRun).toBe(false);
+
+    const matchesAfter = await db.query.matches.findMany();
+    expect(matchesAfter).toHaveLength(1);
+
+    delete process.env.ADMIN_TOKEN;
+  });
+
   // --- Players search API ---
 
   it('GET /v1/players/search devuelve jugadores por nombre normalizado', async () => {
@@ -768,6 +844,17 @@ describe.skipIf(!available)('API real', () => {
   });
 
   describe('career', () => {
+    interface CareerClubApiRow {
+      slug: string;
+      name: string;
+      level: number;
+      badgeUrl: string | null;
+      unionSlug: string;
+      unionName: string;
+      divisionSlug: string;
+      divisionName: string;
+    }
+
     it('arma el catálogo de clubes con su división desde las competencias', async () => {
       const { db } = handle;
       const top14 = await makeCompetition(db, { slug: 'urba-top-14', name: 'URBA Top 14' });
@@ -782,9 +869,39 @@ describe.skipIf(!available)('API real', () => {
       const app = makeAppFor();
       const res = await app.inject({ method: 'GET', url: '/v1/career/clubs' });
       expect(res.statusCode).toBe(200);
-      const clubs = res.json().clubs;
-      expect(clubs).toContainEqual({ slug: 'sic', name: 'SIC', level: 1, badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png' });
-      expect(clubs).toContainEqual({ slug: 'club-bajo', name: 'Club Bajo', level: 3, badgeUrl: null });
+      const clubs: CareerClubApiRow[] = res.json().clubs;
+      expect(clubs).toContainEqual({
+        slug: 'sic',
+        name: 'SIC',
+        level: 1,
+        badgeUrl: 'https://api.urba.org.ar/img/clubs/sic.png',
+        unionSlug: 'urba',
+        unionName: 'Unión de Rugby de Buenos Aires',
+        divisionSlug: 'urba-top-14',
+        divisionName: 'Top 14',
+      });
+      expect(clubs).toContainEqual({
+        slug: 'club-bajo',
+        name: 'Club Bajo',
+        level: 3,
+        badgeUrl: null,
+        unionSlug: 'urba',
+        unionName: 'Unión de Rugby de Buenos Aires',
+        divisionSlug: 'urba-primera-b',
+        divisionName: 'Primera B',
+      });
+
+      // Cada club trae unión y división legibles, no solo el nivel numérico.
+      expect(clubs.length).toBeGreaterThan(0);
+      for (const club of clubs) {
+        expect(club.unionSlug.length).toBeGreaterThan(0);
+        expect(club.unionName.length).toBeGreaterThan(0);
+        expect(club.divisionSlug.length).toBeGreaterThan(0);
+        expect(club.divisionName.length).toBeGreaterThan(0);
+      }
+      // El club de la división más alta se muestra con su nombre real.
+      const top = clubs.find((club) => club.level === 1);
+      expect(top?.divisionName).toBe('Top 14');
     });
 
     it('publica una entrada al ranking con apodo', async () => {
@@ -795,7 +912,7 @@ describe.skipIf(!available)('API real', () => {
         payload: {
           displayName: 'TercerTiempo',
           score: 850,
-          summary: { tier: 'Gloria amateur', verdict: 'V', score: 850, comparison: { figure: 'Hugo Porta', reason: 'R' }, seasons: 14, clubs: ['SIC'], peakLevel: 1 },
+          summary: { tier: 'Gloria amateur', verdict: 'V', score: 850, comparison: { figure: 'Hugo Porta', reason: 'R' }, seasons: 14, clubs: ['SIC'], peakLevel: 1, totalTries: 0, totalMatches: 0, caps: 0 },
           history: [],
           surname: 'Pérez',
           position: 'centro',
@@ -817,7 +934,7 @@ describe.skipIf(!available)('API real', () => {
         payload: {
           displayName: '  ',
           score: 1,
-          summary: { tier: 't', verdict: 'v', score: 1, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 },
+          summary: { tier: 't', verdict: 'v', score: 1, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 },
           history: [],
           surname: 'Pérez',
           position: 'centro',
@@ -835,7 +952,7 @@ describe.skipIf(!available)('API real', () => {
       const app = makeAppFor();
       const base = {
         score: 100, displayName: 'X', originKey: 'b'.repeat(64),
-        summary: { tier: 't', verdict: 'v', score: 100, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 },
+        summary: { tier: 't', verdict: 'v', score: 100, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 },
         history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 1, decisions: [],
       };
       for (let i = 0; i < 3; i += 1) {
@@ -849,7 +966,7 @@ describe.skipIf(!available)('API real', () => {
 
     it('lista el ranking ordenado por puntaje', async () => {
       const app = makeAppFor();
-      const entry = { displayName: 'Pibe', score: 700, originKey: 'c'.repeat(64), summary: { tier: 't', verdict: 'v', score: 700, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 1, decisions: [] };
+      const entry = { displayName: 'Pibe', score: 700, originKey: 'c'.repeat(64), summary: { tier: 't', verdict: 'v', score: 700, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 1, decisions: [] };
       await app.inject({ method: 'POST', url: '/v1/career/entries', payload: entry });
       await app.inject({ method: 'POST', url: '/v1/career/entries', payload: { ...entry, displayName: 'Duro', score: 900 } });
       const res = await app.inject({ method: 'GET', url: '/v1/career/entries?limit=10' });
@@ -859,7 +976,7 @@ describe.skipIf(!available)('API real', () => {
 
     it('devuelve el detalle de una entrada para la tarjeta compartible', async () => {
       const app = makeAppFor();
-      const created = await app.inject({ method: 'POST', url: '/v1/career/entries', payload: { displayName: 'Ídolo', score: 800, originKey: 'd'.repeat(64), summary: { tier: 't', verdict: 'v', score: 800, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 42, decisions: [0, 1] } });
+      const created = await app.inject({ method: 'POST', url: '/v1/career/entries', payload: { displayName: 'Ídolo', score: 800, originKey: 'd'.repeat(64), summary: { tier: 't', verdict: 'v', score: 800, comparison: { figure: 'f', reason: 'r' }, seasons: 1, clubs: [], peakLevel: 9, totalTries: 0, totalMatches: 0, caps: 0 }, history: [], surname: 'P', position: 'centro', clubSlug: 'sic', seed: 42, decisions: [0, 1] } });
       const id = created.json().entry.id;
       const res = await app.inject({ method: 'GET', url: `/v1/career/entries/${id}` });
       expect(res.statusCode).toBe(200);

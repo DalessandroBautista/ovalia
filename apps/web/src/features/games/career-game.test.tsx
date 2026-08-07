@@ -24,11 +24,14 @@ describe('CareerGame', () => {
     render(<CareerGame />);
     await userEvent.type(screen.getByLabelText(/Apellido/i), 'Pérez');
     await userEvent.click(screen.getByRole('button', { name: /Empezar la carrera/i }));
-    // El primer escenario ofrece al menos dos opciones.
-    expect(screen.getAllByRole('button').length).toBeGreaterThanOrEqual(2);
-    await userEvent.click(screen.getAllByRole('button')[0]!);
-    // El historial muestra la temporada jugada.
+    // El primer escenario ofrece al menos dos opciones, cada una con un indicador de efecto.
+    const optionButtons = screen.getAllByRole('button');
+    expect(optionButtons.length).toBeGreaterThanOrEqual(2);
+    expect(document.querySelectorAll('.career-option__tag').length).toBeGreaterThanOrEqual(2);
+    await userEvent.click(optionButtons[0]!);
+    // El historial muestra la temporada jugada, con sus estadísticas.
     expect(screen.getByText(/Temporada 1/i)).toBeTruthy();
+    expect(screen.getByText(/tries/i)).toBeTruthy();
   });
 
   it('cierra con tarjeta, puntaje y comparación', async () => {

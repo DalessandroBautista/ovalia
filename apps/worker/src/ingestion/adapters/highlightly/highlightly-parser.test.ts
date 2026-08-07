@@ -35,8 +35,67 @@ describe('Highlightly parser (contrato)', () => {
     expect(matches[0]!.status).toBe('scheduled');
   });
 
+  it('tolera groups con name null (Highlightly no siempre nombra el grupo) sin lanzar', () => {
+    const standings = parseStandingsPayload(
+      {
+        groups: [
+          {
+            name: null,
+            standings: [
+              { team: { id: 1, name: 'France' }, wins: 4, loses: 0, draws: 0, position: 1, points: 19, gamesPlayed: 4, scoredPoints: 120, receivedPoints: 40 },
+            ],
+          },
+        ],
+        league: { id: 44185, season: 2026 },
+      },
+      '44185',
+      2026,
+    );
+    expect(standings.rows).toHaveLength(1);
+    expect(standings.rows[0]!.teamName).toBe('France');
+  });
+
+  it('tolera scoredPoints/receivedPoints null (Seven WC no los publica) sin lanzar', () => {
+    const standings = parseStandingsPayload(
+      {
+        groups: [
+          {
+            name: null,
+            standings: [
+              { team: { id: 7, name: 'Fiji' }, wins: 5, loses: 1, draws: 0, position: 1, points: 20, gamesPlayed: 6, scoredPoints: null, receivedPoints: null },
+            ],
+          },
+        ],
+        league: { id: 73970, season: 2026 },
+      },
+      '73970',
+      2026,
+    );
+    expect(standings.rows).toHaveLength(1);
+    expect(standings.rows[0]!.pointsFor).toBe(0);
+    expect(standings.rows[0]!.pointsAgainst).toBe(0);
+  });
+
   it('devuelve rows vacío sin lanzar cuando standings no tiene groups', () => {
     const standings = parseStandingsPayload(loadFixture('standings-empty.sample.json'), '73119', 2025);
     expect(standings.rows).toEqual([]);
+  });
+
+  it('parsea las filas de standings desde los groups', () => {
+    const standings = parseStandingsPayload(loadFixture('standings-groups.sample.json'), '73119', 2026);
+    expect(standings.rows).toHaveLength(2);
+    const first = standings.rows[0]!;
+    expect(first.teamExternalId).toBe('392244');
+    expect(first.teamName).toBe('Argentina');
+    expect(first.position).toBe(1);
+    expect(first.played).toBe(4);
+    expect(first.won).toBe(3);
+    expect(first.drawn).toBe(0);
+    expect(first.lost).toBe(1);
+    expect(first.pointsFor).toBe(216);
+    expect(first.pointsAgainst).toBe(95);
+    expect(first.points).toBe(9);
+    expect(standings.competitionExternalId).toBe('73119');
+    expect(standings.seasonYear).toBe(2026);
   });
 });

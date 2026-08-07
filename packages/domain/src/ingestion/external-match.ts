@@ -15,8 +15,12 @@ export const externalMatchSchema = z.object({
   competitionExternalId: z.string().min(1),
   seasonYear: z.number().int(),
   round: z.string().min(1),
-  /** Fecha/hora en ISO 8601 con offset explícito de la competencia. */
-  startsAt: z.string().datetime({ offset: true }),
+  /**
+   * Fecha/hora en ISO 8601 con offset explícito de la competencia, o null cuando
+   * la fuente no informa horario (p. ej. divisiones URBA donde cada club define
+   * el kickoff, que llegan con playdate 00:00:00).
+   */
+  startsAt: z.string().datetime({ offset: true }).nullable(),
   homeTeamExternalId: z.string().min(1),
   awayTeamExternalId: z.string().min(1),
   venue: z.string().optional(),

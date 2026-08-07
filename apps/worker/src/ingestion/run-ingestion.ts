@@ -259,6 +259,26 @@ async function persistMatches(
     const seasonId = await resolveSeasonId(db, match, sourceId);
     const home = resolveEntity({ externalId: match.homeTeamExternalId, name: match.homeTeamExternalId }, lookups);
     const away = resolveEntity({ externalId: match.awayTeamExternalId, name: match.awayTeamExternalId }, lookups);
+    if (home.kind === 'valid' && away.kind === 'valid' && home.value.ovaliaId === away.value.ovaliaId) {
+      await createConflict(db, {
+        sourceId,
+        entityType: 'match',
+        candidates: [match],
+        reason: 'local y visitante resuelven al mismo equipo',
+      });
+      conflicts += 1;
+      continue;
+    }
+    if (!match.startsAt) {
+      await createConflict(db, {
+        sourceId,
+        entityType: 'match',
+        candidates: [match],
+        reason: 'horario no informado',
+      });
+      conflicts += 1;
+      continue;
+    }
     if (!seasonId || home.kind !== 'valid' || away.kind !== 'valid') {
       await createConflict(db, {
         sourceId,
@@ -308,7 +328,31 @@ async function persistStandings(
   const rows: Parameters<typeof replaceStandings>[2] = [];
   let conflicts = 0;
   for (const row of standings.rows) {
-    const team = resolveEntity({ externalId: row.teamExternalId, name: row.teamExternalId }, lookups);
+    const teamName = row.teamName ?? row.teamExternalId;
+    let team = resolveEntity({ externalId: row.teamExternalId, name: teamName }, lookups);
+    if (team.kind !== 'valid' && row.teamName) {
+      const slug = normalizeName(row.teamName).replace(/\s+/g, '-');
+      await upsertTeams(db, [
+        {
+          slug,
+          name: row.teamName,
+          shortName: row.teamName.slice(0, 3).toUpperCase(),
+          countryCode: 'AR',
+          union: 'URBA',
+        },
+      ]);
+      const updatedLookups = await buildTeamLookups(db, sourceId);
+      const reResolved = resolveEntity({ externalId: row.teamExternalId, name: row.teamName }, updatedLookups);
+      if (reResolved.kind === 'valid') {
+        await linkExternalEntity(db, {
+          sourceId,
+          entityType: 'team',
+          externalId: row.teamExternalId,
+          ovaliaId: reResolved.value.ovaliaId,
+        });
+        team = reResolved;
+      }
+    }
     if (team.kind !== 'valid') {
       await createConflict(db, {
         sourceId,

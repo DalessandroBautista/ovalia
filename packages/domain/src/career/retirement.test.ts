@@ -6,7 +6,18 @@ import { shouldRetire, summarizeCareer } from './retirement';
 import type { CareerCatalog, CareerState } from './types';
 
 const catalog: CareerCatalog = {
-  clubs: [{ slug: 'bajo', name: 'Bajo', level: 4, badgeUrl: null }],
+  clubs: [
+    {
+      slug: 'bajo',
+      name: 'Bajo',
+      level: 4,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-c',
+      divisionName: 'Primera C',
+    },
+  ],
 };
 
 function baseState(overrides: Partial<CareerState> = {}): CareerState {
@@ -67,6 +78,18 @@ describe('summarizeCareer', () => {
     expect(Math.abs(a - b) / Math.max(a, b)).toBeLessThan(0.5);
   });
 
+  it('produce puntajes con dispersión amplia entre carreras muy distintas', () => {
+    let mediocre = baseState({ support: 10, fame: 0, overall: 30, morale: 30 });
+    for (let i = 0; i < 3; i += 1) mediocre = simulateSeason(mediocre, createSeededRng(i + 90));
+
+    let sobresaliente = baseState({ support: 95, fame: 90, overall: 95, morale: 90, everPro: true, pro: true });
+    for (let i = 0; i < 20; i += 1) sobresaliente = simulateSeason(sobresaliente, createSeededRng(i));
+
+    const low = summarizeCareer(mediocre).score;
+    const high = summarizeCareer(sobresaliente).score;
+    expect(high).toBeGreaterThan(low * 2);
+  });
+
   it('asigna una comparación con una figura', () => {
     let state = baseState();
     for (let i = 0; i < 10; i += 1) state = simulateSeason(state, createSeededRng(i));
@@ -79,5 +102,32 @@ describe('summarizeCareer', () => {
     let state = baseState();
     for (let i = 0; i < 6; i += 1) state = simulateSeason(state, createSeededRng(i));
     expect(summarizeCareer(state)).toEqual(summarizeCareer(state));
+  });
+
+  it('acumula tries, partidos y convocatorias de toda la carrera', () => {
+    let state = baseState({ overall: 90, age: 24 });
+    for (let i = 0; i < 15; i += 1) {
+      state = simulateSeason(state, createSeededRng(i));
+      state = { ...state, overall: 90 };
+    }
+    const summary = summarizeCareer(state);
+    const expectedTries = state.history.reduce((sum, r) => sum + r.tries, 0);
+    const expectedMatches = state.history.reduce((sum, r) => sum + r.matchesPlayed, 0);
+    expect(summary.totalTries).toBe(expectedTries);
+    expect(summary.totalMatches).toBe(expectedMatches);
+    expect(summary.caps).toBe(state.caps);
+    expect(summary.caps).toBeGreaterThan(0);
+  });
+
+  it('aplica ponderación de posición al puntaje', () => {
+    // Crea dos carreras idénticas salvo por la posición y comprueba que la
+    // posición 'apertura' ponderada produce mayor puntaje que 'pilar'.
+    let apertura = baseState({ position: 'apertura', overall: 80, support: 30, fame: 10, everPro: true, pro: true });
+    let pilar = baseState({ position: 'pilar', overall: 80, support: 30, fame: 10, everPro: true, pro: true });
+    apertura = simulateSeason(apertura, createSeededRng(1));
+    pilar = simulateSeason(pilar, createSeededRng(1));
+    const scoreA = summarizeCareer(apertura).score;
+    const scoreB = summarizeCareer(pilar).score;
+    expect(scoreA).toBeGreaterThan(scoreB);
   });
 });

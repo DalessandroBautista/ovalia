@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
-import { createDatabase, findSourceBySlug } from '@ovalia/database';
-import { importMatchesCsv } from '../ingestion/csv/matches-csv';
+import { createDatabase, findSourceBySlug, importMatchesCsv } from '@ovalia/database';
 
 interface Args {
   file?: string;

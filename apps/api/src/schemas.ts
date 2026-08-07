@@ -25,8 +25,8 @@ export const standingsQuerySchema = z.object({
 });
 
 export const organizationsQuerySchema = z.object({
-  countryCode: z.string().regex(/^[A-Z]{2}$/).default('AR'),
-  kind: z.enum(['union', 'league', 'international', 'sevens']).default('union'),
+  countryCode: z.string().regex(/^[A-Z]{2}$/).optional(),
+  kind: z.enum(['union', 'league', 'international', 'sevens']).optional(),
 });
 
 /** Evento de analytics anónimo (sin PII). */
@@ -161,6 +161,9 @@ const careerSummarySchema = z.object({
   seasons: z.number().int().nonnegative(),
   clubs: z.array(z.string()),
   peakLevel: z.number().int().positive(),
+  totalTries: z.number().int().nonnegative(),
+  totalMatches: z.number().int().nonnegative(),
+  caps: z.number().int().nonnegative(),
 });
 
 const careerHistorySchema = z.array(
@@ -172,6 +175,10 @@ const careerHistorySchema = z.array(
     level: z.number().int(),
     rating: z.number().int(),
     note: z.string(),
+    tries: z.number().int().nonnegative(),
+    matchesPlayed: z.number().int().nonnegative(),
+    injury: z.enum(['leve', 'grave']).nullable(),
+    selected: z.boolean(),
   }),
 );
 
@@ -192,3 +199,11 @@ export type CareerEntryInput = z.infer<typeof careerEntryInputSchema>;
 export const careerListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+
+export const adminIngestCsvSchema = z.object({
+  competitionSlug: z.string().min(1),
+  csvContent: z.string().min(1),
+  dryRun: z.boolean().default(false),
+});
+export type AdminIngestCsvInput = z.infer<typeof adminIngestCsvSchema>;
+

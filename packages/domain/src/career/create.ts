@@ -10,9 +10,36 @@ const DEFAULT_SURNAME = 'Jugador';
  */
 export const FALLBACK_CATALOG: CareerCatalog = {
   clubs: [
-    { slug: 'club-del-barrio', name: 'Club del Barrio', level: 5, badgeUrl: null },
-    { slug: 'club-de-ascenso', name: 'Club de Ascenso', level: 3, badgeUrl: null },
-    { slug: 'club-grande', name: 'Club Grande', level: 1, badgeUrl: null },
+    {
+      slug: 'club-del-barrio',
+      name: 'Club del Barrio',
+      level: 5,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-tercera',
+      divisionName: 'Tercera',
+    },
+    {
+      slug: 'club-de-ascenso',
+      name: 'Club de Ascenso',
+      level: 3,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-primera-b',
+      divisionName: 'Primera B',
+    },
+    {
+      slug: 'club-grande',
+      name: 'Club Grande',
+      level: 1,
+      badgeUrl: null,
+      unionSlug: 'urba',
+      unionName: 'Unión de Rugby de Buenos Aires',
+      divisionSlug: 'urba-top-14',
+      divisionName: 'Top 14',
+    },
   ],
 };
 
@@ -55,6 +82,7 @@ export function createCareer(input: CreateCareerInput, rng: Rng): CareerState {
     age: STARTING_AGE,
     season: 1,
     club,
+    originClubSlug: club.slug,
     overall,
     morale: 60,
     support: 20,
@@ -62,6 +90,8 @@ export function createCareer(input: CreateCareerInput, rng: Rng): CareerState {
     pro: false,
     everPro: false,
     injured: false,
+    injurySeverity: null,
+    caps: 0,
     retired: false,
     peakOverall: overall,
     history: [],

@@ -36,6 +36,9 @@ import {
   recordFeedback,
   resolveConflict,
   findCompetitionBySlug,
+  findSourceBySlug,
+  upsertSource,
+  importMatchesCsv,
   findMatchById,
   findMatchesByCompetition,
   findMatchesInRange,
@@ -63,6 +66,7 @@ import {
   listEditorialQueue,
   listOrganizationsWithCompetitionSlugs,
   listSeasons,
+  listTeamsForCompetition,
   markUserEmailVerified,
   pingDatabase,
   replaceLineup,
@@ -84,6 +88,7 @@ import {
   adminArticleStatusSchema,
   adminArticleContentSchema,
   adminLineupSchema,
+  adminIngestCsvSchema,
   analyticsEventSchema,
   authLoginSchema,
   authRegisterSchema,
@@ -174,14 +179,19 @@ function clearSessionCookie(reply: FastifyReply): void {
 
 // --- Simulador de carrera ---
 
-const URBA_DIVISION_LEVEL: Record<string, number> = {
-  'urba-top-14': 1,
-  'urba-primera-a': 2,
-  'urba-primera-b': 3,
-  'urba-primera-c': 4,
-  'urba-segunda': 5,
-  'urba-tercera': 6,
-  'urba-desarrollo': 7,
+interface UrbaDivision {
+  level: number;
+  name: string;
+}
+
+const URBA_DIVISIONS: Record<string, UrbaDivision> = {
+  'urba-top-14': { level: 1, name: 'Top 14' },
+  'urba-primera-a': { level: 2, name: 'Primera A' },
+  'urba-primera-b': { level: 3, name: 'Primera B' },
+  'urba-primera-c': { level: 4, name: 'Primera C' },
+  'urba-segunda': { level: 5, name: 'Segunda' },
+  'urba-tercera': { level: 6, name: 'Tercera' },
+  'urba-desarrollo': { level: 7, name: 'Desarrollo' },
 };
 
 const CAREER_PUBLISH_LIMIT = 3;
@@ -377,6 +387,36 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     return reply.code(204).send();
   });
 
+  // Cache HTTP corto para lecturas verificadamente públicas: la ingesta refresca cada
+  // ~10 min, así que 30s de cache + revalidación en segundo plano evita que cada
+  // navegación repita el viaje completo a la base sin servir datos desactualizados
+  // por más de medio minuto.
+  //
+  // Lista explícita en vez de "todo /v1/* menos live": el roadmap ya prevé endpoints
+  // personalizados (favoritos, prode por usuario) bajo /v1/*, y un patrón amplio con
+  // Cache-Control: public terminaría cacheando en CDNs/proxies compartidos una
+  // respuesta pensada para un solo usuario. Cada endpoint nuevo que sea público debe
+  // sumarse acá a propósito, no heredar el cache por accidente.
+  const PUBLIC_CACHEABLE_PREFIXES = [
+    '/v1/matches',
+    '/v1/organizations',
+    '/v1/competitions',
+    '/v1/teams',
+    '/v1/articles',
+    '/v1/players/search',
+    '/v1/home',
+  ];
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (
+      request.method === 'GET' &&
+      PUBLIC_CACHEABLE_PREFIXES.some((prefix) => request.url === prefix || request.url.startsWith(`${prefix}?`) || request.url.startsWith(`${prefix}/`)) &&
+      reply.statusCode === 200
+    ) {
+      reply.header('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    }
+    return payload;
+  });
+
   // --- Salud ---
   app.get('/health', async () => ({ service: 'ovalia-api', status: 'ok' }));
   app.get('/ready', async (request, reply) => {
@@ -541,6 +581,8 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         gender: competition.gender,
         coverage: competition.coverage,
         familySlug: competition.familySlug,
+        countryCode: competition.countryCode,
+        organization: competition.organization ? { slug: competition.organization.slug, name: competition.organization.name } : null,
         seasons: seasons.map((s) => ({ year: s.year, name: s.name })),
       },
     };
@@ -555,11 +597,11 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     const season = parsed.data.season
       ? await findSeason(db, competition.id, parsed.data.season)
       : await getLatestSeason(db, competition.id);
-    if (!season) return reply.code(404).send({ error: 'season_not_found' });
-    const rows = await getStandingsForSeason(db, season.id);
+    const rows = season ? await getStandingsForSeason(db, season.id) : [];
+    const fallbackTeams = rows.length === 0 ? await listTeamsForCompetition(db, competition.id) : [];
     return {
       competition: { slug: competition.slug, name: competition.name },
-      season: season.year,
+      season: season?.year ?? null,
       rows: rows.map((r, index) => ({
         position: index + 1,
         team: { slug: r.teamSlug, name: r.teamName, badgeUrl: r.teamBadgeUrl },
@@ -571,6 +613,11 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
         pointsAgainst: r.pointsAgainst,
         bonus: r.bonus,
         points: r.points,
+      })),
+      fallbackTeams: fallbackTeams.map((t) => ({
+        slug: t.slug,
+        name: t.name,
+        badgeUrl: t.badgeUrl,
       })),
       source: rows[0]?.source ?? null,
       freshness: freshness(rows[0]?.fetchedAt),
@@ -1032,11 +1079,61 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
     return { ok: true, matchId: id, side: parsed.data.side };
   });
 
+  // --- Admin: Ingestión CSV ---
+
+  app.post('/admin/ingest/csv', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+
+    const parsed = adminIngestCsvSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_payload', issues: parsed.error.issues });
+    }
+
+    const { competitionSlug, csvContent, dryRun } = parsed.data;
+
+    const competition = await findCompetitionBySlug(db, competitionSlug);
+    if (!competition) {
+      return reply.code(404).send({ error: 'competition_not_found' });
+    }
+
+    let source = await findSourceBySlug(db, 'manual');
+    if (!source) {
+      source = await upsertSource(db, {
+        slug: 'manual',
+        name: 'Manual CSV Ingestion',
+        active: true,
+        capabilities: ['fixtures'],
+      });
+    }
+
+    const report = await importMatchesCsv({
+      db,
+      sourceId: source.id,
+      content: csvContent,
+      dryRun,
+      targetCompetitionSlug: competitionSlug,
+    });
+
+    return report;
+  });
+
   // --- Simulador de carrera ---
 
   app.get('/v1/career/clubs', async () => {
-    const byLevel = new Map<string, { slug: string; name: string; level: number; badgeUrl: string | null }>();
-    for (const [slug, level] of Object.entries(URBA_DIVISION_LEVEL)) {
+    const byLevel = new Map<
+      string,
+      {
+        slug: string;
+        name: string;
+        level: number;
+        badgeUrl: string | null;
+        unionSlug: string;
+        unionName: string;
+        divisionSlug: string;
+        divisionName: string;
+      }
+    >();
+    for (const [slug, division] of Object.entries(URBA_DIVISIONS)) {
       const competition = await findCompetitionBySlug(db, slug);
       if (!competition) continue;
       const season = await getLatestSeason(db, competition.id);
@@ -1044,8 +1141,19 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       const rows = await getStandingsForSeason(db, season.id);
       for (const row of rows) {
         const current = byLevel.get(row.teamSlug);
-        if (!current || level < current.level) {
-          byLevel.set(row.teamSlug, { slug: row.teamSlug, name: row.teamName, level, badgeUrl: row.teamBadgeUrl });
+        // El club se queda con su división MÁS ALTA (número de nivel más chico);
+        // si aparece en varias competencias, conserva el nombre de esa división.
+        if (!current || division.level < current.level) {
+          byLevel.set(row.teamSlug, {
+            slug: row.teamSlug,
+            name: row.teamName,
+            level: division.level,
+            badgeUrl: row.teamBadgeUrl,
+            unionSlug: 'urba',
+            unionName: 'Unión de Rugby de Buenos Aires',
+            divisionSlug: slug,
+            divisionName: division.name,
+          });
         }
       }
     }

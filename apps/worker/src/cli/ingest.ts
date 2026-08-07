@@ -60,11 +60,14 @@ async function main() {
         competitionExternalIds: args.competition ? [args.competition] : undefined,
       });
       console.log(`[urba/catalog] ${report.catalog.status} persisted=${report.catalog.persisted}`);
+      if (report.catalog.error) console.error(`[urba/catalog] error: ${report.catalog.error}`);
       for (const comp of report.perCompetition) {
         console.log(
           `[urba/${comp.name}] fixtures=${comp.fixtures.status}(${comp.fixtures.persisted}/${comp.fixtures.conflicts}) ` +
             `standings=${comp.standings.status}(${comp.standings.persisted}/${comp.standings.conflicts})`,
         );
+        if (comp.fixtures.error) console.error(`[urba/${comp.name}] fixtures error: ${comp.fixtures.error}`);
+        if (comp.standings.error) console.error(`[urba/${comp.name}] standings error: ${comp.standings.error}`);
       }
       return;
     }
@@ -74,11 +77,14 @@ async function main() {
       const { importHighlightly } = await import('../ingestion/adapters/highlightly/highlightly-import');
       const report = await importHighlightly({ db, sourceId: source.id, dryRun: args.dryRun });
       console.log(`[highlightly/catalog] ${report.catalog.status} persisted=${report.catalog.persisted}`);
+      if (report.catalog.error) console.error(`[highlightly/catalog] error: ${report.catalog.error}`);
       for (const comp of report.perCompetition) {
         console.log(
           `[highlightly/${comp.name}] fixtures=${comp.fixtures.status}(${comp.fixtures.persisted}/${comp.fixtures.conflicts}) ` +
             `standings=${comp.standings.status}(${comp.standings.persisted}/${comp.standings.conflicts})`,
         );
+        if (comp.fixtures.error) console.error(`[highlightly/${comp.name}] fixtures error: ${comp.fixtures.error}`);
+        if (comp.standings.error) console.error(`[highlightly/${comp.name}] standings error: ${comp.standings.error}`);
       }
       return;
     }

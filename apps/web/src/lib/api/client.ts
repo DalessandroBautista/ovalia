@@ -58,7 +58,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   try {
     const response = await fetch(`${baseUrl()}${path}`, {
       signal: controller.signal,
-      cache: options.cache ?? 'no-store',
+      // 'default' respeta el Cache-Control que manda la API (30s + SWR en GET /v1/*)
+      // en vez de forzar un viaje completo a la base en cada navegación.
+      cache: options.cache ?? 'default',
       credentials: 'include',
       method: options.method ?? 'GET',
       headers: {
@@ -174,7 +176,7 @@ export function fetchCompetitions(options?: ApiFetchOptions) {
 }
 
 export function fetchOrganizations(options?: ApiFetchOptions) {
-  return apiFetch<ApiOrganizationsResponse>('/v1/organizations?countryCode=AR&kind=union', options);
+  return apiFetch<ApiOrganizationsResponse>('/v1/organizations', options);
 }
 
 export function fetchHome(options?: ApiFetchOptions) {
@@ -354,3 +356,26 @@ export function fetchCareerRanking(limit = 20, options?: ApiFetchOptions) {
 export function fetchCareerEntry(id: string, options?: ApiFetchOptions) {
   return apiFetch<{ entry: ApiCareerEntry }>(`/v1/career/entries/${encodeURIComponent(id)}`, options);
 }
+
+export interface ApiCsvImportReport {
+  totalRows: number;
+  persisted: number;
+  conflicts: number;
+  errors: Array<{ line: number; message: string }>;
+  dryRun: boolean;
+  checksum: string;
+}
+
+export function ingestMatchesCsv(
+  token: string,
+  competitionSlug: string,
+  csvContent: string,
+  dryRun = false,
+) {
+  return apiFetch<ApiCsvImportReport>('/admin/ingest/csv', {
+    method: 'POST',
+    headers: { 'x-admin-token': token },
+    body: { competitionSlug, csvContent, dryRun },
+  });
+}
+

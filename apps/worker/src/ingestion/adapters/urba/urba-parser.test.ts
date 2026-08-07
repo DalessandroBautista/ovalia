@@ -81,9 +81,58 @@ describe('URBA parser (contract)', () => {
     // Un partido no jugado programado y uno suspendido, generados en el fixture.
     expect(matches.some((m) => m.status === 'scheduled')).toBe(true);
     expect(matches.some((m) => m.status === 'postponed')).toBe(true);
-    // 00:00 local Argentina (-03:00) → 03:00Z.
-    const midnight = matches.find((m) => m.startsAt.endsWith('T03:00:00.000Z'));
+  });
+
+  it('etiqueta fixtures con el id de competencia solicitado, no el del payload', () => {
+    const matches = parseFixtures(loadFixture('championship-detail.sample.json'), '7000');
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches.every((m) => m.competitionExternalId === '7000')).toBe(true);
+  });
+
+  it('senior con playdate 00:00 → 15:30 local (-03:00) = 18:30Z', () => {
+    const matches = parseFixtures(loadFixture('championship-detail.sample.json'));
+    // El fixture es "TOP 14 - Superior" (senior) con playdates 00:00:00.
+    const midnight = matches.find((m) => m.externalId === '2023134558');
     expect(midnight).toBeDefined();
+    expect(midnight!.startsAt).toBe('2026-03-14T18:30:00.000Z');
+  });
+
+  it('intermedia con playdate 00:00 → startsAt null', () => {
+    const team = (id: number, name: string) => ({ id, name, club: { id, name } });
+    const raw = {
+      championship: [{
+        id: 2025180,
+        name: 'PRIMERA A - Intermedia',
+        season: { id: 2026, name: '2026' },
+        rounds: [{
+          id: 1,
+          name: 'Fecha 1',
+          matches: [
+            {
+              id: 10,
+              playdate: '2026-04-11T00:00:00',
+              fulfilled: false,
+              suspended: false,
+              local_team_score: 0,
+              visit_team_score: 0,
+              local_team: team(74, 'Almafuerte'),
+              visit_team: team(89, 'Berisso'),
+            },
+          ],
+        }],
+      }],
+    };
+
+    const [match] = parseFixtures(raw);
+    expect(match).toBeDefined();
+    expect(match!.startsAt).toBeNull();
+  });
+
+  it('respeta un horario real (15:30) sin reescribirlo', () => {
+    const matches = parseFixtures(loadFixture('championship-detail.sample.json'));
+    const kickoff = matches.find((m) => m.externalId === '999001');
+    expect(kickoff).toBeDefined();
+    expect(kickoff!.startsAt).toBe('2026-09-01T18:30:00.000Z');
   });
 
   it('omite las fechas libres representadas por el club Bye', () => {
@@ -134,6 +183,7 @@ describe('URBA parser (contract)', () => {
     expect(leader.points).toBeGreaterThan(0);
     expect(leader.bonus).toBeGreaterThanOrEqual(0);
     expect(leader.teamExternalId).toMatch(/^\d+$/);
+    expect(leader.teamName).toBe('Newman');
   });
 
   it('falla explícitamente ante una respuesta rota', () => {

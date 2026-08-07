@@ -50,6 +50,8 @@ vi.mock('../tournaments/use-tournaments', async () => {
       { slug: 'urba-top-14', name: 'TOP 14 - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: null, tier: 'senior', priority: 100 },
       { slug: 'top-14-intermedia', name: 'TOP 14 - Intermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
       { slug: 'top-14-preintermedia', name: 'TOP 14 - Preintermedia', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
+      { slug: 'top-14-preintermedia-b', name: 'TOP 14 - Preintermedia B', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
+      { slug: 'top-14-preintermedia-c', name: 'TOP 14 - Preintermedia C', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'intermediate', priority: 0 },
       { slug: 'top-14-m22', name: 'TOP 14 - Menores de 22', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'top-14', tier: 'youth', priority: 0 },
       { slug: 'urba-primera-a', name: 'PRIMERA A - Superior', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: null, tier: 'senior', priority: 90 },
       { slug: 'menores-de-19-primera-rueda-g2-nivel-1-a', name: 'Menores de 19 - Primera Rueda - G2 NIVEL 1 A', category: 'clubs', gender: 'male', countryCode: 'AR', coverage: 'auto', organization: { slug: 'urba', name: 'URBA' }, familySlug: 'menores-de-19', tier: 'youth', priority: 0 },
@@ -67,6 +69,8 @@ vi.mock('../tournaments/use-tournaments', async () => {
       { slug: 'urba-top-14', name: 'TOP 14 - Superior', familySlug: 'top-14' },
       { slug: 'top-14-intermedia', name: 'TOP 14 - Intermedia', familySlug: 'top-14' },
       { slug: 'top-14-preintermedia', name: 'TOP 14 - Preintermedia', familySlug: 'top-14' },
+      { slug: 'top-14-preintermedia-b', name: 'TOP 14 - Preintermedia B', familySlug: 'top-14' },
+      { slug: 'top-14-preintermedia-c', name: 'TOP 14 - Preintermedia C', familySlug: 'top-14' },
       { slug: 'top-14-m22', name: 'TOP 14 - Menores de 22', familySlug: 'top-14' },
     ];
     const comp = competitions.find((c) => c.slug === slug);
@@ -139,8 +143,8 @@ describe('public portal pages', () => {
     const html = renderToStaticMarkup(createElement(MatchesPage));
     expect(html).toContain('Centro de partidos');
     expect(html).toContain('Volver al inicio');
-    expect(html).toContain('Día anterior');
-    expect(html).toContain('Día siguiente');
+    expect(html).toContain('Fecha anterior');
+    expect(html).toContain('Fecha siguiente');
   });
 
   it('keeps the agenda visible with a non-blocking notice when the tournament catalog fails', () => {
@@ -237,29 +241,8 @@ describe('public portal pages', () => {
     expect(html).toContain('portal-competition-group');
   });
 
-  it('filters the match center by tournament family before opening its detail', () => {
-    agendaState = {
-      status: 'ready',
-      source: 'urba',
-      freshness: 'fresh',
-      matches: [
-        {
-          id: 'top-14-superior', competition: 'TOP 14 - Superior', competitionSlug: 'urba-top-14', round: 'Fecha 1',
-          startsAt: '2026-07-25T17:00:00.000Z', status: 'scheduled', homeTeam: 'Newman', awayTeam: 'CUBA',
-          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
-        },
-        {
-          id: 'top-14-intermedia', competition: 'TOP 14 - Intermedia', competitionSlug: 'top-14-intermedia', round: 'Fecha 1',
-          startsAt: '2026-07-25T15:00:00.000Z', status: 'scheduled', homeTeam: 'Newman I', awayTeam: 'CUBA I',
-          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
-        },
-        {
-          id: 'primera-a', competition: 'PRIMERA A - Superior', competitionSlug: 'urba-primera-a', round: 'Fecha 1',
-          startsAt: '2026-07-25T18:00:00.000Z', status: 'scheduled', homeTeam: 'Los Matreros', awayTeam: 'San Cirano',
-          homeBadgeUrl: null, awayBadgeUrl: null, homeScore: null, awayScore: null,
-        },
-      ],
-    };
+  it('filters the match center by tournament family, defaulting to its top division, with a category selector', () => {
+    agendaState = { status: 'ready', source: 'urba', freshness: 'fresh', matches: [] };
 
     const html = renderToStaticMarkup(createElement(
       MatchesPage as ComponentType<{ initialDate?: string; initialFamily?: string }>,
@@ -267,12 +250,31 @@ describe('public portal pages', () => {
     ));
 
     expect(html).toContain('Partidos de TOP 14');
+    // Por defecto solo se ve la división principal (Superior), no todas apiladas.
     expect(html).toContain('TOP 14 - Superior');
-    expect(html).toContain('TOP 14 - Intermedia');
+    expect(html).not.toContain('TOP 14 - Intermedia');
     expect(html).not.toContain('PRIMERA A - Superior');
     expect(html).toContain('href="/torneos/urba-top-14"');
     expect(html).toContain('Ver torneo');
     expect(html).toContain('aria-pressed="true"');
+    // Selector de categorías del torneo (Superior/Intermedia/Preintermedia/Menores de 22).
+    expect(html).toContain('Categorías del torneo');
+    expect(html).toContain('>Superior<');
+    expect(html).toContain('>Intermedia<');
+    expect(html).toContain('>Preintermedia<');
+  });
+
+  it('switches the visible division when a different category is selected', async () => {
+    agendaState = { status: 'ready', source: 'urba', freshness: 'fresh', matches: [] };
+
+    render(createElement(
+      MatchesPage as ComponentType<{ initialDate?: string; initialFamily?: string }>,
+      { initialDate: '2026-07-25', initialFamily: 'top-14' },
+    ));
+
+    expect(screen.getByText('TOP 14 - Superior')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Intermedia' }));
+    expect(screen.queryByText('TOP 14 - Superior')).toBeNull();
   });
 
   it('renders the tournament catalog with union and family hierarchy', () => {
@@ -290,10 +292,10 @@ describe('public portal pages', () => {
   it('renders the shared rugby explorer with all unions and canonical tournament links', () => {
     const html = renderToStaticMarkup(createElement(TournamentsPage));
     expect(html).toContain('portal-main--compact');
-    expect(html).toContain('aria-label="Uniones y torneos"');
-    expect((html.match(/rugby-explorer__union/g) || []).length).toBe(25);
-    expect(html).toContain('Unión Andina de Rugby');
-    expect(html).toContain('Cobertura en preparación');
+    expect(html).toContain('aria-label="Países y torneos"');
+    // Con la nueva estructura, solo se muestran uniones con competencias
+    expect((html.match(/rugby-explorer__union/g) || []).length).toBeGreaterThan(0);
+    expect(html).toContain('Argentina');
     expect(html).toContain('href="/torneos/urba-top-14"');
   });
 
@@ -345,8 +347,7 @@ describe('browser history sync', () => {
     render(createElement(MatchesPage as ComponentType<{ initialDate?: string }>, { initialDate: '2026-07-25' }));
     const pushSpy = vi.spyOn(window.history, 'pushState');
 
-    const unionButton = screen.getByRole('button', { name: /URBA/i });
-    await user.click(unionButton);
+    // URBA viene expandida por defecto: clickeamos la familia directamente
     const familyButton = screen.getByRole('button', { name: /TOP 14/i });
     await user.click(familyButton);
 
@@ -470,13 +471,32 @@ describe('MatchesPage con detalle en modal', () => {
 describe('TournamentPage family selector', () => {
   it('muestra un selector con las competencias de la misma familia', () => {
     const html = renderToStaticMarkup(createElement(TournamentPage, { slug: 'urba-top-14', initialTab: 'resultados' }));
-    expect(html).toContain('family-selector');
+    expect(html).toContain('tournament-segment-selector');
     expect(html).toContain('Intermedia');
     expect(html).toContain('Superior');
     expect(html).toContain('Preintermedia');
     expect(html).toContain('Menores de 22');
     expect(html).toContain('round-toolbar');
     expect(html).toContain('team-badge');
+  });
+
+  it('agrupa y ordena las categorías en dos niveles: reales primero y variantes debajo', () => {
+    const html = renderToStaticMarkup(createElement(TournamentPage, { slug: 'top-14-preintermedia-b', initialTab: 'posiciones' }));
+    // Nivel 1: categorías reales en un grid de tarjetas, ordenadas de mayor a menor.
+    const selectorOffset = html.indexOf('tournament-segment-selector');
+    const levelOne = html.slice(selectorOffset);
+    const orderLabels = ['Superior', 'Intermedia', 'Preintermedia', 'Menores de 22'];
+    for (let i = 1; i < orderLabels.length; i++) {
+      expect(levelOne.indexOf(orderLabels[i - 1]!)).toBeLessThan(levelOne.indexOf(orderLabels[i]!));
+    }
+    // Nivel 2: variantes alfabéticas de la categoría activa en chips secundarios.
+    expect(html).toContain('family-selector');
+    expect(html).toContain('>Preintermedia<');
+    expect(html).toContain('>Preintermedia B<');
+    expect(html).toContain('>Preintermedia C<');
+    expect(html).toContain('href="/torneos/top-14-preintermedia-b"');
+    // La variante activa está remarcada en el segundo nivel.
+    expect(html).toContain('href="/torneos/top-14-preintermedia-b" class="active"');
   });
 
   it('muestra una sola fecha de resultados y permite navegar a la siguiente', () => {
