@@ -1173,7 +1173,10 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
       return reply.code(429).send({ error: 'too_many_career_posts' });
     }
 
-    const row = await insertCareerEntry(db, data);
+    const row = await insertCareerEntry(db, {
+      ...data,
+      history: data.history.map((season) => ({ ...season, injury: season.injury ?? null })),
+    });
     return reply.code(201).send({ entry: serializeCareerEntry(row) });
   });
 
