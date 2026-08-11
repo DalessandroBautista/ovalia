@@ -1082,7 +1082,7 @@ export function configureApp(app: FastifyInstance, dependencies: AppDependencies
   // --- Admin: Ingestión CSV ---
 
   app.post('/admin/ingest/csv', async (request, reply) => {
-    if (!requireAdmin(request, reply)) return reply;
+    if (!(await requireAdmin(request, reply))) return reply;
 
     const parsed = adminIngestCsvSchema.safeParse(request.body);
     if (!parsed.success) {
